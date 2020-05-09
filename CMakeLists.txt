@@ -13,6 +13,7 @@ set(SRC_SERVER_TMP
 #        src/ae_select.cc
 #        src/ae_kqueue.cc
 #        src/ae_evport.cc
+        src/config.cc
         src/localtime.cc
         src/sds.cc
         src/setproctitle.cc
