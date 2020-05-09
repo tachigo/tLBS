@@ -595,8 +595,11 @@ int main(int argc, char **argv) {
     if (background) daemonize();
 
     initServer();
-    printf("%s", server.pidfile);
     if (background || server.pidfile) createPidFile();
+
+    serverLog(LL_WARNING, "pid: %d", server.pid);
+    serverLog(LL_WARNING, "pidfile: %s", server.pidfile);
+    serverLog(LL_WARNING, "executable: %s", server.executable);
 
     tLbsSetProcTitle(argv[0]);
 
