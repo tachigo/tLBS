@@ -11,6 +11,9 @@
 #define DICT_OK 0
 #define DICT_ERR 1
 
+/* Unused arguments generate annoying warnings... */
+#define DICT_NOTUSED(V) ((void) V)
+
 typedef struct dictEntry {
     void * key;
     union {
@@ -18,31 +21,31 @@ typedef struct dictEntry {
         uint64_t u64;
         int64_t s64;
         double d;
-    } val;
+    } v;
     struct dictEntry * next;
 } dictEntry;
 
 typedef struct dictType {
     uint64_t (* hashFunction)(const void * key);
-    void * (* keyDup)(void * privateData, const void * key);
-    void * (* valDup)(void * privateData, const void * obj);
-    int (* keyCompare)(void * privateData, const void * key1, const void * key2);
-    void (* keyDestructor)(void * privateData, void * key);
-    void (* valDestructor)(void * privateData, void * obj);
+    void * (* keyDup)(void * privdata, const void * key);
+    void * (* valDup)(void * privdata, const void * obj);
+    int (* keyCompare)(void * privdata, const void * key1, const void * key2);
+    void (* keyDestructor)(void * privdata, void * key);
+    void (* valDestructor)(void * privdata, void * obj);
 } dictType;
 
-typedef struct dictHashTable {
+typedef struct dictht {
     dictEntry * * table;
     unsigned long size;
-    unsigned long sizeMask;
+    unsigned long sizemask;
     unsigned long used;
-} dictHashTable;
+} dictht;
 
 typedef struct dict {
     dictType * type;
-    void * privateData;
-    dictHashTable ht[2];
-    long rehashIndex; /* rehashing not in progress if rehashIndex == -1 */
+    void * privdata;
+    dictht ht[2];
+    long rehashidx; /* rehashing not in progress if rehashidx == -1 */
     unsigned long iterators; /* number of iterators currently running */
 } dict;
 
@@ -55,20 +58,20 @@ typedef struct dictIterator {
     long long fingerprint;
 } dictIterator;
 
-typedef void (dictScanFunction)(void * privateData, const dictEntry * de);
-typedef void (dictScanBucketFunction)(void * privateData, dictEntry * * bucketRef);
+typedef void (dictScanFunction)(void * privdata, const dictEntry * de);
+typedef void (dictScanBucketFunction)(void * privdata, dictEntry * * bucketRef);
 
 /* This is the initial size of every hash table */
-#define DICT_HASH_TABLE_INITIAL_SIZE 4
+#define DICT_HT_INITIAL_SIZE 4
 
 /* ------------------------------- Macros ------------------------------------*/
 #define dictFreeVal(d, entry) \
     if ((d)->type->valDestructor) \
-        (d)->type->valDestructor((d)->privateData, (entry)->v.val)
+        (d)->type->valDestructor((d)->privdata, (entry)->v.val)
 
 #define dictSetVal(d, entry, _val_) do { \
     if ((d)->type->valDup) \
-        (entry)->v.val = (d)->type->valDup((d)->privateData, _val_); \
+        (entry)->v.val = (d)->type->valDup((d)->privdata, _val_); \
     else \
         (entry)->v.val = (_val_); \
 } while(0)
@@ -84,18 +87,18 @@ typedef void (dictScanBucketFunction)(void * privateData, dictEntry * * bucketRe
 
 #define dictFreeKey(d, entry) \
     if ((d)->type->keyDestructor) \
-        (d)->type->keyDestructor((d)->privateData, (entry)->key)
+        (d)->type->keyDestructor((d)->privdata, (entry)->key)
 
 #define dictSetKey(d, entry, _key_) do { \
     if ((d)->type->keyDup) \
-        (entry)->key = (d)->type->keyDup((d)->privateData, _key_); \
+        (entry)->key = (d)->type->keyDup((d)->privdata, _key_); \
     else \
         (entry)->key = (_key_); \
 } while(0)
 
 #define dictCompareKeys(d, key1, key2) \
     (((d)->type->keyCompare) ? \
-        (d)->type->keyCompare((d)->privateData, key1, key2) : \
+        (d)->type->keyCompare((d)->privdata, key1, key2) : \
         (key1) == (key2))
 
 #define dictHashKey(d, key) (d)->type->hashFunction(key)
@@ -106,10 +109,10 @@ typedef void (dictScanBucketFunction)(void * privateData, dictEntry * * bucketRe
 #define dictGetDoubleVal(he) ((he)->v.d)
 #define dictSlots(d) ((d)->ht[0].size+(d)->ht[1].size)
 #define dictSize(d) ((d)->ht[0].used+(d)->ht[1].used)
-#define dictIsRehashing(d) ((d)->rehashIndex != -1)
+#define dictIsRehashing(d) ((d)->rehashidx != -1)
 
 /* API */
-dict * dictCreate(dictType * type, void * privateDataPtr);
+dict * dictCreate(dictType * type, void * privdataPtr);
 int dictExpand(dict * d, unsigned long size);
 int dictAdd(dict * d, void * key, void * val);
 dictEntry * dictAddRaw(dict * d, void * key, dictEntry * * existing);
@@ -139,7 +142,7 @@ int dictRehash(dict * d, int n);
 int dictRehashMilliseconds(dict * d, int ms);
 void dictSetHashFunctionSeed(uint8_t * seed);
 uint8_t * dictGetHashFunctionSeed();
-unsigned long dictScan(dict * d, unsigned long v, dictScanFunction * fn, dictScanBucketFunction * bucketFn, void * privateData);
+unsigned long dictScan(dict * d, unsigned long v, dictScanFunction * fn, dictScanBucketFunction * bucketFn, void * privdata);
 uint64_t dictGetHash(dict * d, const void * key);
 dictEntry ** dictFindEntryRefByPtrAndHash(dict * d, const void * oldPtr, uint64_t hash);
 
