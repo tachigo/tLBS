@@ -72,10 +72,61 @@ struct tLbsClient;
 struct tLbsCommand;
 struct tLbsObject;
 
+
+
+
+
+
+
+
+typedef struct tLbsObject {
+    unsigned type: 4;
+    unsigned format: 4;
+    int refcount;
+    void * ptr;
+} tobj;
+
+typedef struct tLbsDb {
+    int id;                     /* Database ID */
+    dict *dict;                 /* The keyspace for this DB */
+} db;
+
+typedef struct tLbsClient {
+    uint64_t id;            /* Client incremental unique ID. */
+    tLbsDb *db;
+    tobj *obj;
+
+    int argc;               /* Num of arguments of current command. */
+    tobj **argv;            /* Arguments of current command. */
+    time_t ctime;           /* Client creation time. */
+} client;
+
+
 #define CONFIG_MAX_LINE    1024
 #define CONFIG_RUN_ID_SIZE 40
 #define CONFIG_DEFAULT_LOGFILE ""
 #define CONFIG_BINDADDR_MAX 16
+#define CONFIG_DEFAULT_PID_FILE "/var/run/tlbs.pid"
+
+/* Client block type (btype field in client structure)
+ * if CLIENT_BLOCKED flag is set. */
+#define BLOCKED_NONE 0    /* Not blocked, no CLIENT_BLOCKED flag set. */
+//#define BLOCKED_LIST 1    /* BLPOP & co. */
+//#define BLOCKED_WAIT 2    /* WAIT for synchronous replication. */
+//#define BLOCKED_MODULE 3  /* Blocked by a loadable module. */
+//#define BLOCKED_STREAM 4  /* XREAD. */
+//#define BLOCKED_ZSET 5    /* BZPOP et al. */
+#define BLOCKED_NUM 6     /* Number of blocked states. */
+
+#define CONFIG_MIN_RESERVED_FDS 32
+/* When configuring the server eventloop, we setup it so that the total number
+ * of file descriptors we can handle are server.maxclients + RESERVED_FDS +
+ * a few more to stay safe. Since RESERVED_FDS defaults to 32, we add 96
+ * in order to make sure of not over provisioning more than 128 fds. */
+#define CONFIG_FDSET_INCR (CONFIG_MIN_RESERVED_FDS+96)
+
+
+#define MAXMEMORY_NO_EVICTION (7<<8)
 
 struct tLbsServer {
     pid_t pid;
@@ -87,6 +138,8 @@ struct tLbsServer {
     int hz;                     /* serverCron() calls frequency in hertz */
     dict * commands; // 命令表
     int port;
+    int tls_port;               /* TLS listening port */
+    int tcp_backlog;            /* TCP listen() backlog */
     char *bindaddr[CONFIG_BINDADDR_MAX]; /* Addresses we should bind to */
     int bindaddr_count;         /* Number of addresses in server.bindaddr[] */
 
@@ -102,6 +155,12 @@ struct tLbsServer {
 
     char *logfile;                  /* Path of log file */
     int syslog_enabled;             /* Is syslog enabled? */
+    char *syslog_ident;             /* Syslog ident */
+    int syslog_facility;            /* Syslog facility */
+
+    /* Cluster */
+    int cluster_enabled;      /* Is cluster enabled? */
+
     int daemonize;                  /* True if running as a daemon */
     time_t timezone;            /* Cached timezone. As set by tzset(). */
     _Atomic time_t unixtime;    /* Unix time sampled every cron cycle. */
@@ -110,31 +169,35 @@ struct tLbsServer {
     ustime_t ustime;            /* 'unixtime' in microseconds. */
 
     int loading;                /* We are loading data from disk if true */
+
+    aeEventLoop *el;
+    client *current_client;     /* Current client executing the command. */
+    list *clients;              /* List of active clients */
+    list *clients_to_close;     /* Clients to close asynchronously */
+    list *clients_pending_write; /* There is to write or install handler. */
+    list *clients_pending_read;  /* Client has pending read socket buffers. */
+    /* Blocked clients */
+    unsigned int blocked_clients;   /* # of clients executing a blocking cmd.*/
+    unsigned int blocked_clients_by_type[BLOCKED_NUM];
+    list *unblocked_clients; /* list of clients to unblock before next loop */
+    list *ready_keys;        /* List of readyList structures for BLPOP & co */
+    list *clients_waiting_acks;         /* Clients waiting in WAIT command. */
+    int clients_paused;         /* True if clients are currently paused */
+
+
+    /* System hardware info */
+    size_t system_memory_size;  /* Total memory in system as reported by OS */
+
+    /* Limits */
+    unsigned int maxclients;            /* Max number of simultaneous clients */
+    unsigned long long maxmemory;   /* Max number of memory bytes to use */
+    int maxmemory_policy;           /* Policy for key eviction */
+    int maxmemory_samples;          /* Pricision of random sampling */
+
+    int arch_bits;              /* 32 or 64 depending on sizeof(long) */
 };
 
 
-typedef struct tLbsDb {
-    int id;                     /* Database ID */
-    dict *dict;                 /* The keyspace for this DB */
-} db;
-
-typedef struct tLbsObject {
-    unsigned type: 4;
-    unsigned format: 4;
-    int refcount;
-    void * ptr;
-} tobj;
-
-
-typedef struct tLbsClient {
-    uint64_t id;            /* Client incremental unique ID. */
-    tLbsDb *db;
-    tobj *obj;
-
-    int argc;               /* Num of arguments of current command. */
-    tobj **argv;            /* Arguments of current command. */
-    time_t ctime;           /* Client creation time. */
-} client;
 
 
 
