@@ -9,7 +9,7 @@
 #include <unistd.h>
 /* ----------------- Blocking sockets I/O with timeouts --------------------- */
 
-/* Redis performs most of the I/O in a nonblocking way, with the exception
+/* tLBS performs most of the I/O in a nonblocking way, with the exception
  * of the SYNC command where the slave does it in a blocking way, and
  * the MIGRATE command that must be blocking in order to be atomic from the
  * point of view of the two instances (one migrating the key and one receiving

@@ -58,6 +58,7 @@
 #define CONFIG_FDSET_INCR (CONFIG_MIN_RESERVED_FDS+96)
 #define NET_IP_STR_LEN 46 /* INET6_ADDRSTRLEN is 46, but we need to be sure */
 
+#define PROTO_MAX_QUERYBUF_LEN  (1024*1024*1024) /* 1GB max query buffer. */
 
 #define MAXMEMORY_NO_EVICTION (7<<8)
 
@@ -203,7 +204,7 @@ struct tLbsServer {
 //    int active_defrag_cycle_min;       /* minimal effort for defrag in CPU percentage */
 //    int active_defrag_cycle_max;       /* maximal effort for defrag in CPU percentage */
 //    unsigned long active_defrag_max_scan_fields; /* maximum number of fields of set/hash/zset/list to process from within the main dict scan */
-//    _Atomic size_t client_max_querybuf_len; /* Limit for client query buffer length */
+    _Atomic size_t client_max_querybuf_len; /* Limit for client query buffer length */
     int dbnum;                      /* Total number of configured DBs */
 //    int supervised;                 /* 1 if supervised, 0 otherwise. */
 //    int supervised_mode;            /* See SUPERVISED_* */
@@ -430,16 +431,16 @@ struct tLbsServer {
 //    int cluster_announce_port;     /* base port to announce on cluster bus. */
 //    int cluster_announce_bus_port; /* bus port to announce on cluster bus. */
 //    int cluster_module_flags;
-    /* Set of flags that Redis modules are able
+    /* Set of flags that tLBS modules are able
                                       to set in order to suppress certain
-                                      native Redis Cluster features. Check the
+                                      native tLBS Cluster features. Check the
                                       REDISMODULE_CLUSTER_FLAG_*. */
 //    int cluster_allow_reads_when_down;
     /* Are reads allowed when the cluster
                                         is down? */
     /* Scripting */
 //    lua_State *lua; /* The Lua interpreter. We use just one for all clients */
-//    client *lua_client;   /* The "fake client" to query Redis from Lua */
+//    client *lua_client;   /* The "fake client" to query tLBS from Lua */
 //    client *lua_caller;   /* The client running EVAL right now, or NULL */
 //    char* lua_cur_script; /* SHA1 of the script currently running, or NULL */
 //    dict *lua_scripts;         /* A dictionary of SHA1 -> Lua scripts */
@@ -475,7 +476,7 @@ struct tLbsServer {
 //    sds requirepass;
     /* Remember the cleartext password set with the
                                old "requirepass" directive for backward
-                               compatibility with Redis <= 5. */
+                               compatibility with tLBS <= 5. */
     /* Assert & bug reporting */
 //    const char *assert_failed;
 //    const char *assert_file;

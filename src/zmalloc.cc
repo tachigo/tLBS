@@ -203,7 +203,7 @@ void zmalloc_set_oom_handler(void (*oom_handler)(size_t)) {
 /* Get the RSS information in an OS-specific way.
  *
  * WARNING: the function zmalloc_get_rss() is not designed to be fast
- * and may not be called in the busy loops where Redis tries to release
+ * and may not be called in the busy loops where tLBS tries to release
  * memory expiring or swapping out objects.
  *
  * For this kind of "fast RSS reporting" usages use instead the
@@ -365,7 +365,7 @@ int jemalloc_purge() {
 /* For proc_pidinfo() used later in zmalloc_get_smap_bytes_by_field().
  * Note that this file cannot be included in zmalloc.h because it includes
  * a Darwin queue.h file where there is a "LIST_HEAD" macro (!) defined
- * conficting with Redis user code. */
+ * conficting with tLBS user code. */
 #include <libproc.h>
 #endif
 
@@ -450,7 +450,7 @@ size_t zmalloc_get_private_dirty(long pid) {
  * 1) Was released under the following CC attribution license:
  *    http://creativecommons.org/licenses/by/3.0/deed.en_US.
  * 2) Was originally implemented by David Robert Nadeau.
- * 3) Was modified for Redis by Matt Stancliff.
+ * 3) Was modified for tLBS by Matt Stancliff.
  * 4) This note exists in order to comply with the original license.
  */
 size_t zmalloc_get_memory_size() {

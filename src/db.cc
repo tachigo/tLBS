@@ -4,12 +4,15 @@
 
 #include "server.h"
 #include "db.h"
+#include "object.h"
 
 #include "atomicvar.h"
 #include "sds.h"
 
 //#include <signal.h>
 //#include <cctype>
+#include <cstring>
+
 
 
 
@@ -44,4 +47,61 @@ long long dbTotalServerKeyCount() {
         total += dictSize(server.db[j].dict);
     }
     return total;
+}
+
+uint64_t dictSdsHash(const void *key) {
+    return dictGenHashFunction((unsigned char*)key, sdslen((char*)key));
+}
+
+int dictSdsKeyCompare(void *privdata, const void *key1,
+                      const void *key2)
+{
+    int l1,l2;
+    DICT_NOTUSED(privdata);
+
+    l1 = sdslen((sds)key1);
+    l2 = sdslen((sds)key2);
+    if (l1 != l2) return 0;
+    return memcmp(key1, key2, l1) == 0;
+}
+
+void dictSdsDestructor(void *privdata, void *val)
+{
+    DICT_NOTUSED(privdata);
+
+    sdsfree((sds)val);
+}
+
+void dictObjectDestructor(void *privdata, void *val)
+{
+    DICT_NOTUSED(privdata);
+
+    if (val == nullptr) return; /* Lazy freeing will set value to NULL. */
+    decrRefCount((obj *)val);
+}
+
+/* Db->dict, keys are sds strings, vals are tLBS objects. */
+dictType dbDictType = {
+        dictSdsHash,                /* hash function */
+        nullptr,                       /* key dup */
+        nullptr,                       /* val dup */
+        dictSdsKeyCompare,          /* key compare */
+        dictSdsDestructor,          /* key destructor */
+        dictObjectDestructor   /* val destructor */
+};
+
+void dbInit() {
+    /* Create the databases, and initialize other internal state. */
+    for (int j = 0; j < server.dbnum; j++) {
+        server.db[j].dict = dictCreate(&dbDictType, nullptr);
+//        server.db[j].expires = dictCreate(&keyptrDictType,NULL);
+//        server.db[j].expires_cursor = 0;
+//        server.db[j].blocking_keys = dictCreate(&keylistDictType,NULL);
+//        server.db[j].ready_keys = dictCreate(&objectKeyPointerValueDictType,NULL);
+//        server.db[j].watched_keys = dictCreate(&keylistDictType,NULL);
+        server.db[j].id = j;
+//        server.db[j].avg_ttl = 0;
+//        server.db[j].defrag_later = listCreate();
+//        listSetFreeMethod(server.db[j].defrag_later,(void (*)(void*))sdsfree);
+    }
 }

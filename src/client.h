@@ -12,6 +12,7 @@
 #include "db.h"
 #include "object.h"
 #include "adlist.h"
+#include "sds.h"
 
 /* Client flags */
 #define CLIENT_SLAVE (1<<0)   /* This client is a repliaca */
@@ -97,14 +98,14 @@ typedef struct tLbsClient {
 //    int resp;               /* RESP protocol version. Can be 2 or 3. */
     db *db;            /* Pointer to currently SELECTed DB. */
     obj *name;             /* As set by CLIENT SETNAME. */
-//    sds querybuf;           /* Buffer we use to accumulate client queries. */
-//    size_t qb_pos;          /* The position we have read in querybuf. */
+    sds querybuf;           /* Buffer we use to accumulate client queries. */
+    size_t qb_pos;          /* The position we have read in querybuf. */
 //    sds pending_querybuf;
     /* If this client is flagged as master, this buffer
                                represents the yet not applied portion of the
                                replication stream that we are receiving from
                                the master. */
-//    size_t querybuf_peak;   /* Recent (100ms or more) peak of querybuf size. */
+    size_t querybuf_peak;   /* Recent (100ms or more) peak of querybuf size. */
     int argc;               /* Num of arguments of current command. */
     obj **argv;            /* Arguments of current command. */
 //    struct redisCommand *cmd, *lastcmd;  /* Last command executed. */
@@ -159,11 +160,11 @@ typedef struct tLbsClient {
 //    void *auth_callback_privdata;
     /* Private data that is passed when the auth
                                    * changed callback is executed. Opaque for
-                                   * Redis Core. */
+                                   * tLBS Core. */
 //    void *auth_module;
     /* The module that owns the callback, which is used
                              * to disconnect the client if the module is
-                             * unloaded for cleanup. Opaque for Redis Core.*/
+                             * unloaded for cleanup. Opaque for tLBS Core.*/
 
     /* If this client is in tracking mode and this field is non zero,
      * invalidation messages for keys fetched by this client will be send to
@@ -181,7 +182,7 @@ typedef struct tLbsClient {
 //    uint64_t client_cron_last_memory_usage;
 //    int      client_cron_last_memory_type;
     /* Response buffer */
-//    int bufpos;
+    int bufpos;
 //    char buf[PROTO_REPLY_CHUNK_BYTES];
 } client;
 
@@ -195,5 +196,12 @@ void freeClient(client *c);
 void freeClientAsync(client *c);
 static void freeClientArgv(client *c);
 void clientAcceptHandler(connection *conn);
+void readQueryFromClient(connection *conn);
+//sds catClientInfoString(sds s, client *client);
+void processInputBuffer(client *c);
+
+#define CLIENTS_CRON_MIN_ITERATIONS 5
+void clientsCron();
+
 
 #endif //TLBS_CLIENT_H

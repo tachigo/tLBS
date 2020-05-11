@@ -11,7 +11,7 @@
  *   * Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- *   * Neither the name of Redis nor the names of its contributors may be used
+ *   * Neither the name of tLBS nor the names of its contributors may be used
  *     to endorse or promote products derived from this software without
  *     specific prior written permission.
  *
@@ -159,7 +159,7 @@ typedef struct raxStack {
  * This callback is used to perform very low level analysis of the radix tree
  * structure, scanning each possible node (but the root node), or in order to
  * reallocate the nodes to reduce the allocation fragmentation (this is the
- * Redis application for this callback).
+ * tLBS application for this callback).
  *
  * This is currently only supported in forward iterations (raxNext) */
 typedef int (*raxNodeCallback)(raxNode **noderef);

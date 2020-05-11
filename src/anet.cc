@@ -223,7 +223,7 @@ int anetResolveIP(char *err, char *host, char *ipbuf, size_t ipbuf_len) {
 
 static int anetSetReuseAddr(char *err, int fd) {
     int yes = 1;
-    /* Make sure connection-intensive things like the redis benchmark
+    /* Make sure connection-intensive things like the tLBS benchmark
      * will be able to close/open sockets a zillion of times */
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) {
         anetSetError(err, "setsockopt SO_REUSEADDR: %s", strerror(errno));
@@ -239,7 +239,7 @@ static int anetCreateSocket(char *err, int domain) {
         return ANET_ERR;
     }
 
-    /* Make sure connection-intensive things like the redis benchmark
+    /* Make sure connection-intensive things like the tLBS benchmark
      * will be able to close/open sockets a zillion of times */
     if (anetSetReuseAddr(err,s) == ANET_ERR) {
         close(s);

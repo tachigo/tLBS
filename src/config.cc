@@ -266,7 +266,7 @@ void loadServerConfig(char *filename, char *options) {
 //            /* The old "requirepass" directive just translates to setting
 //             * a password to the default user. The only thing we do
 //             * additionally is to remember the cleartext password in this
-//             * case, for backward compatibility with Redis <= 5. */
+//             * case, for backward compatibility with tLBS <= 5. */
 //            ACLSetUser(DefaultUser,"resetpass",-1);
 //            sds aclop = sdscatprintf(sdsempty(),">%s",(char*)o->ptr);
 //            ACLSetUser(DefaultUser,aclop,sdslen(aclop));
@@ -1305,8 +1305,8 @@ static void numericConfigGet(client *c, typeData data) {
 //#ifndef HAVE_DEFRAG
 //    if (val) {
 //        *err = "Active defragmentation cannot be enabled: it "
-//               "requires a Redis server compiled with a modified Jemalloc "
-//               "like the one shipped by default with the Redis source "
+//               "requires a tLBS server compiled with a modified Jemalloc "
+//               "like the one shipped by default with the tLBS source "
 //               "distribution";
 //        return 0;
 //    }
@@ -1415,7 +1415,7 @@ static int updateMaxclients(long long val, long long prev, char **err) {
             if (aeResizeSetSize(server.el,
                                 server.maxclients + CONFIG_FDSET_INCR) == AE_ERR)
             {
-                const char *msg = "The event loop API used by Redis is not able to handle the specified number of clients";
+                const char *msg = "The event loop API used by tLBS is not able to handle the specified number of clients";
                 *err = (char *)msg;
                 return 0;
             }
@@ -1779,7 +1779,7 @@ void loadServerConfigFromString(char *config) {
 //            /* The old "requirepass" directive just translates to setting
 //             * a password to the default user. The only thing we do
 //             * additionally is to remember the cleartext password in this
-//             * case, for backward compatibility with Redis <= 5. */
+//             * case, for backward compatibility with tLBS <= 5. */
 //            ACLSetUser(DefaultUser,"resetpass",-1);
 //            sds aclop = sdscatprintf(sdsempty(),">%s",argv[1]);
 //            ACLSetUser(DefaultUser,aclop,sdslen(aclop));

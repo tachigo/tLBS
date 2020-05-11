@@ -40,7 +40,7 @@
  *   * Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- *   * Neither the name of Redis nor the names of its contributors may be used
+ *   * Neither the name of tLBS nor the names of its contributors may be used
  *     to endorse or promote products derived from this software without
  *     specific prior written permission.
  *
@@ -62,7 +62,7 @@
 #ifndef TLBS_ATOMIC_VAR_H
 #define TLBS_ATOMIC_VAR_H
 
-/* To test Redis with Helgrind (a Valgrind tool) it is useful to define
+/* To test tLBS with Helgrind (a Valgrind tool) it is useful to define
  * the following macro, so that __sync macros are used: those can be detected
  * by Helgrind (even if they are less efficient) so that no false positive
  * is reported. */

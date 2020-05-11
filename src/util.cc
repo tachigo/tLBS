@@ -658,7 +658,7 @@ void getRandomBytes(unsigned char *p, size_t len) {
     }
 }
 
-/* Generate the Redis "Run ID", a SHA1-sized random number that identifies a
+/* Generate the tLBS "Run ID", a SHA1-sized random number that identifies a
  * given execution of Redis, so that if you are talking with an instance
  * having run_id == A, and you reconnect and it has run_id == B, you can be
  * sure that it is either a different instance or it was restarted. */
@@ -743,7 +743,7 @@ unsigned long getTimeZone() {
 /* Return true if the specified path is just a file basename without any
  * relative or absolute path. This function just checks that no / or \
  * character exists inside the specified path, that's enough in the
- * environments where Redis runs. */
+ * environments where tLBS runs. */
 int pathIsBaseName(char *path) {
     return strchr(path,'/') == nullptr && strchr(path,'\\') == nullptr;
 }

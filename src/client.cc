@@ -40,22 +40,21 @@ client *createClient(connection *conn) {
         connEnableTcpNoDelay(conn);
         if (server.tcpkeepalive)
             connKeepAlive(conn,server.tcpkeepalive);
-//        connSetReadHandler(conn, readQueryFromClient);
+        connSetReadHandler(conn, readQueryFromClient);
         connSetPrivateData(conn, c);
     }
 
-//    selectDb(c,0);
-    c->db = &server.db[0];
+    dbSelect(c,0);
     uint64_t client_id = ++server.next_client_id;
     c->id = client_id;
 //    c->resp = 2;
     c->conn = conn;
     c->name = nullptr;
-//    c->bufpos = 0;
-//    c->qb_pos = 0;
-//    c->querybuf = sdsempty();
+    c->bufpos = 0;
+    c->qb_pos = 0;
+    c->querybuf = sdsempty();
 //    c->pending_querybuf = sdsempty();
-//    c->querybuf_peak = 0;
+    c->querybuf_peak = 0;
 //    c->reqtype = 0;
     c->argc = 0;
     c->argv = nullptr;
@@ -98,7 +97,7 @@ client *createClient(connection *conn) {
 //    c->pubsub_channels = dictCreate(&objectKeyPointerValueDictType,NULL);
 //    c->pubsub_patterns = listCreate();
 //    c->peerid = NULL;
-//    c->client_list_node = nullptr;
+    c->client_list_node = nullptr;
 //    c->client_tracking_redirection = 0;
 //    c->client_tracking_prefixes = nullptr;
 //    c->client_cron_last_memory_usage = 0;
@@ -302,7 +301,7 @@ void freeClient(client *c) {
 void freeClientAsync(client *c) {
     /* We need to handle concurrent access to the server.clients_to_close list
      * only in the freeClientAsync() function, since it's the only function that
-     * may access the list while Redis uses I/O threads. All the other accesses
+     * may access the list while tLBS uses I/O threads. All the other accesses
      * are in the context of the main thread while the other threads are
      * idle. */
     if (c->flags & CLIENT_CLOSE_ASAP || c->flags & CLIENT_LUA) return;
@@ -353,20 +352,20 @@ void clientAcceptHandler(connection *conn) {
 
         if (strcmp(cip,"127.0.0.1") && strcmp(cip,"::1")) {
             const char *err =
-                    "-DENIED Redis is running in protected mode because protected "
+                    "-DENIED tLBS is running in protected mode because protected "
                     "mode is enabled, no bind address was specified, no "
                     "authentication password is requested to clients. In this mode "
                     "connections are only accepted from the loopback interface. "
-                    "If you want to connect from external computers to Redis you "
+                    "If you want to connect from external computers to tLBS you "
                     "may adopt one of the following solutions: "
                     "1) Just disable protected mode sending the command "
                     "'CONFIG SET protected-mode no' from the loopback interface "
-                    "by connecting to Redis from the same host the server is "
-                    "running, however MAKE SURE Redis is not publicly accessible "
+                    "by connecting to tLBS from the same host the server is "
+                    "running, however MAKE SURE tLBS is not publicly accessible "
                     "from internet if you do so. Use CONFIG REWRITE to make this "
                     "change permanent. "
                     "2) Alternatively you can just disable the protected mode by "
-                    "editing the Redis configuration file, and setting the protected "
+                    "editing the tLBS configuration file, and setting the protected "
                     "mode option to 'no', and then restarting the server. "
                     "3) If you started the server manually just for testing, restart "
                     "it with the '--protected-mode no' option. "
@@ -387,3 +386,264 @@ void clientAcceptHandler(connection *conn) {
 //                          REDISMODULE_SUBEVENT_CLIENT_CHANGE_CONNECTED,
 //                          c);
 }
+
+void clientsCron() {
+    /* Try to process at least numclients/server.hz of clients
+     * per call. Since normally (if there are no big latency events) this
+     * function is called server.hz times per second, in the average case we
+     * process all the clients in 1 second. */
+    int numclients = listLength(server.clients);
+    int iterations = numclients/server.hz;
+    mstime_t now = mstime();
+
+    /* Process at least a few clients while we are at it, even if we need
+     * to process less than CLIENTS_CRON_MIN_ITERATIONS to meet our contract
+     * of processing each client once per second. */
+    if (iterations < CLIENTS_CRON_MIN_ITERATIONS)
+        iterations = (numclients < CLIENTS_CRON_MIN_ITERATIONS) ?
+                     numclients : CLIENTS_CRON_MIN_ITERATIONS;
+
+    while(listLength(server.clients) && iterations--) {
+        client *c;
+        listNode *head;
+
+        /* Rotate the list, take the current head, process.
+         * This way if the client must be removed from the list it's the
+         * first element and we don't incur into O(N) computation. */
+        listRotateTailToHead(server.clients);
+        head = listFirst(server.clients);
+        c = (client *)listNodeValue(head);
+        /* The following functions do different service checks on the client.
+         * The protocol is that they return non-zero if the client was
+         * terminated. */
+//        if (clientsCronHandleTimeout(c,now)) continue;
+//        if (clientsCronResizeQueryBuffer(c)) continue;
+//        if (clientsCronTrackExpansiveClients(c)) continue;
+//        if (clientsCronTrackClientsMemUsage(c)) continue;
+    }
+}
+
+
+#define PROTO_IOBUF_LEN         (1024*16)  /* Generic I/O buffer size */
+#define PROTO_REPLY_CHUNK_BYTES (16*1024) /* 16k output buffer */
+#define PROTO_INLINE_MAX_SIZE   (1024*64) /* Max size of inline reads */
+#define PROTO_MBULK_BIG_ARG     (1024*32)
+#define LONG_STR_SIZE      21          /* Bytes needed for long -> str + '\0' */
+
+void readQueryFromClient(connection *conn) {
+    serverLog(LL_WARNING, "read query from client!");
+
+    auto *c = (client *)connGetPrivateData(conn);
+    int nread, readlen;
+    size_t qblen;
+
+    /* Check if we want to read from the client later when exiting from
+     * the event loop. This is the case if threaded I/O is enabled. */
+//    if (postponeClientRead(c)) return;
+
+    readlen = PROTO_IOBUF_LEN;
+    /* If this is a multi bulk request, and we are processing a bulk reply
+     * that is large enough, try to maximize the probability that the query
+     * buffer contains exactly the SDS string representing the object, even
+     * at the risk of requiring more read(2) calls. This way the function
+     * processMultiBulkBuffer() can avoid copying buffers to create the
+     * Redis Object representing the argument. */
+//    if (c->reqtype == PROTO_REQ_MULTIBULK && c->multibulklen && c->bulklen != -1
+//        && c->bulklen >= PROTO_MBULK_BIG_ARG)
+//    {
+//        ssize_t remaining = (size_t)(c->bulklen+2)-sdslen(c->querybuf);
+//
+//        /* Note that the 'remaining' variable may be zero in some edge case,
+//         * for example once we resume a blocked client after CLIENT PAUSE. */
+//        if (remaining > 0 && remaining < readlen) readlen = remaining;
+//    }
+
+    qblen = sdslen(c->querybuf);
+    if (c->querybuf_peak < qblen) c->querybuf_peak = qblen;
+    c->querybuf = sdsMakeRoomFor(c->querybuf, readlen);
+    nread = connRead(c->conn, c->querybuf+qblen, readlen);
+    if (nread == -1) {
+        if (connGetState(conn) == CONN_STATE_CONNECTED) {
+            return;
+        } else {
+            serverLog(LL_VERBOSE, "Reading from client: %s",connGetLastError(c->conn));
+            freeClientAsync(c);
+            return;
+        }
+    }
+    else if (nread == 0) {
+        serverLog(LL_VERBOSE, "Client closed connection");
+        freeClientAsync(c);
+        return;
+    }
+//    else if (c->flags & CLIENT_MASTER) {
+//        /* Append the query buffer to the pending (not applied) buffer
+//         * of the master. We'll use this buffer later in order to have a
+//         * copy of the string applied by the last command executed. */
+//        c->pending_querybuf = sdscatlen(c->pending_querybuf,
+//                                        c->querybuf+qblen,nread);
+//    }
+
+    sdsIncrLen(c->querybuf,nread);
+    c->lastinteraction = server.unixtime;
+//    if (c->flags & CLIENT_MASTER) c->read_reploff += nread;
+//    server.stat_net_input_bytes += nread;
+    if (sdslen(c->querybuf) > server.client_max_querybuf_len) {
+//        sds ci = catClientInfoString(sdsempty(),c), bytes = sdsempty();
+//
+//        bytes = sdscatrepr(bytes,c->querybuf,64);
+//        serverLog(LL_WARNING,"Closing client that reached max query buffer length: %s (qbuf initial bytes: %s)", ci, bytes);
+//        sdsfree(ci);
+//        sdsfree(bytes);
+        freeClientAsync(c);
+        return;
+    }
+
+    /* There is more data in the client input buffer, continue parsing it
+     * in case to check if there is a full command to execute. */
+    processInputBuffer(c);
+}
+
+/* This function is called every time, in the client structure 'c', there is
+ * more query buffer to process, because we read more data from the socket
+ * or because a client was blocked and later reactivated, so there could be
+ * pending query buffer, already representing a full command, to process. */
+void processInputBuffer(client *c) {
+    /* Keep processing while there is something in the input buffer */
+    while(c->qb_pos < sdslen(c->querybuf)) {
+        /* Return if clients are paused. */
+//        if (!(c->flags & CLIENT_SLAVE) && clientsArePaused()) break;
+
+        /* Immediately abort if the client is in the middle of something. */
+        if (c->flags & CLIENT_BLOCKED) break;
+
+        /* Don't process more buffers from clients that have already pending
+         * commands to execute in c->argv. */
+//        if (c->flags & CLIENT_PENDING_COMMAND) break;
+
+        /* Don't process input from the master while there is a busy script
+         * condition on the slave. We want just to accumulate the replication
+         * stream (instead of replying -BUSY like we do with other clients) and
+         * later resume the processing. */
+//        if (server.lua_timedout && c->flags & CLIENT_MASTER) break;
+
+        /* CLIENT_CLOSE_AFTER_REPLY closes the connection once the reply is
+         * written to the client. Make sure to not let the reply grow after
+         * this flag has been set (i.e. don't process more commands).
+         *
+         * The same applies for clients we want to terminate ASAP. */
+        if (c->flags & (CLIENT_CLOSE_AFTER_REPLY|CLIENT_CLOSE_ASAP)) break;
+
+        /* Determine request type when unknown. */
+        if (!c->reqtype) {
+            if (c->querybuf[c->qb_pos] == '*') {
+                c->reqtype = PROTO_REQ_MULTIBULK;
+            } else {
+                c->reqtype = PROTO_REQ_INLINE;
+            }
+        }
+
+        if (c->reqtype == PROTO_REQ_INLINE) {
+            if (processInlineBuffer(c) != C_OK) break;
+            /* If the Gopher mode and we got zero or one argument, process
+             * the request in Gopher mode. */
+            if (server.gopher_enabled &&
+                ((c->argc == 1 && ((char*)(c->argv[0]->ptr))[0] == '/') ||
+                 c->argc == 0))
+            {
+                processGopherRequest(c);
+                resetClient(c);
+                c->flags |= CLIENT_CLOSE_AFTER_REPLY;
+                break;
+            }
+        } else if (c->reqtype == PROTO_REQ_MULTIBULK) {
+            if (processMultibulkBuffer(c) != C_OK) break;
+        } else {
+            serverPanic("Unknown request type");
+        }
+
+        /* Multibulk processing could see a <= 0 length. */
+        if (c->argc == 0) {
+            resetClient(c);
+        } else {
+            /* If we are in the context of an I/O thread, we can't really
+             * execute the command here. All we can do is to flag the client
+             * as one that needs to process the command. */
+            if (c->flags & CLIENT_PENDING_READ) {
+                c->flags |= CLIENT_PENDING_COMMAND;
+                break;
+            }
+
+            /* We are finally ready to execute the command. */
+            if (processCommandAndResetClient(c) == C_ERR) {
+                /* If the client is no longer valid, we avoid exiting this
+                 * loop and trimming the client buffer later. So we return
+                 * ASAP in that case. */
+                return;
+            }
+        }
+    }
+
+    /* Trim to pos */
+    if (c->qb_pos) {
+        sdsrange(c->querybuf,c->qb_pos,-1);
+        c->qb_pos = 0;
+    }
+}
+
+
+/* Concatenate a string representing the state of a client in an human
+ * readable format, into the sds string 's'. */
+//sds catClientInfoString(sds s, client *client) {
+//    char flags[16], events[3], conninfo[CONN_INFO_LEN], *p;
+//
+//    p = flags;
+//    if (client->flags & CLIENT_SLAVE) {
+//        if (client->flags & CLIENT_MONITOR)
+//            *p++ = 'O';
+//        else
+//            *p++ = 'S';
+//    }
+//    if (client->flags & CLIENT_MASTER) *p++ = 'M';
+//    if (client->flags & CLIENT_PUBSUB) *p++ = 'P';
+//    if (client->flags & CLIENT_MULTI) *p++ = 'x';
+//    if (client->flags & CLIENT_BLOCKED) *p++ = 'b';
+//    if (client->flags & CLIENT_TRACKING) *p++ = 't';
+//    if (client->flags & CLIENT_TRACKING_BROKEN_REDIR) *p++ = 'R';
+//    if (client->flags & CLIENT_DIRTY_CAS) *p++ = 'd';
+//    if (client->flags & CLIENT_CLOSE_AFTER_REPLY) *p++ = 'c';
+//    if (client->flags & CLIENT_UNBLOCKED) *p++ = 'u';
+//    if (client->flags & CLIENT_CLOSE_ASAP) *p++ = 'A';
+//    if (client->flags & CLIENT_UNIX_SOCKET) *p++ = 'U';
+//    if (client->flags & CLIENT_READONLY) *p++ = 'r';
+//    if (p == flags) *p++ = 'N';
+//    *p++ = '\0';
+//
+//    p = events;
+//    if (client->conn) {
+//        if (connHasReadHandler(client->conn)) *p++ = 'r';
+//        if (connHasWriteHandler(client->conn)) *p++ = 'w';
+//    }
+//    *p = '\0';
+//    return sdscatfmt(s,
+//                     "id=%U addr=%s %s name=%s age=%I idle=%I flags=%s db=%i sub=%i psub=%i multi=%i qbuf=%U qbuf-free=%U obl=%U oll=%U omem=%U events=%s cmd=%s user=%s",
+//                     (unsigned long long) client->id,
+//                     getClientPeerId(client),
+//                     connGetInfo(client->conn, conninfo, sizeof(conninfo)),
+//                     client->name ? (char*)client->name->ptr : "",
+//                     (long long)(server.unixtime - client->ctime),
+//                     (long long)(server.unixtime - client->lastinteraction),
+//                     flags,
+//                     client->db->id,
+//                     (int) dictSize(client->pubsub_channels),
+//                     (int) listLength(client->pubsub_patterns),
+//                     (client->flags & CLIENT_MULTI) ? client->mstate.count : -1,
+//                     (unsigned long long) sdslen(client->querybuf),
+//                     (unsigned long long) sdsavail(client->querybuf),
+//                     (unsigned long long) client->bufpos,
+//                     (unsigned long long) listLength(client->reply),
+//                     (unsigned long long) getClientOutputBufferMemoryUsage(client),
+//                     events,
+//                     client->lastcmd ? client->lastcmd->name : "NULL",
+//                     client->user ? client->user->name : "(superuser)");
+//}

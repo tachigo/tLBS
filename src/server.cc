@@ -8,6 +8,7 @@
 #include "zmalloc.h"
 #include "version.h"
 #include "networking.h"
+#include "client.h"
 
 #include <sys/time.h>
 #include <clocale>
@@ -28,6 +29,7 @@
 struct tLbsServer server; /* Server global state */
 double R_Zero, R_PosInf, R_NegInf, R_Nan;
 extern char **environ;
+
 
 
 /* Returns 1 if there is --sentinel among the arguments or if
@@ -91,7 +93,7 @@ void initServerConfig() {
 //    server.tlsfd_count = 0;
 //    server.sofd = -1;
 //    server.active_expire_enabled = 1;
-//    server.client_max_querybuf_len = PROTO_MAX_QUERYBUF_LEN;
+    server.client_max_querybuf_len = PROTO_MAX_QUERYBUF_LEN;
 //    server.saveparams = NULL;
 //    server.loading = 0;
     server.logfile = zstrdup(CONFIG_DEFAULT_LOGFILE);
@@ -178,7 +180,7 @@ void initServerConfig() {
     /* By default we want scripts to be always replicated by effects
      * (single commands executed by the script), and not by sending the
      * script to the slave / AOF. This is the new way starting from
-     * Redis 5. However it is possible to revert it via redis.conf. */
+     * tLBS 5. However it is possible to revert it via redis.conf. */
 //    server.lua_always_replicate_commands = 1;
 
     initConfigValues();
@@ -191,7 +193,7 @@ void daemonize() {
     if (fork() != 0) exit(0); /* parent exits */
     setsid(); /* create a new session */
 
-    /* Every output goes to /dev/null. If Redis is daemonized but
+    /* Every output goes to /dev/null. If tLBS is daemonized but
      * the 'logfile' is set to 'stdout' in the configuration file
      * it will not log at all. */
     if ((fd = open("/dev/null", O_RDWR, 0)) != -1) {
@@ -312,7 +314,7 @@ int prepareForShutdown(int flags) {
 //        if (rdbSave(server.rdb_filename,rsiptr) != C_OK) {
 //            /* Ooops.. error saving! The best we can do is to continue
 //             * operating. Note that if there was a background saving process,
-//             * in the next cron() Redis will be notified that the background
+//             * in the next cron() tLBS will be notified that the background
 //             * saving aborted, handling special stuff like slaves pending for
 //             * synchronization... */
 //            serverLog(LL_WARNING,"Error trying to save the DB, can't exit.");
@@ -481,9 +483,9 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
 //    }
 
     /* We need to do a few operations on clients asynchronously. */
-//    clientsCron();
+    clientsCron();
 
-    /* Handle background operations on Redis databases. */
+    /* Handle background operations on tLBS databases. */
 //    databasesCron();
 
     /* Start a scheduled AOF rewrite if this was requested by the user while
@@ -560,7 +562,7 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
      * detect transfer failures, start background RDB transfers and so forth. */
 //    run_with_period(1000) replicationCron();
 
-    /* Run the Redis Cluster cron. */
+    /* Run the tLBS Cluster cron. */
 //    run_with_period(100) {
 //        if (server.cluster_enabled) clusterCron();
 //    }
@@ -762,19 +764,7 @@ void initServer() {
 //        exit(1);
 //    }
 
-    /* Create the databases, and initialize other internal state. */
-//    for (j = 0; j < server.dbnum; j++) {
-//        server.db[j].dict = dictCreate(&dbDictType,NULL);
-//        server.db[j].expires = dictCreate(&keyptrDictType,NULL);
-//        server.db[j].expires_cursor = 0;
-//        server.db[j].blocking_keys = dictCreate(&keylistDictType,NULL);
-//        server.db[j].ready_keys = dictCreate(&objectKeyPointerValueDictType,NULL);
-//        server.db[j].watched_keys = dictCreate(&keylistDictType,NULL);
-//        server.db[j].id = j;
-//        server.db[j].avg_ttl = 0;
-//        server.db[j].defrag_later = listCreate();
-//        listSetFreeMethod(server.db[j].defrag_later,(void (*)(void*))sdsfree);
-//    }
+    dbInit();
 //    evictionPoolAlloc(); /* Initialize the LRU keys pool. */
 //    server.pubsub_channels = dictCreate(&keylistDictType,NULL);
 //    server.pubsub_patterns = listCreate();
@@ -875,7 +865,7 @@ void initServer() {
     /* 32 bit instances are limited to 4GB of address space, so if there is
      * no explicit limit in the user provided configuration we set a limit
      * at 3 GB using maxmemory with 'noeviction' policy'. This avoids
-     * useless crashes of the Redis instance for out of memory. */
+     * useless crashes of the tLBS instance for out of memory. */
 //    if (server.arch_bits == 32 && server.maxmemory == 0) {
 //        serverLog(LL_WARNING,"Warning: 32 bit instance detected but no memory limit set. Setting 3 GB maxmemory limit with 'noeviction' policy now.");
 //        server.maxmemory = 3072LL*(1024*1024); /* 3 GB */
@@ -904,7 +894,7 @@ void createPidFile() {
     }
 }
 
-/* This function gets called every time Redis is entering the
+/* This function gets called every time tLBS is entering the
  * main loop of the event driven library, that is, before to sleep
  * for ready file descriptors. */
 void beforeSleep(struct aeEventLoop *eventLoop) {
@@ -912,7 +902,7 @@ void beforeSleep(struct aeEventLoop *eventLoop) {
 }
 
 /* This function is called immadiately after the event loop multiplexing
- * API returned, and the control is going to soon return to Redis by invoking
+ * API returned, and the control is going to soon return to tLBS by invoking
  * the different events callbacks. */
 void afterSleep(struct aeEventLoop *eventLoop) {
     UNUSED(eventLoop);

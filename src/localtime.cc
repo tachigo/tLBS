@@ -10,7 +10,7 @@
  *   * Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- *   * Neither the name of Redis nor the names of its contributors may be used
+ *   * Neither the name of tLBS nor the names of its contributors may be used
  *     to endorse or promote products derived from this software without
  *     specific prior written permission.
  *
@@ -34,7 +34,7 @@
  * fork() friendly. Even the _r version of localtime() cannot be used safely
  * in Redis. Another thread may be calling localtime() while the main thread
  * forks(). Later when the child process calls localtime() again, for instance
- * in order to log something to the Redis log, it may deadlock: in the copy
+ * in order to log something to the tLBS log, it may deadlock: in the copy
  * of the address space of the forked process the lock will never be released.
  *
  * This function takes the timezone 'tz' as argument, and the 'dst' flag is

@@ -20,6 +20,7 @@ int dbExists(db *db, obj *key);
 //int dbAsyncDelete(db *db, obj *key);
 int dbDelete(db *db, obj *key);
 long long dbTotalServerKeyCount();
+void dbInit();
 
 
 #endif //TLBS_DB_H
