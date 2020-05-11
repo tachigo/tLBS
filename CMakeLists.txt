@@ -8,20 +8,31 @@ get_filename_component(TLBS_ROOT "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
 add_subdirectory(deps)
 
 set(SRC_SERVER_TMP
+        src/adlist.cc
         src/ae.cc
 #        src/ae_epoll.cc
 #        src/ae_select.cc
 #        src/ae_kqueue.cc
 #        src/ae_evport.cc
+        src/anet.cc
+        src/client.cc
+        src/command.cc
+        src/common.cc
         src/config.cc
+        src/connection.cc
+        src/db.cc
+        src/dict.cc
+        src/endianconv.cc
         src/localtime.cc
+        src/networking.cc
+        src/object.cc
+        src/rax.cc
         src/sds.cc
         src/setproctitle.cc
         src/siphash.cc
         src/sha1.cc
         src/sha256.cc
-        src/adlist.cc
-        src/dict.cc
+        src/syncio.cc
         src/t_point.cc
         src/util.cc
         src/zmalloc.cc

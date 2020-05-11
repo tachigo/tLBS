@@ -5,7 +5,7 @@
 #ifndef TLBS_AE_H
 #define TLBS_AE_H
 
-#include <time.h>
+#include <ctime>
 
 #define AE_OK 0
 #define AE_ERR -1
