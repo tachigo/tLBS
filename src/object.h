@@ -60,6 +60,9 @@ obj *resetRefCount(obj *obj);
 
 
 int getLongLongFromObject(obj *o, long long *target);
+int getDoubleFromObject(const obj *o, double *target);
+int getLongDoubleFromObject(obj *o, long double *target);
+
 
 
 #endif //TLBS_OBJECT_H

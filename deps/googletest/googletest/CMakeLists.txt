@@ -46,6 +46,8 @@ endif()
 
 # Project version:
 
+set(GOOGLETEST_VERSION 1.10.0)
+
 if (CMAKE_VERSION VERSION_LESS 3.0)
   project(gtest CXX C)
   set(PROJECT_VERSION ${GOOGLETEST_VERSION})

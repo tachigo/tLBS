@@ -41,10 +41,27 @@ set(SRC_SERVER_TMP
 set(SRC_SERVER src/server.cc ${SRC_SERVER_TMP})
 
 set(EXECUTABLE_OUTPUT_PATH src)
+link_directories(
+        ${TLBS_ROOT}/deps/glog
+        ${TLBS_ROOT}/deps/gflags
+#        ${TLBS_ROOT}/deps/googletest/googletest
+        ${TLBS_ROOT}/deps/s2geometry
+)
+
 add_executable(tLBS-server ${SRC_SERVER})
+target_include_directories(tLBS-server
+        PRIVATE ${TLBS_ROOT}/deps/glog/src
+        PRIVATE ${TLBS_ROOT}/deps/gflags/src
+#        PRIVATE ${TLBS_ROOT}/deps/googletest/googletest/src
+        PRIVATE ${TLBS_ROOT}/deps/s2geometry/src
+        )
 
 
 target_link_libraries(tLBS-server
         PRIVATE pthread
         PRIVATE m
+        PRIVATE glog
+        PRIVATE gflags
+#        PRIVATE googletest
+        PRIVATE s2
         )

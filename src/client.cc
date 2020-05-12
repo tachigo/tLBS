@@ -1747,3 +1747,31 @@ int getLongFromObjectOrReply(client *c, obj *o, long *target, const char *msg) {
     *target = value;
     return C_OK;
 }
+
+int getDoubleFromObjectOrReply(client *c, obj *o, double *target, const char *msg) {
+    double value;
+    if (getDoubleFromObject(o, &value) != C_OK) {
+        if (msg != nullptr) {
+            addReplyError(c,(char*)msg);
+        } else {
+            addReplyError(c,"value is not a valid float");
+        }
+        return C_ERR;
+    }
+    *target = value;
+    return C_OK;
+}
+
+int getLongDoubleFromObjectOrReply(client *c, obj *o, long double *target, const char *msg) {
+    long double value;
+    if (getLongDoubleFromObject(o, &value) != C_OK) {
+        if (msg != nullptr) {
+            addReplyError(c,(char*)msg);
+        } else {
+            addReplyError(c,"value is not a valid float");
+        }
+        return C_ERR;
+    }
+    *target = value;
+    return C_OK;
+}

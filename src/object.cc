@@ -185,6 +185,46 @@ int getLongLongFromObject(obj *o, long long *target) {
     return C_OK;
 }
 
+int getDoubleFromObject(const obj *o, double *target) {
+    double value;
+
+    if (o == nullptr) {
+        value = 0;
+    } else {
+//        serverAssertWithInfo(nullptr,o,o->type == OBJ_TYPE_STRING);
+        if (sdsEncodedObject(o)) {
+            if (!string2d((char *)o->ptr, sdslen((sds)o->ptr), &value))
+                return C_ERR;
+        } else if (o->encoding == OBJ_ENCODING_INT) {
+            value = (long)o->ptr;
+        } else {
+            serverPanic("Unknown string encoding");
+        }
+    }
+    *target = value;
+    return C_OK;
+}
+
+int getLongDoubleFromObject(obj *o, long double *target) {
+    long double value;
+
+    if (o == nullptr) {
+        value = 0;
+    } else {
+//        serverAssertWithInfo(NULL,o,o->type == OBJ_TYPE_STRING);
+        if (sdsEncodedObject(o)) {
+            if (!string2ld((char *)o->ptr, sdslen((sds)o->ptr), &value))
+                return C_ERR;
+        } else if (o->encoding == OBJ_ENCODING_INT) {
+            value = (long)o->ptr;
+        } else {
+            serverPanic("Unknown string encoding");
+        }
+    }
+    *target = value;
+    return C_OK;
+}
+
 
 
 
