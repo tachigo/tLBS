@@ -5,6 +5,8 @@
 #ifndef TLBS_COMMON_H
 #define TLBS_COMMON_H
 
+#include <cstdint>
+
 typedef long long mstime_t; /* millisecond time type. */
 typedef long long ustime_t; /* microsecond time type. */
 
@@ -40,5 +42,17 @@ void serverLogFromHandler(int level, const char *msg);
 #define LOG_MAX_LEN    1024 /* Default maximum length of syslog messages.*/
 
 
+uint64_t dictSdsCaseHash(const void *key);
+
+int dictSdsKeyCaseCompare(void *privdata, const void *key1,
+                          const void *key2);
+
+void dictSdsDestructor(void *privdata, void *val);
+
+uint64_t dictSdsHash(const void *key);
+int dictSdsKeyCompare(void *privdata, const void *key1,
+                      const void *key2);
+
+void dictObjectDestructor(void *privdata, void *val);
 
 #endif //TLBS_COMMON_H

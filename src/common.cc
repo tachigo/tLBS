@@ -121,3 +121,48 @@ void serverLogFromHandler(int level, const char *msg) {
     err:
     if (!log_to_stdout) close(fd);
 }
+
+
+
+uint64_t dictSdsCaseHash(const void *key) {
+    return dictGenCaseHashFunction((unsigned char*)key, sdslen((char*)key));
+}
+
+int dictSdsKeyCaseCompare(void *privdata, const void *key1,
+                          const void *key2)
+{
+    DICT_NOTUSED(privdata);
+
+    return strcasecmp((const char *)key1, (const char *)key2) == 0;
+}
+
+void dictSdsDestructor(void *privdata, void *val)
+{
+    DICT_NOTUSED(privdata);
+
+    sdsfree((sds)val);
+}
+
+uint64_t dictSdsHash(const void *key) {
+    return dictGenHashFunction((unsigned char*)key, sdslen((char*)key));
+}
+
+int dictSdsKeyCompare(void *privdata, const void *key1,
+                      const void *key2)
+{
+    int l1,l2;
+    DICT_NOTUSED(privdata);
+
+    l1 = sdslen((sds)key1);
+    l2 = sdslen((sds)key2);
+    if (l1 != l2) return 0;
+    return memcmp(key1, key2, l1) == 0;
+}
+
+void dictObjectDestructor(void *privdata, void *val)
+{
+    DICT_NOTUSED(privdata);
+
+    if (val == nullptr) return; /* Lazy freeing will set value to NULL. */
+    decrRefCount((obj *)val);
+}

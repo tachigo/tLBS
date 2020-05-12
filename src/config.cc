@@ -1485,7 +1485,7 @@ standardConfig configs[] = {
         /* String Configs */
 //        createStringConfig("aclfile", nullptr, IMMUTABLE_CONFIG, ALLOW_EMPTY_STRING, server.acl_filename, "", nullptr, nullptr),
 //        createStringConfig("unixsocket", nullptr, IMMUTABLE_CONFIG, EMPTY_STRING_IS_NULL, server.unixsocket, nullptr, nullptr, nullptr),
-//        createStringConfig("pidfile", nullptr, IMMUTABLE_CONFIG, EMPTY_STRING_IS_NULL, server.pidfile, nullptr, nullptr, nullptr),
+        createStringConfig("pidfile", nullptr, IMMUTABLE_CONFIG, EMPTY_STRING_IS_NULL, server.pidfile, nullptr, nullptr, nullptr),
 //        createStringConfig("replica-announce-ip", "slave-announce-ip", MODIFIABLE_CONFIG, EMPTY_STRING_IS_nullptr, server.slave_announce_ip, nullptr, nullptr, nullptr),
 //        createStringConfig("masteruser", nullptr, MODIFIABLE_CONFIG, EMPTY_STRING_IS_nullptr, server.masteruser, nullptr, nullptr, nullptr),
 //        createStringConfig("masterauth", nullptr, MODIFIABLE_CONFIG, EMPTY_STRING_IS_NULL, server.masterauth, nullptr, nullptr, NULL),
@@ -1521,7 +1521,7 @@ standardConfig configs[] = {
 //        createIntConfig("replica-priority", "slave-priority", MODIFIABLE_CONFIG, 0, INT_MAX, server.slave_priority, 100, INTEGER_CONFIG, nullptr, NULL),
 //        createIntConfig("repl-diskless-sync-delay", nullptr, MODIFIABLE_CONFIG, 0, INT_MAX, server.repl_diskless_sync_delay, 5, INTEGER_CONFIG, nullptr, NULL),
 //        createIntConfig("maxmemory-samples", nullptr, MODIFIABLE_CONFIG, 1, INT_MAX, server.maxmemory_samples, 5, INTEGER_CONFIG, nullptr, NULL),
-//        createIntConfig("timeout", nullptr, MODIFIABLE_CONFIG, 0, INT_MAX, server.maxidletime, 0, INTEGER_CONFIG, nullptr, NULL), /* Default client timeout: infinite */
+        createIntConfig("timeout", nullptr, MODIFIABLE_CONFIG, 0, INT_MAX, server.maxidletime, 0, INTEGER_CONFIG, nullptr, NULL), /* Default client timeout: infinite */
 //        createIntConfig("replica-announce-port", "slave-announce-port", MODIFIABLE_CONFIG, 0, 65535, server.slave_announce_port, 0, INTEGER_CONFIG, nullptr, NULL),
 //        createIntConfig("tcp-backlog", nullptr, IMMUTABLE_CONFIG, 0, INT_MAX, server.tcp_backlog, 511, INTEGER_CONFIG, nullptr, NULL), /* TCP listen backlog. */
 //        createIntConfig("cluster-announce-bus-port", nullptr, MODIFIABLE_CONFIG, 0, 65535, server.cluster_announce_bus_port, 0, INTEGER_CONFIG, nullptr, NULL), /* Default: Use +10000 offset. */

@@ -6,6 +6,45 @@
 #include "zmalloc.h"
 #include "common.h"
 
+const char * getObjectTypeName(obj * o) {
+    const char* type;
+    if (o == nullptr) {
+        type = "none";
+    } else {
+        switch(o->type) {
+            case OBJ_TYPE_STRING: type = "string"; break;
+//            case OBJ_LIST: type = "list"; break;
+//            case OBJ_SET: type = "set"; break;
+//            case OBJ_ZSET: type = "zset"; break;
+//            case OBJ_HASH: type = "hash"; break;
+//            case OBJ_STREAM: type = "stream"; break;
+//            case OBJ_MODULE: {
+//                moduleValue *mv = o->ptr;
+//                type = mv->type->name;
+//            }; break;
+            default: type = "unknown"; break;
+        }
+    }
+    return type;
+}
+
+obj *createObject(int type, void *ptr) {
+    obj *o = (obj *)zmalloc(sizeof(*o));
+    o->type = type;
+//    o->encoding = OBJ_ENCODING_RAW;
+    o->ptr = ptr;
+    o->refcount = 1;
+
+    /* Set the LRU to the current lruclock (minutes resolution), or
+     * alternatively the LFU counter. */
+//    if (server.maxmemory_policy & MAXMEMORY_FLAG_LFU) {
+//        o->lru = (LFUGetTimeInMinutes()<<8) | LFU_INIT_VAL;
+//    } else {
+//        o->lru = LRU_CLOCK();
+//    }
+    return o;
+}
+
 
 void incrRefCount(obj *o) {
     if (o->refcount < OBJ_FIRST_SPECIAL_REFCOUNT) {

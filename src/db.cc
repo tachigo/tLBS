@@ -2,6 +2,7 @@
 // Created by liuliwu on 2020-05-11.
 //
 
+#include "common.h"
 #include "server.h"
 #include "db.h"
 #include "object.h"
@@ -11,7 +12,6 @@
 
 //#include <signal.h>
 //#include <cctype>
-#include <cstring>
 
 
 
@@ -49,36 +49,7 @@ long long dbTotalServerKeyCount() {
     return total;
 }
 
-uint64_t dictSdsHash(const void *key) {
-    return dictGenHashFunction((unsigned char*)key, sdslen((char*)key));
-}
 
-int dictSdsKeyCompare(void *privdata, const void *key1,
-                      const void *key2)
-{
-    int l1,l2;
-    DICT_NOTUSED(privdata);
-
-    l1 = sdslen((sds)key1);
-    l2 = sdslen((sds)key2);
-    if (l1 != l2) return 0;
-    return memcmp(key1, key2, l1) == 0;
-}
-
-void dictSdsDestructor(void *privdata, void *val)
-{
-    DICT_NOTUSED(privdata);
-
-    sdsfree((sds)val);
-}
-
-void dictObjectDestructor(void *privdata, void *val)
-{
-    DICT_NOTUSED(privdata);
-
-    if (val == nullptr) return; /* Lazy freeing will set value to NULL. */
-    decrRefCount((obj *)val);
-}
 
 /* Db->dict, keys are sds strings, vals are tLBS objects. */
 dictType dbDictType = {

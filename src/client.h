@@ -8,11 +8,13 @@
 #include <cctype>
 #include <ctime>
 
+#include "common.h"
 #include "connection.h"
 #include "db.h"
 #include "object.h"
 #include "adlist.h"
 #include "sds.h"
+#include "command.h"
 
 /* Client flags */
 #define CLIENT_SLAVE (1<<0)   /* This client is a repliaca */
@@ -108,12 +110,12 @@ typedef struct tLbsClient {
     size_t querybuf_peak;   /* Recent (100ms or more) peak of querybuf size. */
     int argc;               /* Num of arguments of current command. */
     obj **argv;            /* Arguments of current command. */
-//    struct redisCommand *cmd, *lastcmd;  /* Last command executed. */
+    struct tLbsCommand *cmd, *lastcmd;  /* Last command executed. */
 //    user *user;
     /* User associated with this connection. If the
                                user is set to NULL the connection can do
                                anything (admin). */
-//    int reqtype;            /* Request protocol type: PROTO_REQ_* */
+    int reqtype;            /* Request protocol type: PROTO_REQ_* */
 //    int multibulklen;       /* Number of multi bulk arguments left to read. */
 //    long bulklen;           /* Length of bulk argument in multi bulk request. */
 //    list *reply;            /* List of reply objects to send to the client. */
@@ -199,9 +201,15 @@ void clientAcceptHandler(connection *conn);
 void readQueryFromClient(connection *conn);
 //sds catClientInfoString(sds s, client *client);
 void processInputBuffer(client *c);
+int processInlineBuffer(client *c);
+void resetClient(client *c);
+int processCommandAndResetClient(client *c);
+int processCommand(client *c);
+void commandProcessed(client *c);
 
 #define CLIENTS_CRON_MIN_ITERATIONS 5
 void clientsCron();
+int clientsCronHandleTimeout(client *c, mstime_t now_ms);
 
 
 #endif //TLBS_CLIENT_H

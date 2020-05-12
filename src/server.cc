@@ -9,6 +9,7 @@
 #include "version.h"
 #include "networking.h"
 #include "client.h"
+#include "command.h"
 
 #include <sys/time.h>
 #include <clocale>
@@ -165,16 +166,17 @@ void initServerConfig() {
     /* Command table -- we initiialize it here as it is part of the
      * initial configuration, since command names may be changed via
      * redis.conf using the rename-command directive. */
-//    server.commands = dictCreate(&commandTableDictType,NULL);
-//    server.orig_commands = dictCreate(&commandTableDictType,NULL);
+    commandInit();
+//    server.commands = dictCreate(&commandTableDictType, nullptr);
+//    server.orig_commands = dictCreate(&commandTableDictType,nullptr);
 //    populateCommandTable();
 //    server.delCommand = lookupCommandByCString("del");
 
     /* Debugging */
-//    server.assert_failed = "<no assertion failed>";
-//    server.assert_file = "<no file>";
-//    server.assert_line = 0;
-//    server.bug_report_start = 0;
+    server.assert_failed = "<no assertion failed>";
+    server.assert_file = "<no file>";
+    server.assert_line = 0;
+    server.bug_report_start = 0;
 //    server.watchdog_period = 0;
 
     /* By default we want scripts to be always replicated by effects
@@ -727,7 +729,7 @@ void initServer() {
 //    }
 
 //    createSharedObjects();
-//    adjustOpenFilesLimit();
+    adjustOpenFilesLimit();
     server.el = aeCreateEventLoop(server.maxclients+CONFIG_FDSET_INCR);
     if (server.el == nullptr) {
         serverLog(LL_WARNING,

@@ -7,6 +7,7 @@
 
 #include <climits>
 
+#define OBJ_TYPE_STRING 0    /* String object. */
 #define OBJ_TYPE_POINTS 0 /* (multi-)point 点 */
 #define OBJ_TYPE_LINES 1 /* (multi-)linestring 线 */
 #define OBJ_TYPE_POLYGONS 2 /* (multi-)polygon 多边形 */
@@ -20,13 +21,16 @@
 #define OBJ_FIRST_SPECIAL_REFCOUNT OBJ_STATIC_REFCOUNT
 
 typedef struct tLbsObject {
-//    unsigned type:4;
+    unsigned type:4;
 //    unsigned encoding:4;
     int refcount;
     void *ptr;
 } obj;
 
 const char * getObjectTypeName(obj * o);
+
+obj *createObject(int type, void *ptr);
+
 void decrRefCount(obj *o);
 void decrRefCountVoid(void *o);
 void incrRefCount(obj *o);

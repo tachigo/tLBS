@@ -9,6 +9,7 @@
 
 #include "db.h"
 #include "client.h"
+#include "command.h"
 
 #include "ae.h"      /* Event driven programming library */
 #include "anet.h"
@@ -74,8 +75,8 @@ struct tLbsServer {
                                    is enabled. */
     int hz;                     /* serverCron() calls frequency in hertz */
     db *db;
-//    dict *commands;             /* Command table */
-//    dict *orig_commands;        /* Command table before command renaming. */
+    dict *commands;             /* Command table */
+    dict *orig_commands;        /* Command table before command renaming. */
     aeEventLoop *el;
 //    _Atomic unsigned int lruclock; /* Clock for LRU eviction */
     int shutdown_asap;          /* SHUTDOWN needed ASAP */
@@ -192,7 +193,7 @@ struct tLbsServer {
 //    } inst_metric[STATS_METRIC_COUNT];
     /* Configuration */
     int verbosity;                  /* Loglevel in redis.conf */
-//    int maxidletime;                /* Client timeout in seconds */
+    int maxidletime;                /* Client timeout in seconds */
     int tcpkeepalive;               /* Set SO_KEEPALIVE if non-zero. */
 //    int active_expire_enabled;      /* Can be disabled for testing purposes. */
 //    int active_expire_effort;       /* From 1 (default) to 10, active effort. */
@@ -478,10 +479,10 @@ struct tLbsServer {
                                old "requirepass" directive for backward
                                compatibility with tLBS <= 5. */
     /* Assert & bug reporting */
-//    const char *assert_failed;
-//    const char *assert_file;
-//    int assert_line;
-//    int bug_report_start; /* True if bug report header was already logged. */
+    const char *assert_failed;
+    const char *assert_file;
+    int assert_line;
+    int bug_report_start; /* True if bug report header was already logged. */
 //    int watchdog_period;  /* Software watchdog period in ms. 0 = off */
     /* System hardware info */
 //    size_t system_memory_size;  /* Total memory in system as reported by OS */
@@ -557,7 +558,6 @@ void initServer();
 void createPidFile();
 void beforeSleep(struct aeEventLoop *eventLoop);
 void afterSleep(struct aeEventLoop *eventLoop);
-
 
 void adjustOpenFilesLimit();
 

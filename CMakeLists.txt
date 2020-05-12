@@ -21,6 +21,7 @@ set(SRC_SERVER_TMP
         src/config.cc
         src/connection.cc
         src/db.cc
+        src/debug.cc
         src/dict.cc
         src/endianconv.cc
         src/localtime.cc

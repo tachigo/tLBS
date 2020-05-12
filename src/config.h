@@ -400,7 +400,7 @@ static void stringConfigGet(client *c, typeData data);
 
 #define createStringConfig(name, alias, modifiable, empty_to_null, config_addr, default, is_valid, update) { \
     embedCommonConfig(name, alias, modifiable) \
-    embedConfigInterface(stringConfigInit, stringConfigSet, stringConfigGet, stringConfigRewrite) \
+    embedConfigInterface(stringConfigInit, stringConfigSet, stringConfigGet) \
     .data.string = { \
         .config = &(config_addr), \
         .default_value = (default), \
