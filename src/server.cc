@@ -28,21 +28,28 @@
 
 /* Global vars */
 struct tLbsServer server; /* Server global state */
+struct sharedObjectsStruct shared;
 double R_Zero, R_PosInf, R_NegInf, R_Nan;
 extern char **environ;
 
 
+/* Output buffer limits presets. */
+clientBufferLimitsConfig clientBufferLimitsDefaults[CLIENT_TYPE_OBUF_COUNT] = {
+        {0, 0, 0}, /* normal */
+        {1024*1024*256, 1024*1024*64, 60}, /* slave */
+        {1024*1024*32, 1024*1024*8, 60}  /* pubsub */
+};
 
 /* Returns 1 if there is --sentinel among the arguments or if
  * argv[0] contains "redis-sentinel". */
-//int checkForSentinelMode(int argc, char **argv) {
-//    int j;
-//
-//    if (strstr(argv[0],"tlbs-sentinel") != nullptr) return 1;
-//    for (j = 1; j < argc; j++)
-//        if (!strcmp(argv[j],"--sentinel")) return 1;
-//    return 0;
-//}
+int checkForSentinelMode(int argc, char **argv) {
+    int j;
+
+    if (strstr(argv[0],"tlbs-sentinel") != nullptr) return 1;
+    for (j = 1; j < argc; j++)
+        if (!strcmp(argv[j],"--sentinel")) return 1;
+    return 0;
+}
 
 /* We take a cached value of the unix time in the global state because with
  * virtual memory and aging there is to store the current time in objects at
@@ -72,6 +79,121 @@ void updateCachedTime(int update_daylight_info) {
     }
 }
 
+void createSharedObjects() {
+    int j;
+
+    shared.crlf = createObject(OBJ_TYPE_STRING,sdsnew("\r\n"));
+    shared.ok = createObject(OBJ_TYPE_STRING,sdsnew("+OK\r\n"));
+    shared.err = createObject(OBJ_TYPE_STRING,sdsnew("-ERR\r\n"));
+    shared.emptybulk = createObject(OBJ_TYPE_STRING,sdsnew("$0\r\n\r\n"));
+    shared.czero = createObject(OBJ_TYPE_STRING,sdsnew(":0\r\n"));
+    shared.cone = createObject(OBJ_TYPE_STRING,sdsnew(":1\r\n"));
+    shared.emptyarray = createObject(OBJ_TYPE_STRING,sdsnew("*0\r\n"));
+    shared.pong = createObject(OBJ_TYPE_STRING,sdsnew("+PONG\r\n"));
+    shared.queued = createObject(OBJ_TYPE_STRING,sdsnew("+QUEUED\r\n"));
+    shared.emptyscan = createObject(OBJ_TYPE_STRING,sdsnew("*2\r\n$1\r\n0\r\n*0\r\n"));
+    shared.wrongtypeerr = createObject(OBJ_TYPE_STRING,sdsnew(
+            "-WRONGTYPE Operation against a key holding the wrong kind of value\r\n"));
+    shared.nokeyerr = createObject(OBJ_TYPE_STRING,sdsnew(
+            "-ERR no such key\r\n"));
+    shared.syntaxerr = createObject(OBJ_TYPE_STRING,sdsnew(
+            "-ERR syntax error\r\n"));
+    shared.sameobjecterr = createObject(OBJ_TYPE_STRING,sdsnew(
+            "-ERR source and destination objects are the same\r\n"));
+    shared.outofrangeerr = createObject(OBJ_TYPE_STRING,sdsnew(
+            "-ERR index out of range\r\n"));
+    shared.noscripterr = createObject(OBJ_TYPE_STRING,sdsnew(
+            "-NOSCRIPT No matching script. Please use EVAL.\r\n"));
+    shared.loadingerr = createObject(OBJ_TYPE_STRING,sdsnew(
+            "-LOADING Redis is loading the dataset in memory\r\n"));
+    shared.slowscripterr = createObject(OBJ_TYPE_STRING,sdsnew(
+            "-BUSY Redis is busy running a script. You can only call SCRIPT KILL or SHUTDOWN NOSAVE.\r\n"));
+    shared.masterdownerr = createObject(OBJ_TYPE_STRING,sdsnew(
+            "-MASTERDOWN Link with MASTER is down and replica-serve-stale-data is set to 'no'.\r\n"));
+    shared.bgsaveerr = createObject(OBJ_TYPE_STRING,sdsnew(
+            "-MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.\r\n"));
+    shared.roslaveerr = createObject(OBJ_TYPE_STRING,sdsnew(
+            "-READONLY You can't write against a read only replica.\r\n"));
+    shared.noautherr = createObject(OBJ_TYPE_STRING,sdsnew(
+            "-NOAUTH Authentication required.\r\n"));
+    shared.oomerr = createObject(OBJ_TYPE_STRING,sdsnew(
+            "-OOM command not allowed when used memory > 'maxmemory'.\r\n"));
+    shared.execaborterr = createObject(OBJ_TYPE_STRING,sdsnew(
+            "-EXECABORT Transaction discarded because of previous errors.\r\n"));
+    shared.noreplicaserr = createObject(OBJ_TYPE_STRING,sdsnew(
+            "-NOREPLICAS Not enough good replicas to write.\r\n"));
+    shared.busykeyerr = createObject(OBJ_TYPE_STRING,sdsnew(
+            "-BUSYKEY Target key name already exists.\r\n"));
+    shared.space = createObject(OBJ_TYPE_STRING,sdsnew(" "));
+    shared.colon = createObject(OBJ_TYPE_STRING,sdsnew(":"));
+    shared.plus = createObject(OBJ_TYPE_STRING,sdsnew("+"));
+
+    /* The shared NULL depends on the protocol version. */
+    shared.null[0] = nullptr;
+    shared.null[1] = nullptr;
+    shared.null[2] = createObject(OBJ_TYPE_STRING,sdsnew("$-1\r\n"));
+    shared.null[3] = createObject(OBJ_TYPE_STRING,sdsnew("_\r\n"));
+
+    shared.nullarray[0] = nullptr;
+    shared.nullarray[1] = nullptr;
+    shared.nullarray[2] = createObject(OBJ_TYPE_STRING,sdsnew("*-1\r\n"));
+    shared.nullarray[3] = createObject(OBJ_TYPE_STRING,sdsnew("_\r\n"));
+
+    shared.emptymap[0] = nullptr;
+    shared.emptymap[1] = nullptr;
+    shared.emptymap[2] = createObject(OBJ_TYPE_STRING,sdsnew("*0\r\n"));
+    shared.emptymap[3] = createObject(OBJ_TYPE_STRING,sdsnew("%0\r\n"));
+
+    shared.emptyset[0] = nullptr;
+    shared.emptyset[1] = nullptr;
+    shared.emptyset[2] = createObject(OBJ_TYPE_STRING,sdsnew("*0\r\n"));
+    shared.emptyset[3] = createObject(OBJ_TYPE_STRING,sdsnew("~0\r\n"));
+
+    for (j = 0; j < PROTO_SHARED_SELECT_CMDS; j++) {
+        char dictid_str[64];
+        int dictid_len;
+
+        dictid_len = ll2string(dictid_str,sizeof(dictid_str),j);
+        shared.select[j] = createObject(OBJ_TYPE_STRING,
+                                        sdscatprintf(sdsempty(),
+                                                     "*2\r\n$6\r\nSELECT\r\n$%d\r\n%s\r\n",
+                                                     dictid_len, dictid_str));
+    }
+    shared.messagebulk = createStringObject("$7\r\nmessage\r\n",13);
+    shared.pmessagebulk = createStringObject("$8\r\npmessage\r\n",14);
+    shared.subscribebulk = createStringObject("$9\r\nsubscribe\r\n",15);
+    shared.unsubscribebulk = createStringObject("$11\r\nunsubscribe\r\n",18);
+    shared.psubscribebulk = createStringObject("$10\r\npsubscribe\r\n",17);
+    shared.punsubscribebulk = createStringObject("$12\r\npunsubscribe\r\n",19);
+    shared.del = createStringObject("DEL",3);
+    shared.unlink = createStringObject("UNLINK",6);
+    shared.rpop = createStringObject("RPOP",4);
+    shared.lpop = createStringObject("LPOP",4);
+    shared.lpush = createStringObject("LPUSH",5);
+    shared.rpoplpush = createStringObject("RPOPLPUSH",9);
+    shared.zpopmin = createStringObject("ZPOPMIN",7);
+    shared.zpopmax = createStringObject("ZPOPMAX",7);
+    shared.multi = createStringObject("MULTI",5);
+    shared.exec = createStringObject("EXEC",4);
+    for (j = 0; j < OBJ_SHARED_INTEGERS; j++) {
+        shared.integers[j] =
+                makeObjectShared(createObject(OBJ_TYPE_STRING,(void*)(long)j));
+        shared.integers[j]->encoding = OBJ_ENCODING_INT;
+    }
+    for (j = 0; j < OBJ_SHARED_BULKHDR_LEN; j++) {
+        shared.mbulkhdr[j] = createObject(OBJ_TYPE_STRING,
+                                          sdscatprintf(sdsempty(),"*%d\r\n",j));
+        shared.bulkhdr[j] = createObject(OBJ_TYPE_STRING,
+                                         sdscatprintf(sdsempty(),"$%d\r\n",j));
+    }
+    /* The following two shared objects, minstring and maxstrings, are not
+     * actually used for their value but as a special object meaning
+     * respectively the minimum possible string and the maximum possible
+     * string in string comparisons for the ZRANGEBYLEX command. */
+    shared.minstring = sdsnew("minstring");
+    shared.maxstring = sdsnew("maxstring");
+}
+
 void initServerConfig() {
     int j;
 
@@ -87,16 +209,16 @@ void initServerConfig() {
     server.timezone = getTimeZone(); /* Initialized by tzset(). */
     server.configfile = nullptr;
     server.executable = nullptr;
-//    server.arch_bits = (sizeof(long) == 8) ? 64 : 32;
-//    server.bindaddr_count = 0;
+    server.arch_bits = (sizeof(long) == 8) ? 64 : 32;
+    server.bindaddr_count = 0;
 //    server.unixsocketperm = CONFIG_DEFAULT_UNIX_SOCKET_PERM;
-//    server.ipfd_count = 0;
+    server.ipfd_count = 0;
 //    server.tlsfd_count = 0;
 //    server.sofd = -1;
 //    server.active_expire_enabled = 1;
     server.client_max_querybuf_len = PROTO_MAX_QUERYBUF_LEN;
 //    server.saveparams = NULL;
-//    server.loading = 0;
+    server.loading = 0;
     server.logfile = zstrdup(CONFIG_DEFAULT_LOGFILE);
 //    server.aof_state = AOF_OFF;
 //    server.aof_rewrite_base_size = 0;
@@ -154,8 +276,8 @@ void initServerConfig() {
 //    server.repl_no_slaves_since = time(NULL);
 
     /* Client output buffer limits */
-//    for (j = 0; j < CLIENT_TYPE_OBUF_COUNT; j++)
-//        server.client_obuf_limits[j] = clientBufferLimitsDefaults[j];
+    for (j = 0; j < CLIENT_TYPE_OBUF_COUNT; j++)
+        server.client_obuf_limits[j] = clientBufferLimitsDefaults[j];
 
     /* Double constants initialization */
     R_Zero = 0.0;
@@ -452,7 +574,7 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
     /* We received a SIGTERM, shutting down here in a safe way, as it is
      * not ok doing so inside the signal handler. */
     if (server.shutdown_asap) {
-//        serverLog(LL_WARNING, "确认shutdown");
+        serverLog(LL_WARNING, "确认shutdown");
         if (prepareForShutdown(SHUTDOWN_NOFLAGS) == C_OK) exit(0);
         serverLog(LL_WARNING,"SIGTERM received but errors trying to shut down the server, check the logs for more information");
         server.shutdown_asap = 0;
@@ -689,6 +811,42 @@ int listenToPort(int port, int *fds, int *count) {
 }
 
 
+void resetServerStats() {
+    int j;
+
+    server.stat_numcommands = 0;
+    server.stat_numconnections = 0;
+//    server.stat_expiredkeys = 0;
+//    server.stat_expired_stale_perc = 0;
+//    server.stat_expired_time_cap_reached_count = 0;
+//    server.stat_expire_cycle_time_used = 0;
+//    server.stat_evictedkeys = 0;
+//    server.stat_keyspace_misses = 0;
+//    server.stat_keyspace_hits = 0;
+//    server.stat_active_defrag_hits = 0;
+//    server.stat_active_defrag_misses = 0;
+//    server.stat_active_defrag_key_hits = 0;
+//    server.stat_active_defrag_key_misses = 0;
+//    server.stat_active_defrag_scanned = 0;
+//    server.stat_fork_time = 0;
+//    server.stat_fork_rate = 0;
+    server.stat_rejected_conn = 0;
+//    server.stat_sync_full = 0;
+//    server.stat_sync_partial_ok = 0;
+//    server.stat_sync_partial_err = 0;
+//    for (j = 0; j < STATS_METRIC_COUNT; j++) {
+//        server.inst_metric[j].idx = 0;
+//        server.inst_metric[j].last_sample_time = mstime();
+//        server.inst_metric[j].last_sample_count = 0;
+//        memset(server.inst_metric[j].samples,0,
+//               sizeof(server.inst_metric[j].samples));
+//    }
+//    server.stat_net_input_bytes = 0;
+    server.stat_net_output_bytes = 0;
+    server.stat_unexpected_error_replies = 0;
+//    server.aof_delayed_fsync = 0;
+}
+
 void initServer() {
     int j;
 
@@ -728,7 +886,7 @@ void initServer() {
 //        exit(1);
 //    }
 
-//    createSharedObjects();
+    createSharedObjects();
     adjustOpenFilesLimit();
     server.el = aeCreateEventLoop(server.maxclients+CONFIG_FDSET_INCR);
     if (server.el == nullptr) {
@@ -793,10 +951,10 @@ void initServer() {
 //    server.lastbgsave_try = 0;    /* At startup we never tried to BGSAVE. */
 //    server.rdb_save_time_last = -1;
 //    server.rdb_save_time_start = -1;
-//    server.dirty = 0;
-//    resetServerStats();
+    server.dirty = 0;
+    resetServerStats();
     /* A few stats we don't want to reset: server startup time, and peak mem. */
-//    server.stat_starttime = time(NULL);
+    server.stat_starttime = time(nullptr);
 //    server.stat_peak_memory = 0;
 //    server.stat_rdb_cow_bytes = 0;
 //    server.stat_aof_cow_bytes = 0;
@@ -823,7 +981,7 @@ void initServer() {
 
     /* Create an event handler for accepting new connections in TCP and Unix
      * domain sockets. */
-    serverLog(LL_WARNING, "server.ipfd=%d", server.ipfd_count);
+//    serverLog(LL_WARNING, "server.ipfd=%d", server.ipfd_count);
     for (j = 0; j < server.ipfd_count; j++) {
         if (aeCreateFileEvent(server.el, server.ipfd[j], AE_READABLE,
                               acceptTcpHandler, nullptr) == AE_ERR)
@@ -882,6 +1040,13 @@ void initServer() {
 //    crc64_init();
 }
 
+void initServerLast() {
+//    bioInit();
+    initThreadedIO();
+//    set_jemalloc_bg_thread(server.jemalloc_bg_thread);
+//    server.initial_memory_usage = zmalloc_used_memory();
+}
+
 
 void createPidFile() {
     /* If pidfile requested, but no pidfile defined, use
@@ -901,6 +1066,78 @@ void createPidFile() {
  * for ready file descriptors. */
 void beforeSleep(struct aeEventLoop *eventLoop) {
     UNUSED(eventLoop);
+
+    /* Handle precise timeouts of blocked clients. */
+//    handleBlockedClientsTimeout();
+
+    /* We should handle pending reads clients ASAP after event loop. */
+    handleClientsWithPendingReadsUsingThreads();
+
+    /* Handle TLS pending data. (must be done before flushAppendOnlyFile) */
+//    tlsProcessPendingData();
+
+    /* If tls still has pending unread data don't sleep at all. */
+//    aeSetDontWait(server.el, tlsHasPendingData());
+
+    /* Call the Redis Cluster before sleep function. Note that this function
+     * may change the state of Redis Cluster (from ok to fail or vice versa),
+     * so it's a good idea to call it before serving the unblocked clients
+     * later in this function. */
+//    if (server.cluster_enabled) clusterBeforeSleep();
+
+    /* Run a fast expire cycle (the called function will return
+     * ASAP if a fast cycle is not needed). */
+//    if (server.active_expire_enabled && server.masterhost == NULL)
+//        activeExpireCycle(ACTIVE_EXPIRE_CYCLE_FAST);
+
+    /* Unblock all the clients blocked for synchronous replication
+     * in WAIT. */
+//    if (listLength(server.clients_waiting_acks))
+//        processClientsWaitingReplicas();
+
+    /* Check if there are clients unblocked by modules that implement
+     * blocking commands. */
+//    if (moduleCount()) moduleHandleBlockedClients();
+
+    /* Try to process pending commands for clients that were just unblocked. */
+//    if (listLength(server.unblocked_clients))
+//        processUnblockedClients();
+
+    /* Send all the slaves an ACK request if at least one client blocked
+     * during the previous event loop iteration. Note that we do this after
+     * processUnblockedClients(), so if there are multiple pipelined WAITs
+     * and the just unblocked WAIT gets blocked again, we don't have to wait
+     * a server cron cycle in absence of other event loop events. See #6623. */
+//    if (server.get_ack_from_slaves) {
+//        robj *argv[3];
+//
+//        argv[0] = createStringObject("REPLCONF",8);
+//        argv[1] = createStringObject("GETACK",6);
+//        argv[2] = createStringObject("*",1); /* Not used argument. */
+//        replicationFeedSlaves(server.slaves, server.slaveseldb, argv, 3);
+//        decrRefCount(argv[0]);
+//        decrRefCount(argv[1]);
+//        decrRefCount(argv[2]);
+//        server.get_ack_from_slaves = 0;
+//    }
+
+    /* Send the invalidation messages to clients participating to the
+     * client side caching protocol in broadcasting (BCAST) mode. */
+//    trackingBroadcastInvalidationMessages();
+
+    /* Write the AOF buffer on disk */
+//    flushAppendOnlyFile(0);
+
+    /* Handle writes with pending output buffers. */
+    handleClientsWithPendingWritesUsingThreads();
+
+    /* Close clients that need to be closed asynchronous */
+    freeClientsInAsyncFreeQueue();
+
+    /* Before we are going to sleep, let the threads access the dataset by
+     * releasing the GIL. Redis main thread will not touch anything at this
+     * time. */
+//    if (moduleCount()) moduleReleaseGIL();
 }
 
 /* This function is called immadiately after the event loop multiplexing
@@ -1004,7 +1241,7 @@ int main(int argc, char **argv) {
     uint8_t hashseed[16];
     getRandomBytes(hashseed,sizeof(hashseed));
     dictSetHashFunctionSeed(hashseed);
-//    server.sentinel_mode = checkForSentinelMode(argc,argv);
+    server.sentinel_mode = checkForSentinelMode(argc,argv);
     initServerConfig();
 
 
@@ -1012,6 +1249,88 @@ int main(int argc, char **argv) {
     server.exec_argv = (char **)zmalloc(sizeof(char*)*(argc+1));
     server.exec_argv[argc] = nullptr;
     for (j = 0; j < argc; j++) server.exec_argv[j] = zstrdup(argv[j]);
+
+    /* We need to init sentinel right now as parsing the configuration file
+     * in sentinel mode will have the effect of populating the sentinel
+     * data structures with master nodes to monitor. */
+//    if (server.sentinel_mode) {
+//        initSentinelConfig();
+//        initSentinel();
+//    }
+
+    /* Check if we need to start in redis-check-rdb/aof mode. We just execute
+     * the program main. However the program is part of the Redis executable
+     * so that we can easily execute an RDB check on loading errors. */
+//    if (strstr(argv[0],"redis-check-rdb") != NULL)
+//        redis_check_rdb_main(argc,argv,NULL);
+//    else if (strstr(argv[0],"redis-check-aof") != NULL)
+//        redis_check_aof_main(argc,argv);
+
+//    if (argc >= 2) {
+//        j = 1; /* First option to parse in argv[] */
+//        sds options = sdsempty();
+//        char *configfile = nullptr;
+//
+//        /* Handle special options --help and --version */
+//        if (strcmp(argv[1], "-v") == 0 ||
+//            strcmp(argv[1], "--version") == 0) version();
+//        if (strcmp(argv[1], "--help") == 0 ||
+//            strcmp(argv[1], "-h") == 0) usage();
+//        if (strcmp(argv[1], "--test-memory") == 0) {
+//            if (argc == 3) {
+//                memtest(atoi(argv[2]),50);
+//                exit(0);
+//            } else {
+//                fprintf(stderr,"Please specify the amount of memory to test in megabytes.\n");
+//                fprintf(stderr,"Example: ./redis-server --test-memory 4096\n\n");
+//                exit(1);
+//            }
+//        }
+//
+//        /* First argument is the config file name? */
+//        if (argv[j][0] != '-' || argv[j][1] != '-') {
+//            configfile = argv[j];
+//            server.configfile = getAbsolutePath(configfile);
+//            /* Replace the config file in server.exec_argv with
+//             * its absolute path. */
+//            zfree(server.exec_argv[j]);
+//            server.exec_argv[j] = zstrdup(server.configfile);
+//            j++;
+//        }
+//
+//        /* All the other options are parsed and conceptually appended to the
+//         * configuration file. For instance --port 6380 will generate the
+//         * string "port 6380\n" to be parsed after the actual file name
+//         * is parsed, if any. */
+//        while(j != argc) {
+//            if (argv[j][0] == '-' && argv[j][1] == '-') {
+//                /* Option name */
+//                if (!strcmp(argv[j], "--check-rdb")) {
+//                    /* Argument has no options, need to skip for parsing. */
+//                    j++;
+//                    continue;
+//                }
+//                if (sdslen(options)) options = sdscat(options,"\n");
+//                options = sdscat(options,argv[j]+2);
+//                options = sdscat(options," ");
+//            } else {
+//                /* Option argument */
+//                options = sdscatrepr(options,argv[j],strlen(argv[j]));
+//                options = sdscat(options," ");
+//            }
+//            j++;
+//        }
+//        if (server.sentinel_mode && configfile && *configfile == '-') {
+//            serverLog(LL_WARNING,
+//                      "Sentinel config from STDIN not allowed.");
+//            serverLog(LL_WARNING,
+//                      "Sentinel needs config file on disk to save state.  Exiting...");
+//            exit(1);
+//        }
+//        resetServerSaveParams();
+//        loadServerConfig(configfile,options);
+//        sdsfree(options);
+//    }
 
 
     serverLog(LL_WARNING, "oO0OoO0OoO0Oo tLBS is starting oO0OoO0OoO0Oo");
@@ -1033,11 +1352,50 @@ int main(int argc, char **argv) {
     initServer();
     if (background || server.pidfile) createPidFile();
 
-//    serverLog(LL_WARNING, "pid: %d", server.pid);
-//    serverLog(LL_WARNING, "pidfile: %s", server.pidfile);
-//    serverLog(LL_WARNING, "executable: %s", server.executable);
+    serverLog(LL_WARNING, "aeApiName: `%s`", aeGetApiName());
 
     tLbsSetProcTitle(argv[0]);
+
+    if (!server.sentinel_mode) {
+        /* Things not needed when running in Sentinel mode. */
+        serverLog(LL_WARNING,"Server initialized");
+#ifdef __linux__
+        linuxMemoryWarnings();
+#endif
+//        moduleLoadFromQueue();
+//        ACLLoadUsersAtStartup();
+//        InitServerLast();
+//        loadDataFromDisk();
+//        if (server.cluster_enabled) {
+//            if (verifyClusterConfigWithData() == C_ERR) {
+//                serverLog(LL_WARNING,
+//                          "You can't have keys in a DB different than DB 0 when in "
+//                          "Cluster mode. Exiting.");
+//                exit(1);
+//            }
+//        }
+        serverLog(LL_NOTICE,"Ready to accept connections, server.ipfd_count=%d", server.ipfd_count);
+//        if (server.ipfd_count > 0 || server.tlsfd_count > 0)
+//            serverLog(LL_NOTICE,"Ready to accept connections");
+//        if (server.sofd > 0)
+//            serverLog(LL_NOTICE,"The server is now ready to accept connections at %s", server.unixsocket);
+//        if (server.supervised_mode == SUPERVISED_SYSTEMD) {
+//            if (!server.masterhost) {
+//                redisCommunicateSystemd("STATUS=Ready to accept connections\n");
+//                redisCommunicateSystemd("READY=1\n");
+//            } else {
+//                redisCommunicateSystemd("STATUS=Waiting for MASTER <-> REPLICA sync\n");
+//            }
+//        }
+    } else {
+        initServerLast();
+//        sentinelIsRunning();
+    }
+
+    /* Warning the user about suspicious maxmemory setting. */
+    if (server.maxmemory > 0 && server.maxmemory < 1024*1024) {
+        serverLog(LL_WARNING,"WARNING: You specified a maxmemory value that is less than 1MB (current value is %llu bytes). Are you sure this is what you really want?", server.maxmemory);
+    }
 
     aeSetBeforeSleepProc(server.el,beforeSleep);
     aeSetAfterSleepProc(server.el,afterSleep);

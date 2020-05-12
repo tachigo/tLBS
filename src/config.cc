@@ -82,12 +82,7 @@ configEnum syslog_facility_enum[] = {
 //        {NULL, 0}
 //};
 
-/* Output buffer limits presets. */
-//clientBufferLimitsConfig clientBufferLimitsDefaults[CLIENT_TYPE_OBUF_COUNT] = {
-//        {0, 0, 0}, /* normal */
-//        {1024*1024*256, 1024*1024*64, 60}, /* slave */
-//        {1024*1024*32, 1024*1024*8, 60}  /* pubsub */
-//};
+
 
 
 
@@ -1447,7 +1442,7 @@ standardConfig configs[] = {
         /* Bool configs */
 //        createBoolConfig("rdbchecksum", nullptr, IMMUTABLE_CONFIG, server.rdb_checksum, 1, nullptr, NULL),
         createBoolConfig("daemonize", nullptr, IMMUTABLE_CONFIG, server.daemonize, 0, nullptr, nullptr),
-//        createBoolConfig("io-threads-do-reads", nullptr, IMMUTABLE_CONFIG, server.io_threads_do_reads, 0,nullptr, nullptr), /* Read + parse from threads? */
+        createBoolConfig("io-threads-do-reads", nullptr, IMMUTABLE_CONFIG, server.io_threads_do_reads, 0,nullptr, nullptr), /* Read + parse from threads? */
 //        createBoolConfig("lua-replicate-commands", nullptr, MODIFIABLE_CONFIG, server.lua_always_replicate_commands, 1, nullptr, nullptr),
 //        createBoolConfig("always-show-logo", nullptr, IMMUTABLE_CONFIG, server.always_show_logo, 0, nullptr, nullptr),
 //        createBoolConfig("protected-mode", nullptr, MODIFIABLE_CONFIG, server.protected_mode, 1, nullptr, nullptr),
@@ -1506,7 +1501,7 @@ standardConfig configs[] = {
         /* Integer configs */
         createIntConfig("databases", nullptr, IMMUTABLE_CONFIG, 1, INT_MAX, server.dbnum, 16, INTEGER_CONFIG, nullptr, nullptr),
         createIntConfig("port", nullptr, IMMUTABLE_CONFIG, 0, 65535, server.port, DEFAULT_PORT, INTEGER_CONFIG, nullptr, nullptr), /* TCP port. */
-//        createIntConfig("io-threads", nullptr, IMMUTABLE_CONFIG, 1, 128, server.io_threads_num, 1, INTEGER_CONFIG, nullptr, NULL), /* Single threaded by default */
+        createIntConfig("io-threads", nullptr, IMMUTABLE_CONFIG, 1, 128, server.io_threads_num, 1, INTEGER_CONFIG, nullptr, NULL), /* Single threaded by default */
 //        createIntConfig("auto-aof-rewrite-percentage", nullptr, MODIFIABLE_CONFIG, 0, INT_MAX, server.aof_rewrite_perc, 100, INTEGER_CONFIG, nullptr, NULL),
 //        createIntConfig("cluster-replica-validity-factor", "cluster-slave-validity-factor", MODIFIABLE_CONFIG, 0, INT_MAX, server.cluster_slave_validity_factor, 10, INTEGER_CONFIG, nullptr, NULL), /* Slave max data age factor. */
 //        createIntConfig("list-max-ziplist-size", nullptr, MODIFIABLE_CONFIG, INT_MIN, INT_MAX, server.list_max_ziplist_size, -2, INTEGER_CONFIG, nullptr, NULL),

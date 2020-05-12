@@ -23,7 +23,9 @@ dictType commandTableDictType = {
 
 
 struct tLbsCommand tLbsCommandTable[] = {
-
+        {"select",selectCommand,2,
+        "ok-loading fast ok-stale @keyspace",
+        0, nullptr,0,0,0,0,0,0},
 };
 
 
@@ -44,7 +46,7 @@ void populateCommandTable() {
 
         /* Translate the command string flags description into an actual
          * set of flags. */
-        if (populateCommandTableParseFlags(c,c->sflags) == C_ERR)
+        if (populateCommandTableParseFlags(c,(char *)c->sflags) == C_ERR)
             serverPanic("Unsupported command flag");
 
 //        c->id = ACLGetCommandID(c->name); /* Assign the ID used for ACL. */
@@ -119,4 +121,24 @@ int populateCommandTableParseFlags(struct tLbsCommand *c, char *strflags) {
 
 tLbsCommand *lookupCommand(sds name) {
     return (tLbsCommand *)dictFetchValue(server.commands, name);
+}
+
+
+void selectCommand(client *c) {
+    serverLog(LL_WARNING, "执行命令:`selectCommand`");
+    long id;
+
+    if (getLongFromObjectOrReply(c, c->argv[1], &id,
+                                 "invalid DB index") != C_OK)
+        return;
+
+    if (server.cluster_enabled && id != 0) {
+        addReplyError(c,"SELECT is not allowed in cluster mode");
+        return;
+    }
+    if (dbSelect(c,id) == C_ERR) {
+        addReplyError(c,"DB index is out of range");
+    } else {
+        addReply(c,shared.ok);
+    }
 }

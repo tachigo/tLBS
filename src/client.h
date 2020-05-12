@@ -14,7 +14,6 @@
 #include "object.h"
 #include "adlist.h"
 #include "sds.h"
-#include "command.h"
 
 /* Client flags */
 #define CLIENT_SLAVE (1<<0)   /* This client is a repliaca */
@@ -82,6 +81,13 @@
 #define PROTO_REQ_INLINE 1
 #define PROTO_REQ_MULTIBULK 2
 
+
+#define PROTO_IOBUF_LEN         (1024*16)  /* Generic I/O buffer size */
+#define PROTO_REPLY_CHUNK_BYTES (16*1024) /* 16k output buffer */
+#define PROTO_INLINE_MAX_SIZE   (1024*64) /* Max size of inline reads */
+#define PROTO_MBULK_BIG_ARG     (1024*32)
+#define PROTO_REPLY_CHUNK_BYTES (16*1024) /* 16k output buffer */
+
 /* Client classes for client limits, currently used only for
  * the max-client-output-buffer limit implementation. */
 #define CLIENT_TYPE_NORMAL 0 /* Normal req-reply clients + MONITORs */
@@ -92,6 +98,10 @@
 #define CLIENT_TYPE_OBUF_COUNT 3 /* Number of clients to expose to output
                                     buffer configuration. Just the first
                                     three: normal, slave, pubsub. */
+
+
+#define NET_MAX_WRITES_PER_EVENT (1024*64)
+
 
 
 typedef struct tLbsClient {
@@ -118,9 +128,9 @@ typedef struct tLbsClient {
     int reqtype;            /* Request protocol type: PROTO_REQ_* */
 //    int multibulklen;       /* Number of multi bulk arguments left to read. */
 //    long bulklen;           /* Length of bulk argument in multi bulk request. */
-//    list *reply;            /* List of reply objects to send to the client. */
-//    unsigned long long reply_bytes; /* Tot bytes of objects in reply list. */
-//    size_t sentlen;
+    list *reply;            /* List of reply objects to send to the client. */
+    unsigned long long reply_bytes; /* Tot bytes of objects in reply list. */
+    size_t sentlen;
     /* Amount of bytes already sent in the current
                                buffer or object being sent. */
     time_t ctime;           /* Client creation time. */
@@ -185,8 +195,16 @@ typedef struct tLbsClient {
 //    int      client_cron_last_memory_type;
     /* Response buffer */
     int bufpos;
-//    char buf[PROTO_REPLY_CHUNK_BYTES];
+    char buf[PROTO_REPLY_CHUNK_BYTES];
 } client;
+
+
+/* This structure is used in order to represent the output buffer of a client,
+ * which is actually a linked list of blocks like that, that is: client->reply. */
+typedef struct clientReplyBlock {
+    size_t size, used;
+    char buf[];
+} clientReplyBlock;
 
 int dbSelect(client *c, int id);
 void linkClient(client *c);
@@ -211,5 +229,34 @@ void commandProcessed(client *c);
 void clientsCron();
 int clientsCronHandleTimeout(client *c, mstime_t now_ms);
 
+void addReplyProto(client *c, const char *s, size_t len);
 
+void addReply(client *c, obj *obj);
+int prepareClientToWrite(client *c);
+void clientInstallWriteHandler(client *c);
+int clientHasPendingReplies(client *c);
+void asyncCloseClientOnOutputBufferLimitReached(client *c);
+int checkClientOutputBufferLimits(client *c);
+unsigned long getClientOutputBufferMemoryUsage(client *c);
+int getClientType(client *c);
+void *dupClientReplyValue(void *o);
+void freeClientReplyValue(void *o);
+
+void addReplyErrorLength(client *c, const char *s, size_t len);
+void addReplyError(client *c, const char *err);
+void addReplyErrorFormat(client *c, const char *fmt, ...);
+
+
+void addReplyStatusLength(client *c, const char *s, size_t len);
+void addReplyStatus(client *c, const char *status);
+void addReplyStatusFormat(client *c, const char *fmt, ...);
+
+void call(client *c, int flags);
+
+int writeToClient(client *c, int handler_installed);
+void sendReplyToClient(connection *conn);
+void freeClientsInAsyncFreeQueue();
+
+int getLongLongFromObjectOrReply(client *c, obj *o, long long *target, const char *msg);
+int getLongFromObjectOrReply(client *c, obj *o, long *target, const char *msg);
 #endif //TLBS_CLIENT_H

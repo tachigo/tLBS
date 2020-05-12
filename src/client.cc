@@ -9,6 +9,7 @@
 #include "zmalloc.h"
 #include "debug.h"
 #include "command.h"
+#include "util.h"
 
 #include <pthread.h>
 #include <cstring>
@@ -64,7 +65,7 @@ client *createClient(connection *conn) {
 //    c->user = DefaultUser;
 //    c->multibulklen = 0;
 //    c->bulklen = -1;
-//    c->sentlen = 0;
+    c->sentlen = 0;
     c->flags = 0;
     c->ctime = c->lastinteraction = server.unixtime;
     /* If the default user does not require authentication, the user is
@@ -80,11 +81,11 @@ client *createClient(connection *conn) {
 //    c->slave_listening_port = 0;
 //    c->slave_ip[0] = '\0';
 //    c->slave_capa = SLAVE_CAPA_NONE;
-//    c->reply = listCreate();
-//    c->reply_bytes = 0;
-//    c->obuf_soft_limit_reached_time = 0;
-//    listSetFreeMethod(c->reply,freeClientReplyValue);
-//    listSetDupMethod(c->reply,dupClientReplyValue);
+    c->reply = listCreate();
+    c->reply_bytes = 0;
+    c->obuf_soft_limit_reached_time = 0;
+    listSetFreeMethod(c->reply,freeClientReplyValue);
+    listSetDupMethod(c->reply,dupClientReplyValue);
 //    c->btype = BLOCKED_NONE;
 //    c->bpop.timeout = 0;
 //    c->bpop.keys = dictCreate(&objectKeyHeapPointerValueDictType,NULL);
@@ -111,11 +112,12 @@ client *createClient(connection *conn) {
 //    listSetMatchMethod(c->pubsub_patterns,listMatchObjects);
     if (conn) linkClient(c);
 //    initClientMultiState(c);
+
+    serverLog(LL_WARNING, "创建client#%llu", c->id);
     return c;
 }
 
 void unlinkClient(client *c) {
-    serverLog(LL_WARNING, "删除client");
     listNode *ln;
 
     /* If this is marked as current client unset it. */
@@ -153,20 +155,19 @@ void unlinkClient(client *c) {
     }
 
     /* Remove from the list of pending writes if needed. */
-//    if (c->flags & CLIENT_PENDING_WRITE) {
-//        ln = listSearchKey(server.clients_pending_write,c);
+    if (c->flags & CLIENT_PENDING_WRITE) {
+        ln = listSearchKey(server.clients_pending_write,c);
 //        serverAssert(ln != NULL);
-//        listDelNode(server.clients_pending_write,ln);
-//        c->flags &= ~CLIENT_PENDING_WRITE;
-//    }
-//
-//    /* Remove from the list of pending reads if needed. */
-//    if (c->flags & CLIENT_PENDING_READ) {
-//        ln = listSearchKey(server.clients_pending_read,c);
+        listDelNode(server.clients_pending_write,ln);
+        c->flags &= ~CLIENT_PENDING_WRITE;
+    }
+    /* Remove from the list of pending reads if needed. */
+    if (c->flags & CLIENT_PENDING_READ) {
+        ln = listSearchKey(server.clients_pending_read,c);
 //        serverAssert(ln != NULL);
-//        listDelNode(server.clients_pending_read,ln);
-//        c->flags &= ~CLIENT_PENDING_READ;
-//    }
+        listDelNode(server.clients_pending_read,ln);
+        c->flags &= ~CLIENT_PENDING_READ;
+    }
 
     /* When client was just unblocked because of a blocking operation,
      * remove it from the list of unblocked clients. */
@@ -179,10 +180,12 @@ void unlinkClient(client *c) {
 
     /* Clear the tracking status. */
 //    if (c->flags & CLIENT_TRACKING) disableTracking(c);
+    serverLog(LL_WARNING, "删除client#%llu", c->id);
 }
 
 void freeClient(client *c) {
-    serverLog(LL_WARNING, "同步释放client");
+    uint64_t clientid = c->id;
+    serverLog(LL_WARNING, "开始同步释放client#%llu", clientid);
     listNode *ln;
 
     /* If a client is protected, yet we need to free it right now, make sure
@@ -300,10 +303,22 @@ void freeClient(client *c) {
 //    freeClientMultiState(c);
 //    sdsfree(c->peerid);
     zfree(c);
+    serverLog(LL_WARNING, "开始同步释放client#%llu", clientid);
+}
+
+void freeClientsInAsyncFreeQueue() {
+    while (listLength(server.clients_to_close)) {
+        listNode *ln = listFirst(server.clients_to_close);
+        auto *c = (client *)listNodeValue(ln);
+
+        c->flags &= ~CLIENT_CLOSE_ASAP;
+        freeClient(c);
+        listDelNode(server.clients_to_close,ln);
+    }
 }
 
 void freeClientAsync(client *c) {
-    serverLog(LL_WARNING, "异步释放client");
+    uint64_t clientid = c->id;
     /* We need to handle concurrent access to the server.clients_to_close list
      * only in the freeClientAsync() function, since it's the only function that
      * may access the list while tLBS uses I/O threads. All the other accesses
@@ -311,6 +326,8 @@ void freeClientAsync(client *c) {
      * idle. */
     if (c->flags & CLIENT_CLOSE_ASAP || c->flags & CLIENT_LUA) return;
     c->flags |= CLIENT_CLOSE_ASAP;
+
+    serverLog(LL_WARNING, "异步释放client#%llu,当前服务器io线程数为%d", clientid, server.io_threads_num);
     if (server.io_threads_num == 1) {
         /* no need to bother with locking if there's just one thread (the main thread) */
         listAddNodeTail(server.clients_to_close,c);
@@ -455,14 +472,10 @@ int clientsCronHandleTimeout(client *c, mstime_t now_ms) {
 }
 
 
-#define PROTO_IOBUF_LEN         (1024*16)  /* Generic I/O buffer size */
-#define PROTO_REPLY_CHUNK_BYTES (16*1024) /* 16k output buffer */
-#define PROTO_INLINE_MAX_SIZE   (1024*64) /* Max size of inline reads */
-#define PROTO_MBULK_BIG_ARG     (1024*32)
+
 #define LONG_STR_SIZE      21          /* Bytes needed for long -> str + '\0' */
 
 void readQueryFromClient(connection *conn) {
-    serverLog(LL_WARNING, "read query from client!");
 
     auto *c = (client *)connGetPrivateData(conn);
     int nread, readlen;
@@ -550,7 +563,7 @@ void processInputBuffer(client *c) {
 
         /* Don't process more buffers from clients that have already pending
          * commands to execute in c->argv. */
-//        if (c->flags & CLIENT_PENDING_COMMAND) break;
+        if (c->flags & CLIENT_PENDING_COMMAND) break;
 
         /* Don't process input from the master while there is a busy script
          * condition on the slave. We want just to accumulate the replication
@@ -628,7 +641,6 @@ void processInputBuffer(client *c) {
 int processCommandAndResetClient(client *c) {
     int deadclient = 0;
     server.current_client = c;
-    serverLog(LL_WARNING, "processCommandAndResetClient");
     if (processCommand(c) == C_OK) {
         commandProcessed(c);
     }
@@ -642,15 +654,14 @@ int processCommandAndResetClient(client *c) {
 
 int processCommand(client *c) {
 //    moduleCallCommandFilters(c);
-
+    serverLog(LL_WARNING, "client#%llu处理命令:`%s`", c->id, (const char *)c->argv[0]->ptr);
     /* The QUIT command is handled separately. Normal command procs will
      * go through checking for replication and QUIT will cause trouble
      * when FORCE_REPLICATION is enabled and would be implemented in
      * a regular command proc. */
     if (!strcasecmp((const char *)c->argv[0]->ptr,"quit")) {
-//        addReply(c,shared.ok);
+        addReply(c,shared.ok);
         c->flags |= CLIENT_CLOSE_AFTER_REPLY;
-        freeClientAsync(c);
         return C_ERR;
     }
 
@@ -660,22 +671,17 @@ int processCommand(client *c) {
     if (!c->cmd) {
 //        flagTransaction(c);
         sds args = sdsempty();
-//        int i;
-//        for (i=1; i < c->argc && sdslen(args) < 128; i++)
-//            args = sdscatprintf(args, "`%.*s`, ", 128-(int)sdslen(args), (char*)c->argv[i]->ptr);
-//        addReplyErrorFormat(c,"unknown command `%s`, with args beginning with: %s",
-//                            (char*)c->argv[0]->ptr, args);
-        serverLog(LL_WARNING,
-                "unknown command `%s`, with args beginning with: %s",
-                (char*)c->argv[0]->ptr, args);
+        int i;
+        for (i=1; i < c->argc && sdslen(args) < 128; i++)
+            args = sdscatprintf(args, "`%.*s`, ", 128-(int)sdslen(args), (char*)c->argv[i]->ptr);
+        addReplyErrorFormat(c,"unknown command `%s`, with args beginning with: %s",
+                            (char*)c->argv[0]->ptr, args);
         sdsfree(args);
         return C_OK;
     } else if ((c->cmd->arity > 0 && c->cmd->arity != c->argc) ||
                (c->argc < -c->cmd->arity)) {
 //        flagTransaction(c);
-//        addReplyErrorFormat(c,"wrong number of arguments for '%s' command",
-//                            c->cmd->name);
-        serverLog(LL_WARNING, "wrong number of arguments for '%s' command",
+        addReplyErrorFormat(c,"wrong number of arguments for '%s' command",
                             c->cmd->name);
         return C_OK;
     }
@@ -887,8 +893,8 @@ int processCommand(client *c) {
 //        queueMultiCommand(c);
 //        addReply(c,shared.queued);
 //    } else {
-    serverLog(LL_WARNING, "execute command: `%s`",  c->cmd->name);
-//        call(c,CMD_CALL_FULL);
+//    serverLog(LL_WARNING, "execute command: `%s`",  c->cmd->name);
+        call(c,CMD_CALL_FULL);
 //        c->woff = server.master_repl_offset;
 //        if (listLength(server.ready_keys))
 //            handleClientsBlockedOnKeys();
@@ -1020,6 +1026,7 @@ void resetClient(client *c) {
         c->flags |= CLIENT_REPLY_SKIP;
         c->flags &= ~CLIENT_REPLY_SKIP_NEXT;
     }
+    serverLog(LL_WARNING, "reset client#%llu", c->id);
 }
 
 
@@ -1078,3 +1085,665 @@ void resetClient(client *c) {
 //                     client->lastcmd ? client->lastcmd->name : "NULL",
 //                     client->user ? client->user->name : "(superuser)");
 //}
+
+
+/* -----------------------------------------------------------------------------
+ * Low level functions to add more data to output buffers.
+ * -------------------------------------------------------------------------- */
+
+int _addReplyToBuffer(client *c, const char *s, size_t len) {
+    size_t available = sizeof(c->buf)-c->bufpos;
+
+    if (c->flags & CLIENT_CLOSE_AFTER_REPLY) return C_OK;
+
+    /* If there already are entries in the reply list, we cannot
+     * add anything more to the static buffer. */
+    if (listLength(c->reply) > 0) return C_ERR;
+
+    /* Check that the buffer has enough space available for this string. */
+    if (len > available) return C_ERR;
+
+    memcpy(c->buf+c->bufpos,s,len);
+    c->bufpos+=len;
+    return C_OK;
+}
+
+void _addReplyProtoToList(client *c, const char *s, size_t len) {
+    if (c->flags & CLIENT_CLOSE_AFTER_REPLY) return;
+
+    listNode *ln = listLast(c->reply);
+    auto *tail = (clientReplyBlock *)(ln? listNodeValue(ln): nullptr);
+
+    /* Note that 'tail' may be NULL even if we have a tail node, becuase when
+     * addDeferredMultiBulkLength() is used, it sets a dummy node to NULL just
+     * fo fill it later, when the size of the bulk length is set. */
+
+    /* Append to tail string when possible. */
+    if (tail) {
+        /* Copy the part we can fit into the tail, and leave the rest for a
+         * new node */
+        size_t avail = tail->size - tail->used;
+        size_t copy = avail >= len? len: avail;
+        memcpy(tail->buf + tail->used, s, copy);
+        tail->used += copy;
+        s += copy;
+        len -= copy;
+    }
+    if (len) {
+        /* Create a new node, make sure it is allocated to at
+         * least PROTO_REPLY_CHUNK_BYTES */
+        size_t size = len < PROTO_REPLY_CHUNK_BYTES? PROTO_REPLY_CHUNK_BYTES: len;
+        tail = (clientReplyBlock *)zmalloc(size + sizeof(clientReplyBlock));
+        /* take over the allocation's internal fragmentation */
+        tail->size = zmalloc_usable(tail) - sizeof(clientReplyBlock);
+        tail->used = len;
+        memcpy(tail->buf, s, len);
+        listAddNodeTail(c->reply, tail);
+        c->reply_bytes += tail->size;
+    }
+    asyncCloseClientOnOutputBufferLimitReached(c);
+}
+
+/* This function returns the number of bytes that Redis is
+ * using to store the reply still not read by the client.
+ *
+ * Note: this function is very fast so can be called as many time as
+ * the caller wishes. The main usage of this function currently is
+ * enforcing the client output length limits. */
+unsigned long getClientOutputBufferMemoryUsage(client *c) {
+    unsigned long list_item_size = sizeof(listNode) + sizeof(clientReplyBlock);
+    return c->reply_bytes + (list_item_size*listLength(c->reply));
+}
+
+
+/* Get the class of a client, used in order to enforce limits to different
+ * classes of clients.
+ *
+ * The function will return one of the following:
+ * CLIENT_TYPE_NORMAL -> Normal client
+ * CLIENT_TYPE_SLAVE  -> Slave
+ * CLIENT_TYPE_PUBSUB -> Client subscribed to Pub/Sub channels
+ * CLIENT_TYPE_MASTER -> The client representing our replication master.
+ */
+int getClientType(client *c) {
+    if (c->flags & CLIENT_MASTER) return CLIENT_TYPE_MASTER;
+    /* Even though MONITOR clients are marked as replicas, we
+     * want the expose them as normal clients. */
+    if ((c->flags & CLIENT_SLAVE) && !(c->flags & CLIENT_MONITOR))
+        return CLIENT_TYPE_SLAVE;
+    if (c->flags & CLIENT_PUBSUB) return CLIENT_TYPE_PUBSUB;
+    return CLIENT_TYPE_NORMAL;
+}
+
+int checkClientOutputBufferLimits(client *c) {
+    int soft = 0, hard = 0, clazz;
+    unsigned long used_mem = getClientOutputBufferMemoryUsage(c);
+
+    clazz = getClientType(c);
+    /* For the purpose of output buffer limiting, masters are handled
+     * like normal clients. */
+    if (clazz == CLIENT_TYPE_MASTER) clazz = CLIENT_TYPE_NORMAL;
+
+    if (server.client_obuf_limits[clazz].hard_limit_bytes &&
+    used_mem >= server.client_obuf_limits[clazz].hard_limit_bytes)
+    hard = 1;
+    if (server.client_obuf_limits[clazz].soft_limit_bytes &&
+    used_mem >= server.client_obuf_limits[clazz].soft_limit_bytes)
+    soft = 1;
+
+    /* We need to check if the soft limit is reached continuously for the
+     * specified amount of seconds. */
+    if (soft) {
+        if (c->obuf_soft_limit_reached_time == 0) {
+            c->obuf_soft_limit_reached_time = server.unixtime;
+            soft = 0; /* First time we see the soft limit reached */
+        } else {
+            time_t elapsed = server.unixtime - c->obuf_soft_limit_reached_time;
+
+            if (elapsed <=
+                server.client_obuf_limits[clazz].soft_limit_seconds) {
+                soft = 0; /* The client still did not reached the max number of
+                             seconds for the soft limit to be considered
+                             reached. */
+            }
+        }
+    } else {
+        c->obuf_soft_limit_reached_time = 0;
+    }
+    return soft || hard;
+}
+
+void asyncCloseClientOnOutputBufferLimitReached(client *c) {
+    if (!c->conn) return; /* It is unsafe to free fake clients. */
+//    serverAssert(c->reply_bytes < SIZE_MAX-(1024*64));
+    if (c->reply_bytes == 0 || c->flags & CLIENT_CLOSE_ASAP) return;
+    if (checkClientOutputBufferLimits(c)) {
+//        sds client = catClientInfoString(sdsempty(),c);
+
+        freeClientAsync(c);
+//        serverLog(LL_WARNING,"Client %s scheduled to be closed ASAP for overcoming of output buffer limits.", client);
+//        sdsfree(client);
+        serverLog(LL_WARNING,"Client scheduled to be closed ASAP for overcoming of output buffer limits.");
+    }
+}
+
+
+/* Add the object 'obj' string representation to the client output buffer. */
+void addReply(client *c, obj *obj) {
+    if (prepareClientToWrite(c) != C_OK) return;
+
+    if (sdsEncodedObject(obj)) {
+        if (_addReplyToBuffer(c,(char *)obj->ptr,sdslen((sds)obj->ptr)) != C_OK)
+            _addReplyProtoToList(c,(char *)obj->ptr,sdslen((sds)obj->ptr));
+    }
+    else if (obj->encoding == OBJ_ENCODING_INT) {
+        /* For integer encoded strings we just convert it into a string
+         * using our optimized function, and attach the resulting string
+         * to the output buffer. */
+        char buf[32];
+        size_t len = ll2string(buf,sizeof(buf),(long)obj->ptr);
+        if (_addReplyToBuffer(c,buf,len) != C_OK)
+            _addReplyProtoToList(c,buf,len);
+    }
+    else {
+        serverPanic("Wrong obj->encoding in addReply()");
+    }
+}
+
+
+/* This function is called every time we are going to transmit new data
+ * to the client. The behavior is the following:
+ *
+ * If the client should receive new data (normal clients will) the function
+ * returns C_OK, and make sure to install the write handler in our event
+ * loop so that when the socket is writable new data gets written.
+ *
+ * If the client should not receive new data, because it is a fake client
+ * (used to load AOF in memory), a master or because the setup of the write
+ * handler failed, the function returns C_ERR.
+ *
+ * The function may return C_OK without actually installing the write
+ * event handler in the following cases:
+ *
+ * 1) The event handler should already be installed since the output buffer
+ *    already contains something.
+ * 2) The client is a slave but not yet online, so we want to just accumulate
+ *    writes in the buffer but not actually sending them yet.
+ *
+ * Typically gets called every time a reply is built, before adding more
+ * data to the clients output buffers. If the function returns C_ERR no
+ * data should be appended to the output buffers. */
+int prepareClientToWrite(client *c) {
+    /* If it's the Lua client we always return ok without installing any
+     * handler since there is no socket at all. */
+    if (c->flags & (CLIENT_LUA|CLIENT_MODULE)) return C_OK;
+
+    /* CLIENT REPLY OFF / SKIP handling: don't send replies. */
+    if (c->flags & (CLIENT_REPLY_OFF|CLIENT_REPLY_SKIP)) return C_ERR;
+
+    /* Masters don't receive replies, unless CLIENT_MASTER_FORCE_REPLY flag
+     * is set. */
+    if ((c->flags & CLIENT_MASTER) &&
+        !(c->flags & CLIENT_MASTER_FORCE_REPLY)) return C_ERR;
+
+    if (!c->conn) return C_ERR; /* Fake client for AOF loading. */
+
+    /* Schedule the client to write the output buffers to the socket, unless
+     * it should already be setup to do so (it has already pending data). */
+    if (!clientHasPendingReplies(c)) {
+//        serverLog(LL_WARNING, "client#%llu有要返回的", c->id);
+        clientInstallWriteHandler(c);
+//    } else {
+//        serverLog(LL_WARNING, "client#%llu没有要返回的", c->id);
+    }
+
+    /* Authorize the caller to queue in the output buffer of this client. */
+    return C_OK;
+}
+
+/* This funciton puts the client in the queue of clients that should write
+ * their output buffers to the socket. Note that it does not *yet* install
+ * the write handler, to start clients are put in a queue of clients that need
+ * to write, so we try to do that before returning in the event loop (see the
+ * handleClientsWithPendingWrites() function).
+ * If we fail and there is more data to write, compared to what the socket
+ * buffers can hold, then we'll really install the handler. */
+void clientInstallWriteHandler(client *c) {
+    /* Schedule the client to write the output buffers to the socket only
+     * if not already done and, for slaves, if the slave can actually receive
+     * writes at this stage. */
+    if (!(c->flags & CLIENT_PENDING_WRITE)
+//        &&
+//        (c->replstate == REPL_STATE_NONE ||
+//         (c->replstate == SLAVE_STATE_ONLINE && !c->repl_put_online_on_ack))
+         )
+    {
+        /* Here instead of installing the write handler, we just flag the
+         * client and put it into a list of clients that have something
+         * to write to the socket. This way before re-entering the event
+         * loop, we can try to directly write to the client sockets avoiding
+         * a system call. We'll only really install the write handler if
+         * we'll not be able to write the whole reply at once. */
+        c->flags |= CLIENT_PENDING_WRITE;
+        listAddNodeHead(server.clients_pending_write,c);
+    }
+}
+
+/* Return true if the specified client has pending reply buffers to write to
+ * the socket. */
+int clientHasPendingReplies(client *c) {
+    return c->bufpos || listLength(c->reply);
+}
+
+/* Client.reply list dup and free methods. */
+void *dupClientReplyValue(void *o) {
+    auto *old = (clientReplyBlock *)o;
+    auto *buf = (clientReplyBlock *)zmalloc(sizeof(clientReplyBlock) + old->size);
+    memcpy(buf, o, sizeof(clientReplyBlock) + old->size);
+    return buf;
+}
+
+void freeClientReplyValue(void *o) {
+    zfree(o);
+}
+
+
+/* This low level function just adds whatever protocol you send it to the
+ * client buffer, trying the static buffer initially, and using the string
+ * of objects if not possible.
+ *
+ * It is efficient because does not create an SDS object nor an Redis object
+ * if not needed. The object will only be created by calling
+ * _addReplyProtoToList() if we fail to extend the existing tail object
+ * in the list of objects. */
+void addReplyProto(client *c, const char *s, size_t len) {
+    if (prepareClientToWrite(c) != C_OK) return;
+    if (_addReplyToBuffer(c,s,len) != C_OK)
+        _addReplyProtoToList(c,s,len);
+}
+
+
+/* Low level function called by the addReplyError...() functions.
+ * It emits the protocol for a Redis error, in the form:
+ *
+ * -ERRORCODE Error Message<CR><LF>
+ *
+ * If the error code is already passed in the string 's', the error
+ * code provided is used, otherwise the string "-ERR " for the generic
+ * error code is automatically added. */
+void addReplyErrorLength(client *c, const char *s, size_t len) {
+    /* If the string already starts with "-..." then the error code
+     * is provided by the caller. Otherwise we use "-ERR". */
+    if (!len || s[0] != '-') addReplyProto(c,"-ERR ",5);
+    addReplyProto(c,s,len);
+    addReplyProto(c,"\r\n",2);
+
+    /* Sometimes it could be normal that a slave replies to a master with
+     * an error and this function gets called. Actually the error will never
+     * be sent because addReply*() against master clients has no effect...
+     * A notable example is:
+     *
+     *    EVAL 'redis.call("incr",KEYS[1]); redis.call("nonexisting")' 1 x
+     *
+     * Where the master must propagate the first change even if the second
+     * will produce an error. However it is useful to log such events since
+     * they are rare and may hint at errors in a script or a bug in Redis. */
+//    int ctype = getClientType(c);
+//    if (ctype == CLIENT_TYPE_MASTER || ctype == CLIENT_TYPE_SLAVE || c->id == CLIENT_ID_AOF) {
+//        const char *to, *from;
+
+//        if (c->id == CLIENT_ID_AOF) {
+//            to = "AOF-loading-client";
+//            from = "server";
+//        }
+//        else if (ctype == CLIENT_TYPE_MASTER) {
+//            to = "master";
+//            from = "replica";
+//        }
+//        else {
+//            to = "replica";
+//            from = "master";
+//        }
+
+//        const char *cmdname = c->lastcmd ? c->lastcmd->name : "<unknown>";
+//        serverLog(LL_WARNING,"== CRITICAL == This %s is sending an error "
+//                             "to its %s: '%s' after processing the command "
+//                             "'%s'", from, to, s, cmdname);
+//        server.stat_unexpected_error_replies++;
+//    }
+}
+
+
+void addReplyError(client *c, const char *err) {
+    addReplyErrorLength(c,err,strlen(err));
+}
+
+void addReplyErrorFormat(client *c, const char *fmt, ...) {
+    size_t l, j;
+    va_list ap;
+    va_start(ap,fmt);
+    sds s = sdscatvprintf(sdsempty(),fmt,ap);
+    va_end(ap);
+    /* Make sure there are no newlines in the string, otherwise invalid protocol
+     * is emitted. */
+    l = sdslen(s);
+    for (j = 0; j < l; j++) {
+        if (s[j] == '\r' || s[j] == '\n') s[j] = ' ';
+    }
+    addReplyErrorLength(c,s,sdslen(s));
+    sdsfree(s);
+}
+
+
+void addReplyStatusLength(client *c, const char *s, size_t len) {
+    addReplyProto(c,"+",1);
+    addReplyProto(c,s,len);
+    addReplyProto(c,"\r\n",2);
+}
+
+void addReplyStatus(client *c, const char *status) {
+    addReplyStatusLength(c,status,strlen(status));
+}
+
+void addReplyStatusFormat(client *c, const char *fmt, ...) {
+    va_list ap;
+    va_start(ap,fmt);
+    sds s = sdscatvprintf(sdsempty(),fmt,ap);
+    va_end(ap);
+    addReplyStatusLength(c,s,sdslen(s));
+    sdsfree(s);
+}
+
+int writeToClient(client *c, int handler_installed) {
+    serverLog(LL_WARNING, "client#%llu写入数据", c->id);
+    ssize_t nwritten = 0, totwritten = 0;
+    size_t objlen;
+    clientReplyBlock *o;
+
+    while(clientHasPendingReplies(c)) {
+        if (c->bufpos > 0) {
+            nwritten = connWrite(c->conn,c->buf+c->sentlen,c->bufpos-c->sentlen);
+            if (nwritten <= 0) break;
+            c->sentlen += nwritten;
+            totwritten += nwritten;
+
+            /* If the buffer was sent, set bufpos to zero to continue with
+             * the remainder of the reply. */
+            if ((int)c->sentlen == c->bufpos) {
+                c->bufpos = 0;
+                c->sentlen = 0;
+            }
+        } else {
+            o = (clientReplyBlock *)listNodeValue(listFirst(c->reply));
+            objlen = o->used;
+
+            if (objlen == 0) {
+                c->reply_bytes -= o->size;
+                listDelNode(c->reply,listFirst(c->reply));
+                continue;
+            }
+
+            nwritten = connWrite(c->conn, o->buf + c->sentlen, objlen - c->sentlen);
+            if (nwritten <= 0) break;
+            c->sentlen += nwritten;
+            totwritten += nwritten;
+
+            /* If we fully sent the object on head go to the next one */
+            if (c->sentlen == objlen) {
+                c->reply_bytes -= o->size;
+                listDelNode(c->reply,listFirst(c->reply));
+                c->sentlen = 0;
+                /* If there are no longer objects in the list, we expect
+                 * the count of reply bytes to be exactly zero. */
+//                if (listLength(c->reply) == 0)
+//                    serverAssert(c->reply_bytes == 0);
+            }
+        }
+        /* Note that we avoid to send more than NET_MAX_WRITES_PER_EVENT
+         * bytes, in a single threaded server it's a good idea to serve
+         * other clients as well, even if a very large request comes from
+         * super fast link that is always able to accept data (in real world
+         * scenario think about 'KEYS *' against the loopback interface).
+         *
+         * However if we are over the maxmemory limit we ignore that and
+         * just deliver as much data as it is possible to deliver.
+         *
+         * Moreover, we also send as much as possible if the client is
+         * a slave or a monitor (otherwise, on high-speed traffic, the
+         * replication/output buffer will grow indefinitely) */
+        if (totwritten > NET_MAX_WRITES_PER_EVENT &&
+            (server.maxmemory == 0 || zmalloc_used_memory() < server.maxmemory) &&
+            !(c->flags & CLIENT_SLAVE)
+            ) break;
+    }
+    server.stat_net_output_bytes += totwritten;
+    if (nwritten == -1) {
+        if (connGetState(c->conn) == CONN_STATE_CONNECTED) {
+            nwritten = 0;
+        } else {
+            serverLog(LL_VERBOSE,
+                      "Error writing to client: %s", connGetLastError(c->conn));
+            freeClientAsync(c);
+            return C_ERR;
+        }
+    }
+    if (totwritten > 0) {
+        /* For clients representing masters we don't count sending data
+         * as an interaction, since we always send REPLCONF ACK commands
+         * that take some time to just fill the socket output buffer.
+         * We just rely on data / pings received for timeout detection. */
+        if (!(c->flags & CLIENT_MASTER)) c->lastinteraction = server.unixtime;
+    }
+    if (!clientHasPendingReplies(c)) {
+        c->sentlen = 0;
+        /* Note that writeToClient() is called in a threaded way, but
+         * adDeleteFileEvent() is not thread safe: however writeToClient()
+         * is always called with handler_installed set to 0 from threads
+         * so we are fine. */
+        if (handler_installed) connSetWriteHandler(c->conn, NULL);
+
+        /* Close connection after entire reply has been sent. */
+        if (c->flags & CLIENT_CLOSE_AFTER_REPLY) {
+            freeClientAsync(c);
+            return C_ERR;
+        }
+    }
+    return C_OK;
+}
+
+/* Write event handler. Just send data to the client. */
+void sendReplyToClient(connection *conn) {
+    auto *c = (client *)connGetPrivateData(conn);
+    writeToClient(c,1);
+}
+
+void call(client *c, int flags) {
+    long long dirty;
+    ustime_t start, duration;
+    int client_old_flags = c->flags;
+    struct tLbsCommand *real_cmd = c->cmd;
+
+//    server.fixed_time_expire++;
+
+    /* Sent the command to clients in MONITOR mode, only if the commands are
+     * not generated from reading an AOF. */
+//    if (listLength(server.monitors) &&
+//        !server.loading &&
+//        !(c->cmd->flags & (CMD_SKIP_MONITOR|CMD_ADMIN)))
+//    {
+//        replicationFeedMonitors(c,server.monitors,c->db->id,c->argv,c->argc);
+//    }
+
+    /* Initialization: clear the flags that must be set by the command on
+     * demand, and initialize the array for additional commands propagation. */
+    c->flags &= ~(CLIENT_FORCE_AOF|CLIENT_FORCE_REPL|CLIENT_PREVENT_PROP);
+//    redisOpArray prev_also_propagate = server.also_propagate;
+//    redisOpArrayInit(&server.also_propagate);
+
+    /* Call the command. */
+    dirty = server.dirty;
+    updateCachedTime(0);
+    start = server.ustime;
+    c->cmd->proc(c);
+    duration = ustime()-start;
+    serverLog(LL_WARNING, "命令`%s`运行时间：%fms", c->cmd->name, (double)duration/(double)1000);
+    dirty = server.dirty-dirty;
+    if (dirty < 0) dirty = 0;
+
+    /* When EVAL is called loading the AOF we don't want commands called
+     * from Lua to go into the slowlog or to populate statistics. */
+//    if (server.loading && c->flags & CLIENT_LUA)
+//        flags &= ~(CMD_CALL_SLOWLOG | CMD_CALL_STATS);
+
+    /* If the caller is Lua, we want to force the EVAL caller to propagate
+     * the script if the command flag or client flag are forcing the
+     * propagation. */
+//    if (c->flags & CLIENT_LUA && server.lua_caller) {
+//        if (c->flags & CLIENT_FORCE_REPL)
+//            server.lua_caller->flags |= CLIENT_FORCE_REPL;
+//        if (c->flags & CLIENT_FORCE_AOF)
+//            server.lua_caller->flags |= CLIENT_FORCE_AOF;
+//    }
+
+    /* Log the command into the Slow log if needed, and populate the
+     * per-command statistics that we show in INFO commandstats. */
+//    if (flags & CMD_CALL_SLOWLOG && !(c->cmd->flags & CMD_SKIP_SLOWLOG)) {
+//        char *latency_event = (c->cmd->flags & CMD_FAST) ?
+//                              "fast-command" : "command";
+//        latencyAddSampleIfNeeded(latency_event,duration/1000);
+//        slowlogPushEntryIfNeeded(c,c->argv,c->argc,duration);
+//    }
+
+    if (flags & CMD_CALL_STATS) {
+        /* use the real command that was executed (cmd and lastamc) may be
+         * different, in case of MULTI-EXEC or re-written commands such as
+         * EXPIRE, GEOADD, etc. */
+        real_cmd->microseconds += duration;
+        real_cmd->calls++;
+    }
+
+    /* Propagate the command into the AOF and replication link */
+//    if (flags & CMD_CALL_PROPAGATE &&
+//        (c->flags & CLIENT_PREVENT_PROP) != CLIENT_PREVENT_PROP)
+//    {
+//        int propagate_flags = PROPAGATE_NONE;
+//
+//        /* Check if the command operated changes in the data set. If so
+//         * set for replication / AOF propagation. */
+//        if (dirty) propagate_flags |= (PROPAGATE_AOF|PROPAGATE_REPL);
+//
+//        /* If the client forced AOF / replication of the command, set
+//         * the flags regardless of the command effects on the data set. */
+//        if (c->flags & CLIENT_FORCE_REPL) propagate_flags |= PROPAGATE_REPL;
+//        if (c->flags & CLIENT_FORCE_AOF) propagate_flags |= PROPAGATE_AOF;
+//
+//        /* However prevent AOF / replication propagation if the command
+//         * implementations called preventCommandPropagation() or similar,
+//         * or if we don't have the call() flags to do so. */
+//        if (c->flags & CLIENT_PREVENT_REPL_PROP ||
+//            !(flags & CMD_CALL_PROPAGATE_REPL))
+//            propagate_flags &= ~PROPAGATE_REPL;
+//        if (c->flags & CLIENT_PREVENT_AOF_PROP ||
+//            !(flags & CMD_CALL_PROPAGATE_AOF))
+//            propagate_flags &= ~PROPAGATE_AOF;
+//
+//        /* Call propagate() only if at least one of AOF / replication
+//         * propagation is needed. Note that modules commands handle replication
+//         * in an explicit way, so we never replicate them automatically. */
+//        if (propagate_flags != PROPAGATE_NONE && !(c->cmd->flags & CMD_MODULE))
+//            propagate(c->cmd,c->db->id,c->argv,c->argc,propagate_flags);
+//    }
+
+    /* Restore the old replication flags, since call() can be executed
+     * recursively. */
+    c->flags &= ~(CLIENT_FORCE_AOF|CLIENT_FORCE_REPL|CLIENT_PREVENT_PROP);
+    c->flags |= client_old_flags &
+                (CLIENT_FORCE_AOF|CLIENT_FORCE_REPL|CLIENT_PREVENT_PROP);
+
+    /* Handle the alsoPropagate() API to handle commands that want to propagate
+     * multiple separated commands. Note that alsoPropagate() is not affected
+     * by CLIENT_PREVENT_PROP flag. */
+//    if (server.also_propagate.numops) {
+//        int j;
+//        redisOp *rop;
+//
+//        if (flags & CMD_CALL_PROPAGATE) {
+//            int multi_emitted = 0;
+//            /* Wrap the commands in server.also_propagate array,
+//             * but don't wrap it if we are already in MULTI context,
+//             * in case the nested MULTI/EXEC.
+//             *
+//             * And if the array contains only one command, no need to
+//             * wrap it, since the single command is atomic. */
+//            if (server.also_propagate.numops > 1 &&
+//                !(c->cmd->flags & CMD_MODULE) &&
+//                !(c->flags & CLIENT_MULTI) &&
+//                !(flags & CMD_CALL_NOWRAP))
+//            {
+//                execCommandPropagateMulti(c);
+//                multi_emitted = 1;
+//            }
+//
+//            for (j = 0; j < server.also_propagate.numops; j++) {
+//                rop = &server.also_propagate.ops[j];
+//                int target = rop->target;
+//                /* Whatever the command wish is, we honor the call() flags. */
+//                if (!(flags&CMD_CALL_PROPAGATE_AOF)) target &= ~PROPAGATE_AOF;
+//                if (!(flags&CMD_CALL_PROPAGATE_REPL)) target &= ~PROPAGATE_REPL;
+//                if (target)
+//                    propagate(rop->cmd,rop->dbid,rop->argv,rop->argc,target);
+//            }
+//
+//            if (multi_emitted) {
+//                execCommandPropagateExec(c);
+//            }
+//        }
+//        redisOpArrayFree(&server.also_propagate);
+//    }
+//    server.also_propagate = prev_also_propagate;
+
+    /* If the client has keys tracking enabled for client side caching,
+     * make sure to remember the keys it fetched via this command. */
+//    if (c->cmd->flags & CMD_READONLY) {
+//        client *caller = (c->flags & CLIENT_LUA && server.lua_caller) ?
+//                         server.lua_caller : c;
+//        if (caller->flags & CLIENT_TRACKING &&
+//            !(caller->flags & CLIENT_TRACKING_BCAST))
+//        {
+//            trackingRememberKeys(caller);
+//        }
+//    }
+
+//    server.fixed_time_expire--;
+    server.stat_numcommands++;
+}
+
+int getLongLongFromObjectOrReply(client *c, obj *o, long long *target, const char *msg) {
+    long long value;
+    if (getLongLongFromObject(o, &value) != C_OK) {
+        if (msg != nullptr) {
+            addReplyError(c,(char*)msg);
+        } else {
+            addReplyError(c,"value is not an integer or out of range");
+        }
+        return C_ERR;
+    }
+    *target = value;
+    return C_OK;
+}
+
+int getLongFromObjectOrReply(client *c, obj *o, long *target, const char *msg) {
+    long long value;
+
+    if (getLongLongFromObjectOrReply(c, o, &value, msg) != C_OK) return C_ERR;
+    if (value < LONG_MIN || value > LONG_MAX) {
+        if (msg != nullptr) {
+            addReplyError(c,(char*)msg);
+        } else {
+            addReplyError(c,"value is out of range");
+        }
+        return C_ERR;
+    }
+    *target = value;
+    return C_OK;
+}

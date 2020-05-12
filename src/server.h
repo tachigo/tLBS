@@ -63,6 +63,15 @@
 
 #define MAXMEMORY_NO_EVICTION (7<<8)
 
+
+typedef struct clientBufferLimitsConfig {
+    unsigned long long hard_limit_bytes;
+    unsigned long long soft_limit_bytes;
+    time_t soft_limit_seconds;
+} clientBufferLimitsConfig;
+
+extern clientBufferLimitsConfig clientBufferLimitsDefaults[CLIENT_TYPE_OBUF_COUNT];
+
 struct tLbsServer {
     /* General */
     pid_t pid;                  /* Main process pid. */
@@ -122,7 +131,7 @@ struct tLbsServer {
     list *slaves, *monitors;    /* List of slaves and MONITORs */
     client *current_client;     /* Current client executing the command. */
     rax *clients_timeout_table; /* Radix tree for blocked clients timeouts. */
-    long fixed_time_expire;     /* If > 0, expire keys against server.mstime. */
+//    long fixed_time_expire;     /* If > 0, expire keys against server.mstime. */
     rax *clients_index;         /* Active clients dictionary by client ID. */
     int clients_paused;         /* True if clients are currently paused */
     mstime_t clients_pause_end_time; /* Time when we undo clients_paused */
@@ -134,7 +143,7 @@ struct tLbsServer {
     /* If true the server will reply to gopher
                                    queries. Will still serve RESP2 queries. */
     int io_threads_num;         /* Number of IO threads to use. */
-//    int io_threads_do_reads;    /* Read and parse from IO threads? */
+    int io_threads_do_reads;    /* Read and parse from IO threads? */
 
     /* RDB / AOF loading information */
     int loading;                /* We are loading data from disk if true */
@@ -149,9 +158,9 @@ struct tLbsServer {
 //            *expireCommand, *pexpireCommand, *xclaimCommand,
 //            *xgroupCommand, *rpoplpushCommand;
     /* Fields used only for stats */
-//    time_t stat_starttime;          /* Server start time */
-//    long long stat_numcommands;     /* Number of processed commands */
-//    long long stat_numconnections;  /* Number of connections received */
+    time_t stat_starttime;          /* Server start time */
+    long long stat_numcommands;     /* Number of processed commands */
+    long long stat_numconnections;  /* Number of connections received */
 //    long long stat_expiredkeys;     /* Number of expired keys */
 //    double stat_expired_stale_perc; /* Percentage of keys probably expired */
 //    long long stat_expired_time_cap_reached_count; /* Early expire cylce stops.*/
@@ -177,12 +186,12 @@ struct tLbsServer {
 //    unsigned long slowlog_max_len;     /* SLOWLOG max number of items logged */
 //    struct malloc_stats cron_malloc_stats; /* sampled in serverCron(). */
 //    _Atomic long long stat_net_input_bytes; /* Bytes read from network. */
-//    _Atomic long long stat_net_output_bytes; /* Bytes written to network. */
+    _Atomic long long stat_net_output_bytes; /* Bytes written to network. */
 //    size_t stat_rdb_cow_bytes;      /* Copy on write bytes during RDB saving. */
 //    size_t stat_aof_cow_bytes;      /* Copy on write bytes during AOF rewrite. */
 //    size_t stat_module_cow_bytes;   /* Copy on write bytes during module fork. */
 //    uint64_t stat_clients_type_memory[CLIENT_TYPE_COUNT];/* Mem usage by type */
-//    long long stat_unexpected_error_replies; /* Number of unexpected (aof-loading, replica to master, etc.) error replies */
+    long long stat_unexpected_error_replies; /* Number of unexpected (aof-loading, replica to master, etc.) error replies */
     /* The following two are used to track instantaneous metrics, like
      * number of operations per second, network traffic. */
 //    struct {
@@ -210,7 +219,7 @@ struct tLbsServer {
 //    int supervised;                 /* 1 if supervised, 0 otherwise. */
 //    int supervised_mode;            /* See SUPERVISED_* */
     int daemonize;                  /* True if running as a daemon */
-//    clientBufferLimitsConfig client_obuf_limits[CLIENT_TYPE_OBUF_COUNT];
+    clientBufferLimitsConfig client_obuf_limits[CLIENT_TYPE_OBUF_COUNT];
     /* AOF persistence */
 //    int aof_enabled;                /* AOF configuration */
 //    int aof_state;                  /* AOF_(ON|OFF|WAIT_REWRITE) */
@@ -253,7 +262,7 @@ struct tLbsServer {
                                       to child process. */
 //    sds aof_child_diff;             /* AOF diff accumulator child side. */
     /* RDB persistence */
-//    long long dirty;                /* Changes to DB from the last save */
+    long long dirty;                /* Changes to DB from the last save */
 //    long long dirty_before_bgsave;  /* Used to restore dirty on failed BGSAVE */
 //    pid_t rdb_child_pid;            /* PID of RDB saving child */
 //    struct saveparam *saveparams;   /* Save points array for RDB */
@@ -492,6 +501,30 @@ struct tLbsServer {
 //    int tls_auth_clients;
 //    redisTLSContextConfig tls_ctx_config;
 };
+#define PROTO_SHARED_SELECT_CMDS 10
+#define OBJ_SHARED_INTEGERS 10000
+#define OBJ_SHARED_BULKHDR_LEN 32
+
+struct sharedObjectsStruct {
+    obj *crlf, *ok, *err, *emptybulk, *czero, *cone, *pong, *space,
+            *colon, *queued, *null[4], *nullarray[4], *emptymap[4], *emptyset[4],
+            *emptyarray, *wrongtypeerr, *nokeyerr, *syntaxerr, *sameobjecterr,
+            *outofrangeerr, *noscripterr, *loadingerr, *slowscripterr, *bgsaveerr,
+            *masterdownerr, *roslaveerr, *execaborterr, *noautherr, *noreplicaserr,
+            *busykeyerr, *oomerr, *plus, *messagebulk, *pmessagebulk, *subscribebulk,
+            *unsubscribebulk, *psubscribebulk, *punsubscribebulk, *del, *unlink,
+            *rpop, *lpop, *lpush, *rpoplpush, *zpopmin, *zpopmax, *emptyscan,
+            *multi, *exec,
+            *select[PROTO_SHARED_SELECT_CMDS],
+            *integers[OBJ_SHARED_INTEGERS],
+            *mbulkhdr[OBJ_SHARED_BULKHDR_LEN], /* "*<value>\r\n" */
+            *bulkhdr[OBJ_SHARED_BULKHDR_LEN];  /* "$<value>\r\n" */
+    sds minstring, maxstring;
+};
+
+extern struct sharedObjectsStruct shared;
+
+void createSharedObjects();
 
 
 
@@ -560,6 +593,9 @@ void beforeSleep(struct aeEventLoop *eventLoop);
 void afterSleep(struct aeEventLoop *eventLoop);
 
 void adjustOpenFilesLimit();
+void resetServerStats();
+void initServerLast();
+
 
 extern struct tLbsServer server;
 

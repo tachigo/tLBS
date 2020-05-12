@@ -197,8 +197,8 @@ int connSockName(connection *conn, char *ip, size_t ip_len, int *port);
 const char *connGetInfo(connection *conn, char *buf, size_t buf_len);
 
 /* Helpers for tls special considerations */
-int tlsHasPendingData();
-void tlsProcessPendingData();
+//int tlsHasPendingData();
+//void tlsProcessPendingData();
 
 
 #endif //TLBS_CONNECTION_H

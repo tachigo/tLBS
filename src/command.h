@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include "sds.h"
+#include "client.h"
 
 
 
@@ -57,15 +58,29 @@
 #define CMD_CATEGORY_TRANSACTION (1ULL<<37)
 #define CMD_CATEGORY_SCRIPTING (1ULL<<38)
 
+
+/* Command call flags, see call() function */
+#define CMD_CALL_NONE 0
+#define CMD_CALL_SLOWLOG (1<<0)
+#define CMD_CALL_STATS (1<<1)
+#define CMD_CALL_PROPAGATE_AOF (1<<2)
+#define CMD_CALL_PROPAGATE_REPL (1<<3)
+#define CMD_CALL_PROPAGATE (CMD_CALL_PROPAGATE_AOF|CMD_CALL_PROPAGATE_REPL)
+#define CMD_CALL_FULL (CMD_CALL_SLOWLOG | CMD_CALL_STATS | CMD_CALL_PROPAGATE)
+#define CMD_CALL_NOWRAP (1<<4)  /* Don't wrap also propagate array into
+                                   MULTI/EXEC: the caller will handle it.  */
+
+typedef void tLbsCommandProc(client *c);
+typedef int *tLbsGetKeysProc(struct redisCommand *cmd, obj **argv, int argc, int *numkeys);
 struct tLbsCommand {
-    char *name;
-//    redisCommandProc *proc;
+    const char *name;
+    tLbsCommandProc *proc;
     int arity;
-    char *sflags;   /* Flags as string representation, one char per flag. */
+    const char *sflags;   /* Flags as string representation, one char per flag. */
     uint64_t flags; /* The actual flags, obtained from the 'sflags' field. */
     /* Use a function to determine keys arguments in a command line.
      * Used for Redis Cluster redirect. */
-//    redisGetKeysProc *getkeys_proc;
+    tLbsGetKeysProc *getkeys_proc;
     /* What keys should be loaded in background when calling this command? */
     int firstkey; /* The first argument that's a key (0 = no keys) */
     int lastkey;  /* The last argument that's a key */
@@ -85,5 +100,9 @@ void populateCommandTable();
 tLbsCommand *lookupCommand(sds name);
 //tLbsCommand *lookupCommandByCString(char *s);
 //tLbsCommand *lookupCommandOrOriginal(sds name);
+
+
+
+void selectCommand(client *c);
 
 #endif //TLBS_COMMAND_H
