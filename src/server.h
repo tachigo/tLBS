@@ -166,8 +166,8 @@ struct tLbsServer {
 //    long long stat_expired_time_cap_reached_count; /* Early expire cylce stops.*/
 //    long long stat_expire_cycle_time_used; /* Cumulative microseconds used. */
 //    long long stat_evictedkeys;     /* Number of evicted keys (maxmemory) */
-//    long long stat_keyspace_hits;   /* Number of successful lookups of keys */
-//    long long stat_keyspace_misses; /* Number of failed lookups of keys */
+    long long stat_keyspace_hits;   /* Number of successful lookups of keys */
+    long long stat_keyspace_misses; /* Number of failed lookups of keys */
 //    long long stat_active_defrag_hits;      /* number of allocations moved */
 //    long long stat_active_defrag_misses;    /* number of allocations scanned but not moved */
 //    long long stat_active_defrag_key_hits;  /* number of keys with moved allocations */

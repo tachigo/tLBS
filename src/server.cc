@@ -821,8 +821,8 @@ void resetServerStats() {
 //    server.stat_expired_time_cap_reached_count = 0;
 //    server.stat_expire_cycle_time_used = 0;
 //    server.stat_evictedkeys = 0;
-//    server.stat_keyspace_misses = 0;
-//    server.stat_keyspace_hits = 0;
+    server.stat_keyspace_misses = 0;
+    server.stat_keyspace_hits = 0;
 //    server.stat_active_defrag_hits = 0;
 //    server.stat_active_defrag_misses = 0;
 //    server.stat_active_defrag_key_hits = 0;

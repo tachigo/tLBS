@@ -24,6 +24,7 @@ set(SRC_SERVER_TMP
         src/networking.cc
         src/object.cc
         src/rax.cc
+        src/s2.cc
         src/sds.cc
         src/setproctitle.cc
         src/siphash.cc
@@ -31,12 +32,13 @@ set(SRC_SERVER_TMP
         src/sha256.cc
         src/syncio.cc
         src/t_point.cc
+        src/t_polygon.cc
         src/util.cc
         src/zmalloc.cc
         )
 set(SRC_SERVER src/server.cc ${SRC_SERVER_TMP})
 
-set(EXECUTABLE_OUTPUT_PATH bin)
+set(EXECUTABLE_OUTPUT_PATH ../bin)
 link_directories(
         ${TLBS_ROOT}/deps/s2geometry
 )

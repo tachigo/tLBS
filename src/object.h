@@ -28,6 +28,8 @@
 #define OBJ_ENCODING_QUICKLIST 9 /* Encoded as linked list of ziplists */
 #define OBJ_ENCODING_STREAM 10 /* Encoded as a radix tree of listpacks */
 
+#define OBJ_ENCODING_S2INDEX 11 /* Encoded as a s2index */
+
 #define OBJ_FORMAT_DEGREE 0
 #define OBJ_FORMAT_RADIAN 1
 #define OBJ_FORMAT_CELL_ID 2

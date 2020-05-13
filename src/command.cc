@@ -10,6 +10,7 @@
 #include "debug.h"
 
 #include "t_point.h"
+#include "t_polygon.h"
 
 
 /* Command table. sds string -> command struct pointer. */
@@ -30,7 +31,10 @@ struct tLbsCommand tLbsCommandTable[] = {
 
         {"pointtest", pointTestCommand, 5,
                 "ok-loading fast ok-stale @keyspace",
-                0, nullptr,0,0,0,0,0,0}
+                0, nullptr,0,0,0,0,0,0},
+        {"polygonset", polygonSetCommand, 4,
+                    "ok-loading fast ok-stale @keyspace",
+                    0, nullptr,0,0,0,0,0,0},
 };
 
 

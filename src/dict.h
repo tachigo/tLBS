@@ -147,8 +147,10 @@ uint64_t dictGetHash(dict * d, const void * key);
 dictEntry ** dictFindEntryRefByPtrAndHash(dict * d, const void * oldPtr, uint64_t hash);
 
 /* Hash table types */
-extern dictType dictTypeHeapStringCopyKey;
-extern dictType dictTypeHeapStrings;
-extern dictType dictTypeHeapStringCopyKeyValue;
+//extern dictType dictTypeHeapStringCopyKey;
+//extern dictType dictTypeHeapStrings;
+//extern dictType dictTypeHeapStringCopyKeyValue;
+
+//extern dictType polygonDictType;
 
 #endif //TLBS_DICT_H

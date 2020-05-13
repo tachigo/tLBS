@@ -22,5 +22,16 @@ int dbDelete(db *db, obj *key);
 long long dbTotalServerKeyCount();
 void dbInit();
 
+#define LOOKUP_NONE 0
+#define LOOKUP_NOTOUCH (1<<0)
+
+obj *lookupKey(db *db, obj *key, int flags);
+obj *lookupKeyRead(db *db, obj *key);
+obj *lookupKeyWrite(db *db, obj *key);
+
+obj *lookupKeyReadWithFlags(db *db, obj *key, int flags);
+obj *lookupKeyWriteWithFlags(db *db, obj *key, int flags);
+
+
 
 #endif //TLBS_DB_H

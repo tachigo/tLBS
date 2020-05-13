@@ -10,6 +10,7 @@
 #include "debug.h"
 #include "command.h"
 #include "util.h"
+#include "db.h"
 
 #include <pthread.h>
 #include <cstring>
@@ -1774,4 +1775,17 @@ int getLongDoubleFromObjectOrReply(client *c, obj *o, long double *target, const
     }
     *target = value;
     return C_OK;
+}
+
+
+obj *lookupKeyReadOrReply(client *c, obj *key, obj *reply) {
+    obj *o = lookupKeyRead(c->db, key);
+    if (!o) addReply(c,reply);
+    return o;
+}
+
+obj *lookupKeyWriteOrReply(client *c, obj *key, obj *reply) {
+    obj *o = lookupKeyWrite(c->db, key);
+    if (!o) addReply(c,reply);
+    return o;
 }
