@@ -13,7 +13,7 @@ using namespace std;
 
 class s2polygonIndex {
 public:
-    map<long long, long long> map;
+    map<unsigned long long, unsigned long long> map;
     MutableS2ShapeIndex *index;
 };
 

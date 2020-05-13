@@ -23,8 +23,8 @@ void polygonDel(s2polygonIndex *indexObj, S2Polygon *polygon, int shapeId) {
 void polygonSetCommand(client *c) {
     obj *tableObj;
     obj *key = c->argv[1];
-    long long id;
-    getLongLongFromObjectOrReply(c, c->argv[2], &id, "id is invalid");
+    unsigned long long id;
+    getUnsignedLongLongFromObjectOrReply(c, c->argv[2], &id, "id is invalid");
     sds cdata = (sds)c->argv[3]->ptr;
     serverLog(LL_WARNING, "polygonset: key=%s, id=%llu, data=%s", (char *)key->ptr, id, cdata);
     string data = (char *)cdata;

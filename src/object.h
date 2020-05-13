@@ -62,6 +62,7 @@ obj *resetRefCount(obj *obj);
 
 
 int getLongLongFromObject(obj *o, long long *target);
+int getUnsignedLongLongFromObject(obj *o, unsigned long long *target);
 int getDoubleFromObject(const obj *o, double *target);
 int getLongDoubleFromObject(obj *o, long double *target);
 

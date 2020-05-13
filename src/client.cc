@@ -1719,6 +1719,20 @@ void call(client *c, int flags) {
     server.stat_numcommands++;
 }
 
+int getUnsignedLongLongFromObjectOrReply(client *c, obj *o, unsigned long long *target, const char *msg) {
+    unsigned long long value;
+    if (getUnsignedLongLongFromObject(o, &value) != C_OK) {
+        if (msg != nullptr) {
+            addReplyError(c,(char*)msg);
+        } else {
+            addReplyError(c,"value is not an integer or out of range");
+        }
+        return C_ERR;
+    }
+    *target = value;
+    return C_OK;
+}
+
 int getLongLongFromObjectOrReply(client *c, obj *o, long long *target, const char *msg) {
     long long value;
     if (getLongLongFromObject(o, &value) != C_OK) {

@@ -257,6 +257,7 @@ int writeToClient(client *c, int handler_installed);
 void sendReplyToClient(connection *conn);
 void freeClientsInAsyncFreeQueue();
 
+int getUnsignedLongLongFromObjectOrReply(client *c, obj *o, unsigned long long *target, const char *msg);
 int getLongLongFromObjectOrReply(client *c, obj *o, long long *target, const char *msg);
 int getLongFromObjectOrReply(client *c, obj *o, long *target, const char *msg);
 int getDoubleFromObjectOrReply(client *c, obj *o, double *target, const char *msg);

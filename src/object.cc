@@ -166,6 +166,26 @@ obj *resetRefCount(obj *obj) {
 }
 
 
+int getUnsignedLongLongFromObject(obj *o, unsigned long long *target) {
+    unsigned long long value;
+
+    if (o == nullptr) {
+        value = 0;
+    } else {
+//        serverAssertWithInfo(NULL,o,o->type == OBJ_TYPE_STRING);
+        if (sdsEncodedObject(o)) {
+            if (string2ull((char *)o->ptr,&value) == 0) return C_ERR;
+        } else if (o->encoding == OBJ_ENCODING_INT) {
+            value = (long)o->ptr;
+        } else {
+            serverPanic("Unknown string encoding");
+        }
+    }
+    if (target) *target = value;
+    return C_OK;
+}
+
+
 int getLongLongFromObject(obj *o, long long *target) {
     long long value;
 
