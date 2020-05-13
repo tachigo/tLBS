@@ -138,6 +138,7 @@ if (NOT DEFINED GFLAGS_IS_SUBPROJECT)
     set (GFLAGS_IS_SUBPROJECT TRUE)
   endif ()
 endif ()
+message("GFLAGS_IS_SUBPROJECT: ${GFLAGS_IS_SUBPROJECT}")
 
 # prefix for package variables in CMake configuration file
 string (TOUPPER "${PACKAGE_NAME}" PACKAGE_PREFIX)
@@ -179,6 +180,8 @@ gflags_define (BOOL INSTALL_SHARED_LIBS        "Request installation of shared l
 gflags_define (BOOL INSTALL_STATIC_LIBS        "Request installation of static libraries."                                ON  OFF)
 gflags_define (BOOL REGISTER_BUILD_DIR         "Request entry of build directory in CMake's package registry."            OFF OFF)
 gflags_define (BOOL REGISTER_INSTALL_PREFIX    "Request entry of installed package in CMake's package registry."          ON  OFF)
+
+message("BUILD_gflags_nothreads_LIB: ${GFLAGS_BUILD_gflags_nothreads_LIB}")
 
 gflags_property (BUILD_STATIC_LIBS   ADVANCED TRUE)
 gflags_property (INSTALL_HEADERS     ADVANCED TRUE)
@@ -581,6 +584,7 @@ endif ()
 # ----------------------------------------------------------------------------
 # support direct use of build tree
 set (INSTALL_PREFIX_REL2CONFIG_DIR .)
+message("gflags-export: ${TARGETS}")
 export (
   TARGETS ${TARGETS}
   NAMESPACE ${PACKAGE_NAME}::

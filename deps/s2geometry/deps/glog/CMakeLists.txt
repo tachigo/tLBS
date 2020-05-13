@@ -59,13 +59,15 @@ include (GNUInstallDirs)
 set (CMAKE_DEBUG_POSTFIX d)
 set (CMAKE_THREAD_PREFER_PTHREAD 1)
 
-if (WITH_GFLAGS)
-  find_package (gflags 2.2.0)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/deps/gflags)
 
-  if (gflags_FOUND)
+if (WITH_GFLAGS)
+#  find_package (gflags 2.2.0)
+
+#  if (gflags_FOUND)
     set (HAVE_LIB_GFLAGS 1)
     determine_gflags_namespace (gflags_NAMESPACE)
-  endif (gflags_FOUND)
+#  endif (gflags_FOUND)
 endif (WITH_GFLAGS)
 
 find_package (Threads)
@@ -561,14 +563,15 @@ if (WIN32 AND HAVE_SNPRINTF)
     HAVE_SNPRINTF)
 endif (WIN32 AND HAVE_SNPRINTF)
 
-if (gflags_FOUND)
-  target_link_libraries (glog PUBLIC gflags)
+#if (gflags_FOUND)
+  target_include_directories(glog PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/deps/gflags/src)
+  target_link_libraries (glog PRIVATE gflags)
 
   if (NOT BUILD_SHARED_LIBS)
     # Don't use __declspec(dllexport|dllimport) if this is a static build
     targeT_compile_definitions (glog PUBLIC GFLAGS_DLL_DECLARE_FLAG= GFLAGS_DLL_DEFINE_FLAG=)
   endif (NOT BUILD_SHARED_LIBS)
-endif (gflags_FOUND)
+#endif (gflags_FOUND)
 
 set_target_properties (glog PROPERTIES VERSION ${PROJECT_VERSION})
 set_target_properties (glog PROPERTIES SOVERSION ${PROJECT_VERSION_MAJOR})
@@ -777,7 +780,7 @@ endif (WITH_PKGCONFIG)
 
 set (glog_CMake_VERSION 3.0)
 
-if (gflags_FOUND)
+#if (gflags_FOUND)
   # Ensure clients locate only the package config and not third party find
   # modules having the same name. This avoid cmake_policy PUSH/POP errors.
   if (CMAKE_VERSION VERSION_LESS 3.9)
@@ -788,7 +791,7 @@ if (gflags_FOUND)
     set (glog_CMake_VERSION 3.9)
     set (gflags_DEPENDENCY "find_dependency (gflags ${gflags_VERSION} NO_MODULE)")
   endif (CMAKE_VERSION VERSION_LESS 3.9)
-endif (gflags_FOUND)
+#endif (gflags_FOUND)
 
 configure_package_config_file (glog-config.cmake.in
   ${CMAKE_CURRENT_BINARY_DIR}/glog-config.cmake
