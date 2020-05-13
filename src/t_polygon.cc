@@ -10,13 +10,23 @@
 
 using namespace std;
 
+int polygonAdd(s2polygonIndex *indexObj, S2Polygon *polygon) {
+    int shapeId = indexObj->index->Add(absl::make_unique<S2Polygon::Shape>(polygon));
+    return shapeId;
+}
+
+void polygonDel(s2polygonIndex *indexObj, S2Polygon *polygon, int shapeId) {
+    delete indexObj->index->Release(shapeId).release();
+}
+
 // polygonset key id s2textformat
 void polygonSetCommand(client *c) {
     obj *tableObj;
     obj *key = c->argv[1];
-    sds id = (sds)c->argv[2]->ptr;
+    long long id;
+    getLongLongFromObjectOrReply(c, c->argv[2], &id, "id is invalid");
     sds cdata = (sds)c->argv[3]->ptr;
-    serverLog(LL_WARNING, "polygonset: key=%s, id=%s, data=%s", (char *)key->ptr, id, cdata);
+    serverLog(LL_WARNING, "polygonset: key=%s, id=%llu, data=%s", (char *)key->ptr, id, cdata);
     string data = (char *)cdata;
 
     tableObj = lookupKeyWrite(c->db,key);
@@ -42,27 +52,27 @@ void polygonSetCommand(client *c) {
     }
     // 检查这个id的多边形是否已经存在
     auto indexObj = (s2polygonIndex *) tableObj->ptr;
-
-    dictEntry *de;
-    de = dictFind(indexObj->dict, id);
-    if (de == nullptr) {
-        serverLog(LL_WARNING, "polygon#%s 不存在", id);
+    auto mapIter = indexObj->map.find(id);
+    if (mapIter == indexObj->map.end()) {
+        serverLog(LL_WARNING, "polygon#%llu 不存在", id);
         // 未存在 新增
-        int shapeId = indexObj->index->Add(absl::make_unique<S2Polygon::Shape>(polygon.release()));
-        serverLog(LL_WARNING, "polygon#%s 的shape id=%d", id, shapeId);
-        dictAdd(indexObj->dict, id, &shapeId);
+        int newShapeId = polygonAdd(indexObj, polygon.release());
+        serverLog(LL_WARNING, "polygon#%llu 的shape id=%d", id, newShapeId);
+        indexObj->map[id] = newShapeId;
         incrRefCount(tableObj);
     } else {
-        serverLog(LL_WARNING, "polygon#%s 已存在", id);
-        // 已存在 删除老的 更新
-        int shapeId = indexObj->index->Add(absl::make_unique<S2Polygon::Shape>(polygon.release()));
-        serverLog(LL_WARNING, "polygon#%s 的shape id=%d", id, shapeId);
-        int oldShapeId = *(int *)dictGetVal(de);
-        serverLog(LL_WARNING, "polygon#%s 的旧的shape id=%d", id, oldShapeId);
-        delete indexObj->index->Release(oldShapeId).release();
-        dictReplace(indexObj->dict, id, &shapeId);
+        serverLog(LL_WARNING, "polygon#%llu 已存在", id);
+        // 已存在 插入新的 删除老的
+        int oldShapeId = mapIter->second;
+        serverLog(LL_WARNING, "polygon#%llu 的旧的shape id=%d", id, oldShapeId);
+        int newShapeId = polygonAdd(indexObj, polygon.release());
+        serverLog(LL_WARNING, "polygon#%llu 的新的shape id=%d", id, newShapeId);
+        polygonDel(indexObj, polygon.release(), oldShapeId);
+        indexObj->map[id] = newShapeId;
     }
     addReply(c, shared.ok);
 
     server.dirty++;
 }
+
+

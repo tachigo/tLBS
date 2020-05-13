@@ -7,12 +7,15 @@
 
 #include <s2/mutable_s2shape_index.h>
 #include "object.h"
-#include "dict.h"
+#include <map>
 
-typedef struct s2polygonIndex {
-    dict *dict;
+using namespace std;
+
+class s2polygonIndex {
+public:
+    map<long long, long long> map;
     MutableS2ShapeIndex *index;
-} s2polygonIndex;
+};
 
 obj *createPolygonObject();
 
