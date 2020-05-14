@@ -11,20 +11,22 @@ set(SRC_SERVER_TMP
         src/adlist.cc
         src/ae.cc
         src/anet.cc
+        src/childinfo.cc
         src/client.cc
         src/command.cc
         src/common.cc
         src/config.cc
         src/connection.cc
+        src/persistence.cc
         src/db.cc
         src/debug.cc
         src/dict.cc
         src/endianconv.cc
+        src/geo.cc
         src/localtime.cc
         src/networking.cc
         src/object.cc
         src/rax.cc
-        src/s2.cc
         src/sds.cc
         src/setproctitle.cc
         src/siphash.cc

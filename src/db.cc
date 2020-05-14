@@ -9,6 +9,7 @@
 
 #include "atomicvar.h"
 #include "sds.h"
+#include "debug.h"
 
 //#include <signal.h>
 //#include <cctype>
@@ -155,4 +156,40 @@ obj *lookupKeyReadWithFlags(db *db, obj *key, int flags) {
         server.stat_keyspace_hits++;
     }
     return val;
+}
+
+
+/* This callback is used by scanGenericCommand in order to collect elements
+ * returned by the dictionary iterator into a list. */
+void scanCallback(void *privdata, const dictEntry *de) {
+    void **pd = (void**) privdata;
+    list *keys = (list *)pd[0];
+    obj *o = (obj *)pd[1];
+    obj *key, *val = nullptr;
+
+    if (o == nullptr) {
+        sds sdskey = (sds)dictGetKey(de);
+        key = createStringObject(sdskey, sdslen(sdskey));
+//    }
+//    else if (o->type == OBJ_SET) {
+//        sds keysds = (sds)dictGetKey(de);
+//        key = createStringObject(keysds,sdslen(keysds));
+//    } else if (o->type == OBJ_HASH) {
+//        sds sdskey = (sds)dictGetKey(de);
+//        sds sdsval = (sds)dictGetVal(de);
+//        key = createStringObject(sdskey,sdslen(sdskey));
+//        val = createStringObject(sdsval,sdslen(sdsval));
+//    }
+
+//    else if (o->type == OBJ_ZSET) {
+//        sds sdskey = (sds)dictGetKey(de);
+//        key = createStringObject(sdskey,sdslen(sdskey));
+//        val = createStringObjectFromLongDouble(*(double*)dictGetVal(de),0);
+    }
+    else {
+        serverPanic("Type not handled in SCAN callback.");
+    }
+
+    listAddNodeTail(keys, key);
+    if (val) listAddNodeTail(keys, val);
 }

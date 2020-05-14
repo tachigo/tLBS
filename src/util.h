@@ -34,7 +34,7 @@ int string2ld(const char *s, size_t slen, long double *dp);
 int string2d(const char *s, size_t slen, double *dp);
 int d2string(char *buf, size_t len, double value);
 int ld2string(char *buf, size_t len, long double value, ld2string_mode mode);
-sds getAbsolutePath(char *filename);
+sds getAbsolutePath(const char *filename);
 unsigned long getTimeZone();
 int pathIsBaseName(char *path);
 void getRandomHexChars(char *p, size_t len);

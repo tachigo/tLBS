@@ -41,6 +41,11 @@ void serverLogFromHandler(int level, const char *msg);
 #define LL_RAW (1<<10) /* Modifier to log without timestamp */
 #define LOG_MAX_LEN    1024 /* Default maximum length of syslog messages.*/
 
+/* Supervision options */
+#define SUPERVISED_NONE 0
+#define SUPERVISED_AUTODETECT 1
+#define SUPERVISED_SYSTEMD 2
+#define SUPERVISED_UPSTART 3
 
 uint64_t dictSdsCaseHash(const void *key);
 
@@ -54,5 +59,9 @@ int dictSdsKeyCompare(void *privdata, const void *key1,
                       const void *key2);
 
 void dictObjectDestructor(void *privdata, void *val);
+
+int isSupervised(int mode);
+int supervisedUpstart();
+int communicateSystemd(const char *sd_notify_msg);
 
 #endif //TLBS_COMMON_H

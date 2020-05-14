@@ -26,6 +26,7 @@ const char * getObjectTypeName(obj * o) {
 //                moduleValue *mv = o->ptr;
 //                type = mv->type->name;
 //            }; break;
+            case OBJ_TYPE_POLYGONS: type = "polygon"; break;
             default: type = "unknown"; break;
         }
     }

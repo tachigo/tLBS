@@ -72,7 +72,21 @@ typedef struct clientBufferLimitsConfig {
 
 extern clientBufferLimitsConfig clientBufferLimitsDefaults[CLIENT_TYPE_OBUF_COUNT];
 
+
+#define SERVER_CHILD_NOERROR_RETVAL    255
+#define CONFIG_BGSAVE_RETRY_DELAY 5 /* Wait a few secs before trying again. */
+#define PERSISTENCE_CHILD_TYPE_NONE 0
+#define PERSISTENCE_CHILD_TYPE_DISK 1     /* RDB is written to disk. */
+#define PERSISTENCE_CHILD_TYPE_SOCKET 2   /* RDB is written to slave socket. */
+
+
+struct saveparam {
+    time_t seconds;
+    int changes;
+};
+
 struct tLbsServer {
+    sds root;
     /* General */
     pid_t pid;                  /* Main process pid. */
     char *configfile;           /* Absolute config file path, or NULL */
@@ -174,8 +188,8 @@ struct tLbsServer {
 //    long long stat_active_defrag_key_misses;/* number of keys scanned and not moved */
 //    long long stat_active_defrag_scanned;   /* number of dictEntries scanned */
 //    size_t stat_peak_memory;        /* Max used memory record */
-//    long long stat_fork_time;       /* Time needed to perform latest fork() */
-//    double stat_fork_rate;          /* Fork rate in GB/sec. */
+    long long stat_fork_time;       /* Time needed to perform latest fork() */
+    double stat_fork_rate;          /* Fork rate in GB/sec. */
     long long stat_rejected_conn;   /* Clients rejected because of maxclients */
 //    long long stat_sync_full;       /* Number of full resyncs with slaves. */
 //    long long stat_sync_partial_ok; /* Number of accepted PSYNC requests. */
@@ -216,8 +230,8 @@ struct tLbsServer {
 //    unsigned long active_defrag_max_scan_fields; /* maximum number of fields of set/hash/zset/list to process from within the main dict scan */
     _Atomic size_t client_max_querybuf_len; /* Limit for client query buffer length */
     int dbnum;                      /* Total number of configured DBs */
-//    int supervised;                 /* 1 if supervised, 0 otherwise. */
-//    int supervised_mode;            /* See SUPERVISED_* */
+    int supervised;                 /* 1 if supervised, 0 otherwise. */
+    int supervised_mode;            /* See SUPERVISED_* */
     int daemonize;                  /* True if running as a daemon */
     clientBufferLimitsConfig client_obuf_limits[CLIENT_TYPE_OBUF_COUNT];
     /* AOF persistence */
@@ -261,29 +275,37 @@ struct tLbsServer {
     /* If true stop sending accumulated diffs
                                       to child process. */
 //    sds aof_child_diff;             /* AOF diff accumulator child side. */
+    pid_t persistence_child_pid; // 持久化到磁盘的子进程ID
+
     /* RDB persistence */
     long long dirty;                /* Changes to DB from the last save */
-//    long long dirty_before_bgsave;  /* Used to restore dirty on failed BGSAVE */
+    long long dirty_before_bgsave;  /* Used to restore dirty on failed BGSAVE */
 //    pid_t rdb_child_pid;            /* PID of RDB saving child */
-//    struct saveparam *saveparams;   /* Save points array for RDB */
-//    int saveparamslen;              /* Number of saving points */
+    struct saveparam *saveparams;   /* Save points array for RDB */
+    int saveparamslen;              /* Number of saving points */
 //    char *rdb_filename;             /* Name of RDB file */
+    sds persistence_root;             // 持久化数据的根目录
 //    int rdb_compression;            /* Use compression in RDB? */
 //    int rdb_checksum;               /* Use RDB checksum? */
 //    int rdb_del_sync_files;
     /* Remove RDB files used only for SYNC if
                                        the instance does not use persistence. */
-//    time_t lastsave;                /* Unix time of last successful save */
-//    time_t lastbgsave_try;          /* Unix time of last attempted bgsave */
+    time_t lastsave;                /* Unix time of last successful save */
+    time_t lastbgsave_try;          /* Unix time of last attempted bgsave */
+    time_t persistence_save_time_last;
+    time_t persistence_save_time_start;
 //    time_t rdb_save_time_last;      /* Time used by last RDB save run. */
 //    time_t rdb_save_time_start;     /* Current RDB save start time. */
 //    int rdb_bgsave_scheduled;       /* BGSAVE when possible if true. */
+    int persistence_bgsave_scheduled;
 //    int rdb_child_type;             /* Type of save by active child. */
-//    int lastbgsave_status;          /* C_OK or C_ERR */
-//    int stop_writes_on_bgsave_err;  /* Don't allow writes if can't BGSAVE */
+    int persistence_child_type;
+    int lastbgsave_status;          /* C_OK or C_ERR */
+    int stop_writes_on_bgsave_err;  /* Don't allow writes if can't BGSAVE */
 //    int rdb_pipe_write;             /* RDB pipes used to transfer the rdb */
 //    int rdb_pipe_read;              /* data to the parent process in diskless repl. */
 //    connection **rdb_pipe_conns;    /* Connections which are currently the */
+    connection **persistence_pipe_conns;
 //    int rdb_pipe_numconns;          /* target of diskless rdb fork child. */
 //    int rdb_pipe_numconns_writing;  /* Number of rdb conns with pending writes. */
 //    char *rdb_pipe_buff;            /* In diskless replication, this buffer holds data */
@@ -295,12 +317,12 @@ struct tLbsServer {
     /* Delay in microseconds between keys while
                                      * loading aof or rdb. (for testings) */
     /* Pipe and data structures for child -> parent info sharing. */
-//    int child_info_pipe[2];         /* Pipe used to write the child_info_data. */
-//    struct {
-//        int process_type;           /* AOF or RDB child? */
-//        size_t cow_size;            /* Copy on write size. */
-//        unsigned long long magic;   /* Magic value to make sure data is valid. */
-//    } child_info_data;
+    int child_info_pipe[2];         /* Pipe used to write the child_info_data. */
+    struct {
+        int process_type;           /* AOF or RDB child? */
+        size_t cow_size;            /* Copy on write size. */
+        unsigned long long magic;   /* Magic value to make sure data is valid. */
+    } child_info_data;
     /* Propagation of commands in AOF / replication */
 //    redisOpArray also_propagate;    /* Additional command to propagate. */
     /* Logging */
@@ -526,44 +548,23 @@ extern struct sharedObjectsStruct shared;
 
 void createSharedObjects();
 
-
-
-
-
-
-/*-----------------------------------------------------------------------------
- * Data types 数据类型：点、线、多边形
- *----------------------------------------------------------------------------*/
-
-#define OBJ_POINTS 0 /* (multi-)point 点 */
-#define OBJ_LINES 1 /* (multi-)linestring 线 */
-#define OBJ_POLYGONS 2 /* (multi-)polygon 多边形 */
-
-#define OBJ_FORMAT_DEGREE 0
-#define OBJ_FORMAT_RADIAN 1
-#define OBJ_FORMAT_CELL_ID 2
-
-
-/*--------------------------------------------------------
- * 前缀 point/line/polygon表示要操作的索引的类型
- *--------------------------------------------------------*/
 // Point commands
-void pointSetCommand(client * c);
-void pointGetCommand(client * c);
-void pointNearbyCommand(client * c);
+//void pointSetCommand(client * c);
+//void pointGetCommand(client * c);
+//void pointNearbyCommand(client * c);
 
 
 // Line commands
-void lineSetCommand(client * c);
-void lineGetCommand(client * c);
-void lineNearbyCommand(client * c);
+//void lineSetCommand(client * c);
+//void lineGetCommand(client * c);
+//void lineNearbyCommand(client * c);
 
 
 // Polygon commands
-void polygonSetCommand(client * c);
-void polygonGetCommand(client * c);
-void polygonNearbyCommand(client * c);
-void polygonWithinCommand(client * c);
+//void polygonSetCommand(client * c);
+//void polygonGetCommand(client * c);
+//void polygonNearbyCommand(client * c);
+//void polygonWithinCommand(client * c);
 
 
 //extern struct tLbsServer server;
@@ -572,8 +573,8 @@ void polygonWithinCommand(client * c);
 /* Configurations */
 //void loadServerConfig(char *filename, char *options);
 ///* Configuration */
-//void appendServerSaveParams(time_t seconds, int changes);
-//void resetServerSaveParams();
+void appendServerSaveParams(time_t seconds, int changes);
+void resetServerSaveParams();
 //struct rewriteConfigState; /* Forward declaration to export API. */
 //void rewriteConfigRewriteLine(struct rewriteConfigState *state, const char *option, sds line, int force);
 //int rewriteConfig(char *path);
@@ -584,8 +585,10 @@ void initServerConfig();
 void updateCachedTime(int update_daylight_info);
 void daemonize();
 void version();
+void checkChildrenDone();
+int hasActiveChildProcess();
 int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData);
-void tLbsSetProcTitle(char *title);
+void tLbsSetProcTitle(const char *title);
 int listenToPort(int port, int *fds, int *count);
 void initServer();
 void createPidFile();
@@ -595,6 +598,12 @@ void afterSleep(struct aeEventLoop *eventLoop);
 void adjustOpenFilesLimit();
 void resetServerStats();
 void initServerLast();
+
+int serverFork();
+void closeListeningSockets(int unlink_unix_socket);
+void setupChildSignalHandlers();
+static void sigKillChildHandler(int sig);
+void exitFromChild(int retcode);
 
 
 extern struct tLbsServer server;

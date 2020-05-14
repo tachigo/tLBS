@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <cstdarg>
 #include <cstring>
+#include <csignal>
 
 
 /* Return the UNIX time in microseconds */
@@ -165,4 +166,59 @@ void dictObjectDestructor(void *privdata, void *val)
 
     if (val == nullptr) return; /* Lazy freeing will set value to NULL. */
     decrRefCount((obj *)val);
+}
+
+
+int isSupervised(int mode) {
+    if (mode == SUPERVISED_AUTODETECT) {
+        const char *upstart_job = getenv("UPSTART_JOB");
+        const char *notify_socket = getenv("NOTIFY_SOCKET");
+
+        if (upstart_job) {
+            supervisedUpstart();
+        } else if (notify_socket) {
+            server.supervised_mode = SUPERVISED_SYSTEMD;
+            serverLog(LL_WARNING,
+                      "WARNING auto-supervised by systemd - you MUST set appropriate values for TimeoutStartSec and TimeoutStopSec in your service unit.");
+            return communicateSystemd("STATUS=Redis is loading...\n");
+        }
+    } else if (mode == SUPERVISED_UPSTART) {
+        return supervisedUpstart();
+    } else if (mode == SUPERVISED_SYSTEMD) {
+        serverLog(LL_WARNING,
+                  "WARNING supervised by systemd - you MUST set appropriate values for TimeoutStartSec and TimeoutStopSec in your service unit.");
+        return communicateSystemd("STATUS=Redis is loading...\n");
+    }
+
+    return 0;
+}
+
+int supervisedUpstart() {
+    const char *upstart_job = getenv("UPSTART_JOB");
+
+    if (!upstart_job) {
+        serverLog(LL_WARNING,
+                  "upstart supervision requested, but UPSTART_JOB not found");
+        return 0;
+    }
+
+    serverLog(LL_NOTICE, "supervised by upstart, will stop to signal readiness");
+    raise(SIGSTOP);
+    unsetenv("UPSTART_JOB");
+    return 1;
+}
+
+int communicateSystemd(const char *sd_notify_msg) {
+    const char *notify_socket = getenv("NOTIFY_SOCKET");
+    if (!notify_socket) {
+        serverLog(LL_WARNING,
+                  "systemd supervision requested, but NOTIFY_SOCKET not found");
+    }
+
+#ifdef HAVE_LIBSYSTEMD
+        (void) sd_notify(0, sd_notify_msg);
+#else
+    UNUSED(sd_notify_msg);
+#endif
+    return 0;
 }

@@ -10,6 +10,8 @@
 #include "networking.h"
 #include "client.h"
 #include "command.h"
+#include "persistence.h"
+#include "childinfo.h"
 
 #include <sys/time.h>
 #include <clocale>
@@ -22,6 +24,7 @@
 #include <syslog.h>
 #include <fcntl.h>
 #include <cstring>
+#include <sys/wait.h>
 
 
 /*================================= Globals ================================= */
@@ -194,6 +197,19 @@ void createSharedObjects() {
     shared.maxstring = sdsnew("maxstring");
 }
 
+void appendServerSaveParams(time_t seconds, int changes) {
+    server.saveparams = (struct saveparam *)zrealloc(server.saveparams,sizeof(struct saveparam)*(server.saveparamslen+1));
+    server.saveparams[server.saveparamslen].seconds = seconds;
+    server.saveparams[server.saveparamslen].changes = changes;
+    server.saveparamslen++;
+}
+
+void resetServerSaveParams() {
+    zfree(server.saveparams);
+    server.saveparams = nullptr;
+    server.saveparamslen = 0;
+}
+
 void initServerConfig() {
     int j;
 
@@ -202,10 +218,10 @@ void initServerConfig() {
     server.runid[CONFIG_RUN_ID_SIZE] = '\0';
 //    changeReplicationId();
 //    clearReplicationId2();
-//    server.hz = CONFIG_DEFAULT_HZ; /* Initialize it ASAP, even if it may get
-//                                      updated later after loading the config.
-//                                      This value may be used before the server
-//                                      is initialized. */
+    server.hz = CONFIG_DEFAULT_HZ; /* Initialize it ASAP, even if it may get
+                                      updated later after loading the config.
+                                      This value may be used before the server
+                                      is initialized. */
     server.timezone = getTimeZone(); /* Initialized by tzset(). */
     server.configfile = nullptr;
     server.executable = nullptr;
@@ -217,7 +233,7 @@ void initServerConfig() {
 //    server.sofd = -1;
 //    server.active_expire_enabled = 1;
     server.client_max_querybuf_len = PROTO_MAX_QUERYBUF_LEN;
-//    server.saveparams = NULL;
+    server.saveparams = nullptr;
     server.loading = 0;
     server.logfile = zstrdup(CONFIG_DEFAULT_LOGFILE);
 //    server.aof_state = AOF_OFF;
@@ -246,11 +262,13 @@ void initServerConfig() {
 //    server.loading_process_events_interval_bytes = (1024*1024*2);
 
 //    server.lruclock = getLRUClock();
-//    resetServerSaveParams();
+    resetServerSaveParams();
 
-//    appendServerSaveParams(60*60,1);  /* save after 1 hour and 1 change */
-//    appendServerSaveParams(300,100);  /* save after 5 minutes and 100 changes */
-//    appendServerSaveParams(60,10000); /* save after 1 minute and 10000 changes */
+    appendServerSaveParams(60*60,1);  /* save after 1 hour and 1 change */
+    appendServerSaveParams(300,100);  /* save after 5 minutes and 100 changes */
+    appendServerSaveParams(60,10000); /* save after 1 minute and 10000 changes */
+
+    appendServerSaveParams(10,1); // 10秒1次修改
 
     /* Replication related */
 //    server.masterauth = NULL;
@@ -306,6 +324,13 @@ void initServerConfig() {
      * script to the slave / AOF. This is the new way starting from
      * tLBS 5. However it is possible to revert it via redis.conf. */
 //    server.lua_always_replicate_commands = 1;
+
+    server.root = getAbsolutePath("../");
+    server.persistence_root = sdscat(sdsnew(server.root), sdsnew("data/"));
+//    sds logfile = sdscat(sdsnew(server.root), "log/server.log");
+    serverLog(LL_WARNING, "根目录=%s", server.root);
+    serverLog(LL_WARNING, "持久化目录=%s", server.persistence_root);
+//    serverLog(LL_WARNING, "日志文件=%s", logfile);
 
     initConfigValues();
 }
@@ -387,8 +412,8 @@ int prepareForShutdown(int flags) {
     int nosave = flags & SHUTDOWN_NOSAVE;
 
     serverLog(LL_WARNING,"User requested shutdown...");
-//    if (server.supervised_mode == SUPERVISED_SYSTEMD)
-//        redisCommunicateSystemd("STOPPING=1\n");
+    if (server.supervised_mode == SUPERVISED_SYSTEMD)
+        communicateSystemd("STOPPING=1\n");
 
     /* Kill all the Lua debugger forked sessions. */
 //    ldbKillForkedSessions();
@@ -396,10 +421,10 @@ int prepareForShutdown(int flags) {
     /* Kill the saving child if there is a background saving in progress.
        We want to avoid race conditions, for instance our saving child may
        overwrite the synchronous saving did by SHUTDOWN. */
-//    if (server.rdb_child_pid != -1) {
-//        serverLog(LL_WARNING,"There is a child saving an .rdb. Killing it!");
-//        killRDBChild();
-//    }
+    if (server.persistence_child_pid != -1) {
+        serverLog(LL_WARNING,"There is a child saving an .data. Killing it!");
+        killPersistenceChild();
+    }
 
     /* Kill module child if there is one. */
 //    if (server.module_child_pid != -1) {
@@ -428,25 +453,26 @@ int prepareForShutdown(int flags) {
 //    }
 
     /* Create a new RDB file before exiting. */
-//    if ((server.saveparamslen > 0 && !nosave) || save) {
-//        serverLog(LL_NOTICE,"Saving the final RDB snapshot before exiting.");
-//        if (server.supervised_mode == SUPERVISED_SYSTEMD)
-//            redisCommunicateSystemd("STATUS=Saving the final RDB snapshot\n");
-//        /* Snapshotting. Perform a SYNC SAVE and exit */
+    if ((server.saveparamslen > 0 && !nosave) || save) {
+        serverLog(LL_NOTICE,"Saving the final persistence snapshot before exiting.");
+        if (server.supervised_mode == SUPERVISED_SYSTEMD)
+            communicateSystemd("STATUS=Saving the final persistence snapshot\n");
+        /* Snapshotting. Perform a SYNC SAVE and exit */
 //        rdbSaveInfo rsi, *rsiptr;
 //        rsiptr = rdbPopulateSaveInfo(&rsi);
 //        if (rdbSave(server.rdb_filename,rsiptr) != C_OK) {
+        if (persistenceSave(server.persistence_root) != C_OK) {
 //            /* Ooops.. error saving! The best we can do is to continue
 //             * operating. Note that if there was a background saving process,
 //             * in the next cron() tLBS will be notified that the background
 //             * saving aborted, handling special stuff like slaves pending for
 //             * synchronization... */
-//            serverLog(LL_WARNING,"Error trying to save the DB, can't exit.");
-//            if (server.supervised_mode == SUPERVISED_SYSTEMD)
-//                redisCommunicateSystemd("STATUS=Error trying to save the DB, can't exit.\n");
-//            return C_ERR;
-//        }
-//    }
+            serverLog(LL_WARNING,"Error trying to save the DB, can't exit.");
+            if (server.supervised_mode == SUPERVISED_SYSTEMD)
+                communicateSystemd("STATUS=Error trying to save the DB, can't exit.\n");
+            return C_ERR;
+        }
+    }
 
     /* Fire the shutdown modules event. */
 //    moduleFireServerEvent(REDISMODULE_EVENT_SHUTDOWN,0,NULL);
@@ -463,30 +489,68 @@ int prepareForShutdown(int flags) {
 
     /* Close the listening sockets. Apparently this allows faster restarts. */
     // todo
-//    closeListeningSockets(1);
+    closeListeningSockets(1);
     serverLog(LL_WARNING,"%s is now ready to exit, bye bye...",
               server.sentinel_mode ? "Sentinel" : "tLBS");
     return C_OK;
 }
 
-/* This is our timer interrupt, called server.hz times per second.
- * Here is where we do a number of things that need to be done asynchronously.
- * For instance:
- *
- * - Active expired keys collection (it is also performed in a lazy way on
- *   lookup).
- * - Software watchdog.
- * - Update some statistic.
- * - Incremental rehashing of the DBs hash tables.
- * - Triggering BGSAVE / AOF rewrite, and handling of terminated children.
- * - Clients timeout of different kinds.
- * - Replication reconnection.
- * - Many more...
- *
- * Everything directly called here will be called server.hz times per second,
- * so in order to throttle execution of things we want to do less frequently
- * a macro is used: run_with_period(milliseconds) { .... }
- */
+void checkChildrenDone() {
+    int statloc;
+    pid_t pid;
+
+
+    if (server.persistence_child_pid != -1 && server.persistence_pipe_conns)
+        return;
+
+    if ((pid = wait3(&statloc,WNOHANG, nullptr)) != 0) {
+        int exitcode = WEXITSTATUS(statloc);
+        int bysignal = 0;
+
+        if (WIFSIGNALED(statloc)) bysignal = WTERMSIG(statloc);
+
+        /* sigKillChildHandler catches the signal and calls exit(), but we
+         * must make sure not to flag lastbgsave_status, etc incorrectly.
+         * We could directly terminate the child process via SIGUSR1
+         * without handling it, but in this case Valgrind will log an
+         * annoying error. */
+        if (exitcode == SERVER_CHILD_NOERROR_RETVAL) {
+            bysignal = SIGUSR1;
+            exitcode = 1;
+        }
+
+        if (pid == -1) {
+            serverLog(LL_WARNING,"wait3() returned an error: %s. "
+                                 "persistence_child_pid = %d",
+                      strerror(errno),
+                      (int) server.persistence_child_pid);
+        } else if (pid == server.persistence_child_pid) {
+            backgroundSaveDoneHandler(exitcode,bysignal);
+            if (!bysignal && exitcode == 0) receiveChildInfo();
+        }
+//        else if (pid == server.aof_child_pid) {
+//            backgroundRewriteDoneHandler(exitcode,bysignal);
+//            if (!bysignal && exitcode == 0) receiveChildInfo();
+//        }
+//        else if (pid == server.module_child_pid) {
+//            ModuleForkDoneHandler(exitcode,bysignal);
+//            if (!bysignal && exitcode == 0) receiveChildInfo();
+//        }
+        else {
+//            if (!ldbRemoveChild(pid)) {
+//                serverLog(LL_WARNING,
+//                          "Warning, detected child with unmatched pid: %ld",
+//                          (long)pid);
+//            }
+        }
+//        updateDictResizePolicy();
+        closeChildInfoPipe();
+    }
+}
+
+int hasActiveChildProcess() {
+    return server.persistence_child_pid != -1;
+}
 
 int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
 //    serverLog(LL_WARNING, "进入serverCronLoop");
@@ -621,33 +685,37 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
 //    }
 
     /* Check if a background saving or AOF rewrite in progress terminated. */
-//    if (hasActiveChildProcess() || ldbPendingChildren())
-//    {
-//        checkChildrenDone();
-//    } else {
-//        /* If there is not a background saving/rewrite in progress check if
-//         * we have to save/rewrite now. */
-//        for (j = 0; j < server.saveparamslen; j++) {
-//            struct saveparam *sp = server.saveparams+j;
-//
-//            /* Save if we reached the given amount of changes,
-//             * the given amount of seconds, and if the latest bgsave was
-//             * successful or if, in case of an error, at least
-//             * CONFIG_BGSAVE_RETRY_DELAY seconds already elapsed. */
-//            if (server.dirty >= sp->changes &&
-//                server.unixtime-server.lastsave > sp->seconds &&
-//                (server.unixtime-server.lastbgsave_try >
-//                 CONFIG_BGSAVE_RETRY_DELAY ||
-//                 server.lastbgsave_status == C_OK))
-//            {
-//                serverLog(LL_NOTICE,"%d changes in %d seconds. Saving...",
-//                          sp->changes, (int)sp->seconds);
+    if (hasActiveChildProcess())
+    {
+        serverLog(LL_WARNING, "有活动的子进程");
+        checkChildrenDone();
+    }
+    else {
+        /* If there is not a background saving/rewrite in progress check if
+         * we have to save/rewrite now. */
+        for (j = 0; j < server.saveparamslen; j++) {
+            struct saveparam *sp = server.saveparams+j;
+
+            /* Save if we reached the given amount of changes,
+             * the given amount of seconds, and if the latest bgsave was
+             * successful or if, in case of an error, at least
+             * CONFIG_BGSAVE_RETRY_DELAY seconds already elapsed. */
+            if (server.dirty >= sp->changes &&
+                server.unixtime-server.lastsave > sp->seconds &&
+                (server.unixtime-server.lastbgsave_try >
+                 CONFIG_BGSAVE_RETRY_DELAY ||
+                 server.lastbgsave_status == C_OK))
+            {
+                serverLog(LL_NOTICE, "server.dirty=%llu", server.dirty);
+                serverLog(LL_NOTICE,"%d changes in %d seconds. Saving...",
+                          sp->changes, (int)sp->seconds);
 //                rdbSaveInfo rsi, *rsiptr;
 //                rsiptr = rdbPopulateSaveInfo(&rsi);
+                persistenceSaveBackground(server.persistence_root);
 //                rdbSaveBackground(server.rdb_filename,rsiptr);
 //                break;
-//            }
-//        }
+            }
+        }
 //
 //        /* Trigger an AOF rewrite if needed. */
 //        if (server.aof_state == AOF_ON &&
@@ -663,7 +731,7 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
 //                rewriteAppendOnlyFileBackground();
 //            }
 //        }
-//    }
+    }
 
 
     /* AOF postponed flush: Try at every cron cycle if the slow fsync
@@ -730,7 +798,7 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
     return 1000/server.hz;
 }
 
-void tLbsSetProcTitle(char *title) {
+void tLbsSetProcTitle(const char *title) {
 #ifdef USE_SETPROCTITLE
     const char *server_mode = "";
     if (server.cluster_enabled) server_mode = " [cluster]";
@@ -828,8 +896,8 @@ void resetServerStats() {
 //    server.stat_active_defrag_key_hits = 0;
 //    server.stat_active_defrag_key_misses = 0;
 //    server.stat_active_defrag_scanned = 0;
-//    server.stat_fork_time = 0;
-//    server.stat_fork_rate = 0;
+    server.stat_fork_time = 0;
+    server.stat_fork_rate = 0;
     server.stat_rejected_conn = 0;
 //    server.stat_sync_full = 0;
 //    server.stat_sync_partial_ok = 0;
@@ -932,25 +1000,31 @@ void initServer() {
 //    listSetFreeMethod(server.pubsub_patterns,freePubsubPattern);
 //    listSetMatchMethod(server.pubsub_patterns,listMatchPubsubPattern);
     server.cronloops = 0;
+    server.persistence_child_pid = -1;
+    server.persistence_pipe_conns = nullptr;
 //    server.rdb_child_pid = -1;
 //    server.aof_child_pid = -1;
 //    server.module_child_pid = -1;
 //    server.rdb_child_type = RDB_CHILD_TYPE_NONE;
+    server.persistence_child_type = PERSISTENCE_CHILD_TYPE_NONE;
 //    server.rdb_pipe_conns = NULL;
 //    server.rdb_pipe_numconns = 0;
 //    server.rdb_pipe_numconns_writing = 0;
 //    server.rdb_pipe_buff = NULL;
 //    server.rdb_pipe_bufflen = 0;
 //    server.rdb_bgsave_scheduled = 0;
+    server.persistence_bgsave_scheduled = 0;
 //    server.child_info_pipe[0] = -1;
 //    server.child_info_pipe[1] = -1;
 //    server.child_info_data.magic = 0;
 //    aofRewriteBufferReset();
 //    server.aof_buf = sdsempty();
-//    server.lastsave = time(NULL); /* At startup we consider the DB saved. */
-//    server.lastbgsave_try = 0;    /* At startup we never tried to BGSAVE. */
+    server.lastsave = time(nullptr); /* At startup we consider the DB saved. */
+    server.lastbgsave_try = 0;    /* At startup we never tried to BGSAVE. */
 //    server.rdb_save_time_last = -1;
+    server.persistence_save_time_last = -1;
 //    server.rdb_save_time_start = -1;
+    server.persistence_save_time_start = -1;
     server.dirty = 0;
     resetServerStats();
     /* A few stats we don't want to reset: server startup time, and peak mem. */
@@ -966,7 +1040,7 @@ void initServer() {
 //    server.cron_malloc_stats.allocator_allocated = 0;
 //    server.cron_malloc_stats.allocator_active = 0;
 //    server.cron_malloc_stats.allocator_resident = 0;
-//    server.lastbgsave_status = C_OK;
+    server.lastbgsave_status = C_OK;
 //    server.aof_last_write_status = C_OK;
 //    server.aof_last_write_errno = 0;
 //    server.repl_good_slaves_count = 0;
@@ -1222,6 +1296,68 @@ void adjustOpenFilesLimit() {
     }
 }
 
+/* Close listening sockets. Also unlink the unix domain socket if
+ * unlink_unix_socket is non-zero. */
+void closeListeningSockets(int unlink_unix_socket) {
+    int j;
+
+    for (j = 0; j < server.ipfd_count; j++) close(server.ipfd[j]);
+//    for (j = 0; j < server.tlsfd_count; j++) close(server.tlsfd[j]);
+//    if (server.sofd != -1) close(server.sofd);
+//    if (server.cluster_enabled)
+//        for (j = 0; j < server.cfd_count; j++) close(server.cfd[j]);
+//    if (unlink_unix_socket && server.unixsocket) {
+//        serverLog(LL_NOTICE,"Removing the unix socket file.");
+//        unlink(server.unixsocket); /* don't care if this fails */
+//    }
+}
+
+void exitFromChild(int retcode) {
+#ifdef COVERAGE_TEST
+    exit(retcode);
+#else
+    _exit(retcode);
+#endif
+}
+
+static void sigKillChildHandler(int sig) {
+    UNUSED(sig);
+    serverLogFromHandler(LL_WARNING, "Received SIGUSR1 in child, exiting now.");
+    exitFromChild(SERVER_CHILD_NOERROR_RETVAL);
+}
+
+void setupChildSignalHandlers() {
+    struct sigaction act;
+
+    /* When the SA_SIGINFO flag is set in sa_flags then sa_sigaction is used.
+     * Otherwise, sa_handler is used. */
+    sigemptyset(&act.sa_mask);
+    act.sa_flags = 0;
+    act.sa_handler = sigKillChildHandler;
+    sigaction(SIGUSR1, &act, nullptr);
+    return;
+}
+
+int serverFork() {
+    int childpid;
+    long long start = ustime();
+    if ((childpid = fork()) == 0) {
+        /* Child */
+        closeListeningSockets(0);
+        setupChildSignalHandlers();
+    } else {
+        /* Parent */
+        server.stat_fork_time = ustime()-start;
+        server.stat_fork_rate = (double) zmalloc_used_memory() * 1000000 / server.stat_fork_time / (1024*1024*1024); /* GB per second. */
+//        latencyAddSampleIfNeeded("fork",server.stat_fork_time/1000);
+        if (childpid == -1) {
+            return -1;
+        }
+//        updateDictResizePolicy();
+    }
+    return childpid;
+}
+
 int main(int argc, char **argv) {
 
     timeval tv;
@@ -1346,7 +1482,8 @@ int main(int argc, char **argv) {
         serverLog(LL_WARNING, "Configuration loaded");
     }
 
-    int background = server.daemonize;
+    server.supervised = isSupervised(server.supervised_mode);
+    int background = server.daemonize && !server.supervised;
     if (background) daemonize();
 
     initServer();
@@ -1364,7 +1501,7 @@ int main(int argc, char **argv) {
 #endif
 //        moduleLoadFromQueue();
 //        ACLLoadUsersAtStartup();
-//        InitServerLast();
+        initServerLast();
 //        loadDataFromDisk();
 //        if (server.cluster_enabled) {
 //            if (verifyClusterConfigWithData() == C_ERR) {

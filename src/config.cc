@@ -60,13 +60,13 @@ configEnum syslog_facility_enum[] = {
 
 
 
-//configEnum supervised_mode_enum[] = {
-//        {"upstart", SUPERVISED_UPSTART},
-//        {"systemd", SUPERVISED_SYSTEMD},
-//        {"auto", SUPERVISED_AUTODETECT},
-//        {"no", SUPERVISED_NONE},
-//        {NULL, 0}
-//};
+configEnum supervised_mode_enum[] = {
+        {"upstart", SUPERVISED_UPSTART},
+        {"systemd", SUPERVISED_SYSTEMD},
+        {"auto", SUPERVISED_AUTODETECT},
+        {"no", SUPERVISED_NONE},
+        {NULL, 0}
+};
 
 //configEnum aof_fsync_enum[] = {
 //        {"everysec", AOF_FSYNC_EVERYSEC},
@@ -1490,7 +1490,7 @@ standardConfig configs[] = {
 //        createStringConfig("appendfilename", nullptr, IMMUTABLE_CONFIG, ALLOW_EMPTY_STRING, server.aof_filename, "appendonly.aof", isValidAOFfilename, NULL),
 
         /* Enum Configs */
-//        createEnumConfig("supervised", nullptr, IMMUTABLE_CONFIG, supervised_mode_enum, server.supervised_mode, SUPERVISED_NONE, nullptr, NULL),
+        createEnumConfig("supervised", nullptr, IMMUTABLE_CONFIG, supervised_mode_enum, server.supervised_mode, SUPERVISED_NONE, nullptr, NULL),
 //        createEnumConfig("syslog-facility", nullptr, IMMUTABLE_CONFIG, syslog_facility_enum, server.syslog_facility, LOG_LOCAL0, nullptr, NULL),
 //        createEnumConfig("repl-diskless-load", nullptr, MODIFIABLE_CONFIG, repl_diskless_load_enum, server.repl_diskless_load, REPL_DISKLESS_LOAD_DISABLED, nullptr, NULL),
         createEnumConfig("loglevel", nullptr, MODIFIABLE_CONFIG, loglevel_enum, server.verbosity, LL_NOTICE, nullptr,

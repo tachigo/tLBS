@@ -32,6 +32,6 @@ obj *lookupKeyWrite(db *db, obj *key);
 obj *lookupKeyReadWithFlags(db *db, obj *key, int flags);
 obj *lookupKeyWriteWithFlags(db *db, obj *key, int flags);
 
-
+void scanCallback(void *privdata, const dictEntry *de);
 
 #endif //TLBS_DB_H

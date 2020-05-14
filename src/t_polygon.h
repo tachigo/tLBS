@@ -8,5 +8,7 @@
 #include "client.h"
 
 void polygonSetCommand(client *c);
+void polygonDelCommand(client *c);
+void polygonGetCommand(client *c);
 
 #endif //TLBS_T_POLYGON_H
