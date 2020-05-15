@@ -41,7 +41,7 @@ set(SRC_SERVER_TMP
         )
 set(SRC_SERVER src/server.cc ${SRC_SERVER_TMP})
 
-set(EXECUTABLE_OUTPUT_PATH bin)
+set(EXECUTABLE_OUTPUT_PATH ../bin)
 link_directories(
         ${TLBS_ROOT}/deps/s2geometry
 )
