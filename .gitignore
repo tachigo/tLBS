@@ -3,5 +3,5 @@
 cmake-build-debug
 build
 bin
-data
+data/db*
 log

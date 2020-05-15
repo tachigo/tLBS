@@ -594,7 +594,7 @@ void initServer();
 void createPidFile();
 void beforeSleep(struct aeEventLoop *eventLoop);
 void afterSleep(struct aeEventLoop *eventLoop);
-
+void loadDataFromDisk();
 void adjustOpenFilesLimit();
 void resetServerStats();
 void initServerLast();

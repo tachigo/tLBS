@@ -7,13 +7,17 @@
 
 #include <sys/types.h>
 
+//#define PERSISTENCE_MAX_SHARD_NUMBER 50
+
 int persistenceSaveBackground(char *persistenceDataDir);
 int persistenceSave(char *persistenceDataDir);
+int persistenceLoad(char *persistenceDataDir);
 void backgroundSaveDoneHandler(int exitcode, int bysignal);
 void backgroundSaveDoneHandlerDisk(int exitcode, int bysignal);
 void backgroundSaveDoneHandlerSocket(int exitcode, int bysignal);
 void killPersistenceChild();
 void persistenceRemoveTempFile(pid_t childpid);
 int persistenceSaveDb(char *persistenceDataDir, int dbnum);
+const char *getTempFile(pid_t childpid);
 
 #endif //TLBS_PERSISTENCE_H

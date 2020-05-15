@@ -9,18 +9,15 @@
 #include "object.h"
 #include <map>
 
-using namespace std;
 
 class geoPolygonIndex {
 public:
-    ::map<string, int> map;
-    ::map<int, string> data;
+    std::map<string, int> map;
+    std::map<int, string> data;
     MutableS2ShapeIndex *index;
 
     geoPolygonIndex();
     ~geoPolygonIndex();
-
-    int dumpPersistenceData();
 };
 
 class geoLineIndex {
@@ -37,8 +34,8 @@ class geoPointIndex {
 
 
 
-obj *createPolygonObject();
-obj *createLineObject();
-obj *createPointObject();
+
+//obj *createLineObject();
+//obj *createPointObject();
 
 #endif //TLBS_GEO_H

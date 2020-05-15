@@ -41,16 +41,14 @@
 typedef struct tLbsObject {
     unsigned type:4;
     unsigned encoding:4;
-    int refcount;
+    unsigned long long refcount;
     void *ptr;
 } obj;
 
 const char * getObjectTypeName(obj * o);
 
 obj *createObject(int type, void *ptr);
-obj *createStringObject(const char *ptr, size_t len);
-obj *createRawStringObject(const char *ptr, size_t len);
-obj *createEmbeddedStringObject(const char *ptr, size_t len);
+
 obj *makeObjectShared(obj *o);
 
 void decrRefCount(obj *o);

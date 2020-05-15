@@ -35,7 +35,7 @@ struct tLbsCommand tLbsCommandTable[] = {
         {"polygonset", polygonSetCommand, 4,
                     "ok-loading fast ok-stale @keyspace",
                     0, nullptr,0,0,0,0,0,0},
-        {"polygonset", polygonDelCommand, 3,
+        {"polygondel", polygonDelCommand, 3,
                 "ok-loading fast ok-stale @keyspace",
                 0, nullptr,0,0,0,0,0,0},
         {"polygonget", polygonGetCommand, 3,

@@ -6,11 +6,16 @@
 #include "server.h"
 #include "db.h"
 #include "object.h"
+#include "t_string.h"
 
 #include "atomicvar.h"
 #include "sds.h"
 #include "debug.h"
 
+#include <cstdio>
+#include <sys/stat.h>
+#include <cstring>
+#include <cerrno>
 //#include <signal.h>
 //#include <cctype>
 
@@ -64,6 +69,7 @@ dictType dbDictType = {
 
 void dbInit() {
     /* Create the databases, and initialize other internal state. */
+    char datadir[256];
     for (int j = 0; j < server.dbnum; j++) {
         server.db[j].dict = dictCreate(&dbDictType, nullptr);
 //        server.db[j].expires = dictCreate(&keyptrDictType,NULL);
@@ -75,6 +81,14 @@ void dbInit() {
 //        server.db[j].avg_ttl = 0;
 //        server.db[j].defrag_later = listCreate();
 //        listSetFreeMethod(server.db[j].defrag_later,(void (*)(void*))sdsfree);
+        // 创建数据保存目录
+        snprintf(datadir,sizeof(datadir),"db#%d", j);
+        sds datapath = sdscat(sdsdup(server.persistence_root), datadir);
+        if (access((const char *)datapath, F_OK)) {
+            if (mkdir(datapath, 0755)) {
+                serverPanic(strerror(errno));
+            }
+        }
     }
 }
 

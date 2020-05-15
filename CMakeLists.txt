@@ -35,6 +35,7 @@ set(SRC_SERVER_TMP
         src/syncio.cc
         src/t_point.cc
         src/t_polygon.cc
+        src/t_string.cc
         src/util.cc
         src/zmalloc.cc
         )
