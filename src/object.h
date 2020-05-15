@@ -38,6 +38,32 @@
 #define OBJ_STATIC_REFCOUNT (INT_MAX-1) /* Object allocated in the stack. */
 #define OBJ_FIRST_SPECIAL_REFCOUNT OBJ_STATIC_REFCOUNT
 
+
+#include <string>
+
+namespace tLBS {
+    class Object {
+    private:
+        unsigned type;
+        unsigned encoding;
+        unsigned long long refcount;
+        void *ptr;
+
+    public:
+        Object();
+        ~Object();
+        unsigned getType();
+        void incrRefCount();
+        unsigned long long getRefCount();
+        void decrRefCount();
+        void resetRefCount();
+        std::string getTypeName();
+    };
+}
+
+
+
+
 typedef struct tLbsObject {
     unsigned type:4;
     unsigned encoding:4;

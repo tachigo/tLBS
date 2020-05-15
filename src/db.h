@@ -8,6 +8,20 @@
 #include "dict.h"
 #include "object.h"
 
+
+#include <map>
+
+namespace tLBS {
+    class Db {
+    private:
+        int id;
+        std::map<std::string, void *>dict;
+
+    public:
+        int getId();
+    };
+}
+
 typedef struct tLbsDb {
     int id;                     /* Database ID */
     dict *dict;                 /* The keyspace for this DB */
