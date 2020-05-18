@@ -18,7 +18,17 @@ namespace tLBS {
         std::map<std::string, void *>dict;
 
     public:
+        Db();
+        ~Db();
         int getId();
+        Object *lookupKey(Object *keyObj, int flags);
+        Object *lookupKeyRead(Object *keyObj);
+        Object *lookupKeyWrite(Object *keyObj);
+        Object *lookupKeyReadWithFlags(Object *keyObj, int flags);
+        Object *lookupKeyWriteWithFlags(Object *keyObj, int flags);
+        void add(Object *keyObj, Object *valObj);
+        int exists(Object *keyObj);
+        int remove(Object *keyObj);
     };
 }
 

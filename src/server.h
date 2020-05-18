@@ -16,6 +16,8 @@
 #include "adlist.h"  /* Linked lists */
 #include "rax.h"
 
+#include <vector>
+#include <map>
 
 
 /* SHUTDOWN flags */
@@ -84,6 +86,27 @@ struct saveparam {
     time_t seconds;
     int changes;
 };
+
+
+namespace tLBS {
+    class Server {
+    private:
+        pid_t pid;
+        std::string pidFilename;
+        std::string configFilename;
+        std::string logFilename;
+        std::string executable;
+        int hz;
+        int dbNum;
+        int daemonize;
+
+        std::vector<Db *>dbs;
+
+    public:
+        Server();
+        ~Server();
+    };
+}
 
 struct tLbsServer {
     sds root;
