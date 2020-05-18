@@ -177,7 +177,6 @@ int persistenceLoadPolygonIndex(char *persistenceDataDir, int dbnum, obj *key, o
     int shardnum = PERSISTENCE_SHARD_NUM;
     for (int i = 0; i < shardnum; i++) {
         // 对数据进行遍历
-        FILE *fp;
         const char *filename = sdscat(sdsdup(persistenceDataDir), getPersistenceFile(dbnum, key, i));
         std::ifstream in(filename);
         if (!in) {

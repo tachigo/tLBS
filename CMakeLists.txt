@@ -39,7 +39,8 @@ set(SRC_SERVER_TMP
         src/util.cc
         src/zmalloc.cc
         )
-set(SRC_SERVER src/server.cc ${SRC_SERVER_TMP})
+#set(SRC_SERVER src/server.cc ${SRC_SERVER_TMP})
+set(SRC_SERVER src/server_main.cc ${SRC_SERVER_TMP})
 
 set(EXECUTABLE_OUTPUT_PATH ../bin)
 link_directories(
