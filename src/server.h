@@ -9,6 +9,7 @@
 #include <vector>
 #include "db.h"
 
+
 namespace tLBS {
     class Server {
     private:
@@ -16,7 +17,7 @@ namespace tLBS {
         std::string pidFilename; // 进程文件
         std::string configFilename; // 配置文件
         std::string logFilename; // 日志文件
-        std::string executable; // 可执行文件地址
+        std::string executable; // 可执行文件路径
         int hz; // 赫兹，server轮询频率
         int dbNum; // 数据库的数量
         int daemonize; // 是否是守护进程模式启动
