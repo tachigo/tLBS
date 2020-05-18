@@ -5,6 +5,8 @@
 #ifndef TLBS_CLIENT_H
 #define TLBS_CLIENT_H
 
+#include "db.h"
+
 namespace tLBS {
     class Client {
     private:
@@ -17,6 +19,11 @@ namespace tLBS {
     public:
         Client();
         ~Client();
+        uint64_t getId();
+        Db *getDb();
+        Object *getName();
+        time_t getCtime();
+        uint64_t getFlags();
     };
 }
 

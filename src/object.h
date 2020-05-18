@@ -5,6 +5,8 @@
 #ifndef TLBS_OBJECT_H
 #define TLBS_OBJECT_H
 
+#include <string>
+
 namespace tLBS {
     class Object {
     private:
@@ -17,8 +19,9 @@ namespace tLBS {
         Object();
         ~Object();
         unsigned getType();
-        void incrRefCount();
+        unsigned getEncoding();
         unsigned long long getRefCount();
+        void incrRefCount();
         void decrRefCount();
         void resetRefCount();
         std::string getTypeName();

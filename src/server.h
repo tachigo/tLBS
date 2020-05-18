@@ -5,6 +5,9 @@
 #ifndef TLBS_SERVER_H
 #define TLBS_SERVER_H
 
+#include <string>
+#include <vector>
+#include "db.h"
 
 namespace tLBS {
     class Server {
@@ -20,7 +23,7 @@ namespace tLBS {
         int shutdownAsap; // 服务器关闭标识
         int archBits; // 操作系统是多少位的
 
-        std::vector<Db *>dbs; // 数据库列表
+        std::vector<Db *> dbs; // 数据库列表
 
         // 网络连接
         int tcpPort; // tcp端口
@@ -28,6 +31,20 @@ namespace tLBS {
     public:
         Server();
         ~Server();
+        pid_t getPid();
+        std::string getPidFilename();
+        std::string getConfigFilename();
+        std::string getLogFilename();
+        std::string getExecutable();
+        int getHz();
+        int getDbNum();
+        int isDaemonize();
+        int getShutdownAsap();
+        int getArchBits();
+
+
+        // 网络
+        int getTcpPort();
     };
 }
 
