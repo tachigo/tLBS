@@ -1,6 +1,6 @@
 *.o
 .idea
 cmake-build-debug
-build
+target
 data/db*
 log

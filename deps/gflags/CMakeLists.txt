@@ -138,7 +138,6 @@ if (NOT DEFINED GFLAGS_IS_SUBPROJECT)
     set (GFLAGS_IS_SUBPROJECT TRUE)
   endif ()
 endif ()
-message("GFLAGS_IS_SUBPROJECT: ${GFLAGS_IS_SUBPROJECT}")
 
 # prefix for package variables in CMake configuration file
 string (TOUPPER "${PACKAGE_NAME}" PACKAGE_PREFIX)
@@ -181,8 +180,6 @@ gflags_define (BOOL INSTALL_STATIC_LIBS        "Request installation of static l
 gflags_define (BOOL REGISTER_BUILD_DIR         "Request entry of build directory in CMake's package registry."            OFF OFF)
 gflags_define (BOOL REGISTER_INSTALL_PREFIX    "Request entry of installed package in CMake's package registry."          ON  OFF)
 
-message("BUILD_gflags_nothreads_LIB: ${GFLAGS_BUILD_gflags_nothreads_LIB}")
-
 gflags_property (BUILD_STATIC_LIBS   ADVANCED TRUE)
 gflags_property (INSTALL_HEADERS     ADVANCED TRUE)
 gflags_property (INSTALL_SHARED_LIBS ADVANCED TRUE)
@@ -209,7 +206,6 @@ endif ()
 if (NOT BUILD_gflags_LIB AND NOT BUILD_gflags_nothreads_LIB)
   message (FATAL_ERROR "At least one of [GFLAGS_]BUILD_gflags_LIB and [GFLAGS_]BUILD_gflags_nothreads_LIB must be ON.")
 endif ()
-
 gflags_define (STRING INCLUDE_DIR "Name of include directory of installed header files relative to CMAKE_INSTALL_PREFIX/include/" "${PACKAGE_NAME}")
 gflags_property (INCLUDE_DIR ADVANCED TRUE)
 file (TO_CMAKE_PATH "${INCLUDE_DIR}" INCLUDE_DIR)
@@ -219,6 +215,7 @@ endif ()
 if (INCLUDE_DIR MATCHES "^\\.\\.[/\\]")
   message (FATAL_ERROR "[GFLAGS_]INCLUDE_DIR must not start with parent directory reference (../)")
 endif ()
+set(INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 set (GFLAGS_INCLUDE_DIR "${INCLUDE_DIR}")
 
 # ----------------------------------------------------------------------------
@@ -584,7 +581,6 @@ endif ()
 # ----------------------------------------------------------------------------
 # support direct use of build tree
 set (INSTALL_PREFIX_REL2CONFIG_DIR .)
-message("gflags-export: ${TARGETS}")
 export (
   TARGETS ${TARGETS}
   NAMESPACE ${PACKAGE_NAME}::

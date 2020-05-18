@@ -59,8 +59,6 @@ include (GNUInstallDirs)
 set (CMAKE_DEBUG_POSTFIX d)
 set (CMAKE_THREAD_PREFER_PTHREAD 1)
 
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/deps/gflags)
-
 if (WITH_GFLAGS)
 #  find_package (gflags 2.2.0)
 
@@ -564,7 +562,7 @@ if (WIN32 AND HAVE_SNPRINTF)
 endif (WIN32 AND HAVE_SNPRINTF)
 
 #if (gflags_FOUND)
-  target_include_directories(glog PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/deps/gflags/src)
+#  target_link_libraries (glog PUBLIC gflags)
   target_link_libraries (glog PRIVATE gflags)
 
   if (NOT BUILD_SHARED_LIBS)
@@ -780,7 +778,7 @@ endif (WITH_PKGCONFIG)
 
 set (glog_CMake_VERSION 3.0)
 
-#if (gflags_FOUND)
+if (gflags_FOUND)
   # Ensure clients locate only the package config and not third party find
   # modules having the same name. This avoid cmake_policy PUSH/POP errors.
   if (CMAKE_VERSION VERSION_LESS 3.9)
@@ -791,7 +789,7 @@ set (glog_CMake_VERSION 3.0)
     set (glog_CMake_VERSION 3.9)
     set (gflags_DEPENDENCY "find_dependency (gflags ${gflags_VERSION} NO_MODULE)")
   endif (CMAKE_VERSION VERSION_LESS 3.9)
-#endif (gflags_FOUND)
+endif (gflags_FOUND)
 
 configure_package_config_file (glog-config.cmake.in
   ${CMAKE_CURRENT_BINARY_DIR}/glog-config.cmake

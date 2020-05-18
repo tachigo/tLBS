@@ -37,8 +37,6 @@ option(BUILD_EXAMPLES "Build s2 documentation examples." ON)
 
 feature_summary(WHAT ALL)
 
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/deps/glog)
-
 if (WITH_GLOG)
 #    find_package(Glog REQUIRED)
     # FindGFlags.cmake and FindGlog.cmake do not seem to implement REQUIRED;
@@ -204,6 +202,7 @@ add_library(s2testing STATIC
             src/s2/s2builderutil_testing.cc
             src/s2/s2shapeutil_testing.cc
             src/s2/s2testing.cc)
+#message("${GFLAGS_LIBRARIES} ${GLOG_LIBRARIES} ${OPENSSL_LIBRARIES}")
 target_link_libraries(
     s2
     ${GFLAGS_LIBRARIES} ${GLOG_LIBRARIES} ${OPENSSL_LIBRARIES}
@@ -213,7 +212,7 @@ target_link_libraries(
 # list(APPEND CMAKE_MODULE_PATH "<path_to_s2geometry_dir>/third_party/cmake")
 # add_subdirectory(<path_to_s2geometry_dir> s2geometry)
 # target_link_libraries(<target_name> s2)
-target_include_directories(s2 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(s2 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # We don't need to install all headers, only those
 # transitively included by s2 headers we are exporting.
@@ -411,7 +410,6 @@ install(FILES src/s2/util/units/length-units.h
         DESTINATION include/s2/util/units)
 install(TARGETS s2 s2testing DESTINATION lib)
 
-set(GTEST_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/deps/googletest/googletest)
 message("GTEST_ROOT: ${GTEST_ROOT}")
 if (GTEST_ROOT)
   add_subdirectory(${GTEST_ROOT} build_gtest)

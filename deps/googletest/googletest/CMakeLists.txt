@@ -8,6 +8,8 @@
 # ctest.  You can select which tests to run using 'ctest -R regex'.
 # For more options, run 'ctest --help'.
 
+set(GOOGLETEST_VERSION 1.10.0)
+
 # When other libraries are using a shared version of runtime libraries,
 # Google Test also has to use one.
 option(
@@ -45,8 +47,6 @@ endif()
 # Language "C" is required for find_package(Threads).
 
 # Project version:
-
-set(GOOGLETEST_VERSION 1.10.0)
 
 if (CMAKE_VERSION VERSION_LESS 3.0)
   project(gtest CXX C)

@@ -41,25 +41,6 @@
 
 #include <string>
 
-namespace tLBS {
-    class Object {
-    private:
-        unsigned type;
-        unsigned encoding;
-        unsigned long long refcount;
-        void *ptr;
-
-    public:
-        Object();
-        ~Object();
-        unsigned getType();
-        void incrRefCount();
-        unsigned long long getRefCount();
-        void decrRefCount();
-        void resetRefCount();
-        std::string getTypeName();
-    };
-}
 
 
 
