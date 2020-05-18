@@ -60,12 +60,12 @@ set (CMAKE_DEBUG_POSTFIX d)
 set (CMAKE_THREAD_PREFER_PTHREAD 1)
 
 if (WITH_GFLAGS)
-#  find_package (gflags 2.2.0)
+  find_package (gflags 2.2.0)
 
-#  if (gflags_FOUND)
+  if (gflags_FOUND)
     set (HAVE_LIB_GFLAGS 1)
     determine_gflags_namespace (gflags_NAMESPACE)
-#  endif (gflags_FOUND)
+  endif (gflags_FOUND)
 endif (WITH_GFLAGS)
 
 find_package (Threads)
@@ -561,15 +561,14 @@ if (WIN32 AND HAVE_SNPRINTF)
     HAVE_SNPRINTF)
 endif (WIN32 AND HAVE_SNPRINTF)
 
-#if (gflags_FOUND)
-#  target_link_libraries (glog PUBLIC gflags)
-  target_link_libraries (glog PRIVATE gflags)
+if (gflags_FOUND)
+  target_link_libraries (glog PUBLIC gflags)
 
   if (NOT BUILD_SHARED_LIBS)
     # Don't use __declspec(dllexport|dllimport) if this is a static build
     targeT_compile_definitions (glog PUBLIC GFLAGS_DLL_DECLARE_FLAG= GFLAGS_DLL_DEFINE_FLAG=)
   endif (NOT BUILD_SHARED_LIBS)
-#endif (gflags_FOUND)
+endif (gflags_FOUND)
 
 set_target_properties (glog PROPERTIES VERSION ${PROJECT_VERSION})
 set_target_properties (glog PROPERTIES SOVERSION ${PROJECT_VERSION_MAJOR})

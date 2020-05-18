@@ -6,8 +6,6 @@ get_filename_component(TLBS_ROOT "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
 
 set(EXECUTABLE_OUTPUT_PATH ../bin)
 
-add_subdirectory(deps)
-
 set(SRC_SERVER_TMP
 #        src/adlist.cc
 #        src/ae.cc
@@ -43,24 +41,24 @@ set(SRC_SERVER_TMP
         )
 set(SRC_SERVER src/server_main.cc ${SRC_SERVER_TMP})
 
-link_directories(
-        ${TLBS_ROOT}/deps/gflags
-        ${TLBS_ROOT}/deps/glog
-        ${TLBS_ROOT}/deps/s2geometry
-)
-
-add_executable(tLBS-server ${SRC_SERVER})
-target_include_directories(tLBS-server
-        PRIVATE ${TLBS_ROOT}/deps/gflags/src
-        PRIVATE ${TLBS_ROOT}/deps/glog/src
-        PRIVATE ${TLBS_ROOT}/deps/s2geometry/src
-        )
-
-
-target_link_libraries(tLBS-server
-        PRIVATE pthread
-        PRIVATE m
-        PRIVATE gflags
-        PRIVATE glog
-        PRIVATE s2
-        )
+#link_directories(
+#        ${TLBS_ROOT}/deps/gflags
+#        ${TLBS_ROOT}/deps/glog
+#        ${TLBS_ROOT}/deps/s2geometry
+#)
+#
+#add_executable(tLBS-server ${SRC_SERVER})
+#target_include_directories(tLBS-server
+#        PRIVATE ${TLBS_ROOT}/deps/gflags/src
+#        PRIVATE ${TLBS_ROOT}/deps/glog/src
+#        PRIVATE ${TLBS_ROOT}/deps/s2geometry/src
+#        )
+#
+#
+#target_link_libraries(tLBS-server
+#        PRIVATE pthread
+#        PRIVATE m
+#        PRIVATE gflags
+#        PRIVATE glog
+#        PRIVATE s2
+#        )

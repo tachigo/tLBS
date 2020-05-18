@@ -8,8 +8,6 @@
 # ctest.  You can select which tests to run using 'ctest -R regex'.
 # For more options, run 'ctest --help'.
 
-set(GOOGLETEST_VERSION 1.10.0)
-
 # When other libraries are using a shared version of runtime libraries,
 # Google Test also has to use one.
 option(

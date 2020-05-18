@@ -18,7 +18,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # No compiler-specific extensions, i.e. -std=c++11, not -std=gnu++11.
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/third_party/cmake")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/third_party/cmake")
 
 option(WITH_GFLAGS "Use gflags to change command line flags." OFF)
 add_feature_info(GFLAGS WITH_GFLAGS
@@ -38,12 +38,12 @@ option(BUILD_EXAMPLES "Build s2 documentation examples." ON)
 feature_summary(WHAT ALL)
 
 if (WITH_GLOG)
-#    find_package(Glog REQUIRED)
+    find_package(Glog REQUIRED)
     # FindGFlags.cmake and FindGlog.cmake do not seem to implement REQUIRED;
     # check manually.
-#    if (NOT ${GLOG_FOUND})
-#        message(FATAL_ERROR "Glog requested but not found")
-#    endif()
+    if (NOT ${GLOG_FOUND})
+        message(FATAL_ERROR "Glog requested but not found")
+    endif()
     add_definitions(-DS2_USE_GLOG)
 else()
     # Don't output anything for LOG(INFO).
@@ -51,10 +51,10 @@ else()
 endif()
 
 if (WITH_GFLAGS)
-#    find_package(GFlags REQUIRED)
-#    if (NOT ${GFLAGS_FOUND})
-#        message(FATAL_ERROR "GFlags requested but not found")
-#    endif()
+    find_package(GFlags REQUIRED)
+    if (NOT ${GFLAGS_FOUND})
+        message(FATAL_ERROR "GFlags requested but not found")
+    endif()
     add_definitions(-DS2_USE_GFLAGS)
 endif()
 
@@ -202,7 +202,6 @@ add_library(s2testing STATIC
             src/s2/s2builderutil_testing.cc
             src/s2/s2shapeutil_testing.cc
             src/s2/s2testing.cc)
-#message("${GFLAGS_LIBRARIES} ${GLOG_LIBRARIES} ${OPENSSL_LIBRARIES}")
 target_link_libraries(
     s2
     ${GFLAGS_LIBRARIES} ${GLOG_LIBRARIES} ${OPENSSL_LIBRARIES}
