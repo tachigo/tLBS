@@ -24,6 +24,7 @@ set(SRC_SERVER_TMP
         src/db.cc
 #        src/debug.cc
 #        src/dict.cc
+        src/el.cc
 #        src/endianconv.cc
 #        src/geo.cc
         src/log.cc
