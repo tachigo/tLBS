@@ -2,15 +2,19 @@
 // Created by liuliwu on 2020-05-28.
 //
 
-
 #include "config.h"
 
-tLBS::Config *tLBS::Config::instance = nullptr;
+#include <gflags/gflags.h>
 
-tLBS::Config::Config() {
+using namespace tLBS;
+
+
+Config *Config::instance = nullptr;
+
+Config::Config() {
 }
 
-tLBS::Config* tLBS::Config::getInstance() {
+Config* Config::getInstance() {
     if (instance == nullptr) {
         instance = new Config();
     }
@@ -18,7 +22,8 @@ tLBS::Config* tLBS::Config::getInstance() {
 }
 
 
-void tLBS::Config::init(int *argc, char ***argv) {
+void Config::init(int *argc, char ***argv) {
     google::ParseCommandLineFlags(argc, argv, true);
     getInstance();
 }
+

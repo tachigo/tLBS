@@ -3,9 +3,10 @@
 //
 
 #include "log.h"
-#include <memory>
 
-tLBS::Log::Log(const char *programName) {
+using namespace tLBS;
+
+Log::Log(const char *programName) {
     google::InitGoogleLogging(programName);
     FLAGS_log_dir = "../log";
     FLAGS_log_prefix = true;
@@ -16,11 +17,11 @@ tLBS::Log::Log(const char *programName) {
     info("初始化google日志对象");
 }
 
-tLBS::Log::~Log() {
+Log::~Log() {
     info("google日志对象析构");
     google::ShutdownGoogleLogging();
 }
 
-void tLBS::Log::init(const char *programName) {
+void Log::init(const char *programName) {
     new Log(programName);
 }

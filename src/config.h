@@ -6,11 +6,14 @@
 #define TLBS_CONFIG_H
 
 #include <gflags/gflags.h>
+#include <string>
 
-DEFINE_string(config_file, nullptr, "配置文件");
-DEFINE_bool(daemonize, false, "是否是守护进程方式启动");
-DEFINE_int32(dbnum, 10, "数据库的数量");
-DEFINE_int32(tcp_port, 8899, "tcp端口号");
+// server config
+DECLARE_string(pid_file); // PID进程锁文件
+DECLARE_bool(daemonize); // 是否以守护进程启动
+
+// net tcp
+DECLARE_int32(tcp_port); // tcp端口号
 
 namespace tLBS {
     class Config {

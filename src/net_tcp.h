@@ -7,7 +7,11 @@
 
 namespace tLBS {
     class NetTcp {
+    private:
 
+    public:
+        NetTcp();
+        ~NetTcp();
     };
 }
 
