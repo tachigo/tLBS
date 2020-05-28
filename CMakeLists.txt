@@ -18,7 +18,7 @@ set(SRC_SERVER_TMP
         src/client.cc
 #        src/command.cc
 #        src/common.cc
-#        src/config.cc
+        src/config.cc
 #        src/connection.cc
 #        src/persistence.cc
         src/db.cc
@@ -26,8 +26,10 @@ set(SRC_SERVER_TMP
 #        src/dict.cc
 #        src/endianconv.cc
 #        src/geo.cc
+        src/log.cc
 #        src/localtime.cc
 #        src/networking.cc
+        src/net_tcp.cc
         src/object.cc
 #        src/rax.cc
 #        src/sds.cc
@@ -58,5 +60,6 @@ add_executable(tLBS-server ${SRC_SERVER})
 #        )
 
 target_link_libraries(tLBS-server
-         gflags
+        gflags
+        glog
         )

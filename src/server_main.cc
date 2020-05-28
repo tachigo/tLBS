@@ -2,8 +2,12 @@
 // Created by 刘立悟 on 2020/5/18.
 //
 
-#include <gflags/gflags.h>
+#include "config.h"
+#include "log.h"
 
-int main(int argc, char **argv) {
-    google::ParseCommandLineFlags(&argc, &argv, true);
+int main(int argc, char *argv[]) {
+    tLBS::Config::init(&argc, &argv);
+    tLBS::Log::init(argv[0]);
+
+    return 0;
 }
