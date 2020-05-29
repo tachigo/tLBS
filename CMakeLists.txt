@@ -47,7 +47,7 @@ set(SRC_SERVER_TMP
 #        src/childinfo.cc
         src/client.cc
 #        src/command.cc
-#        src/common.cc
+        src/common.cc
         src/config.cc
 #        src/connection.cc
 #        src/persistence.cc

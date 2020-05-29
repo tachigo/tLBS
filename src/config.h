@@ -13,7 +13,7 @@ DECLARE_string(pid_file); // PID进程锁文件
 DECLARE_bool(daemonize); // 是否以守护进程启动
 
 // net tcp
-DECLARE_int32(tcp_port); // tcp端口号
+DECLARE_string(tcp_port); // tcp端口号
 
 namespace tLBS {
     class Config {

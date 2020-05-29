@@ -10,6 +10,7 @@
 #define info(x) LOG(INFO) << x
 #define error(x) LOG(ERROR) << x
 #define warning(x) LOG(WARNING) << x
+#define fatal(x) LOG(FATAL) << x
 
 namespace tLBS {
     class Log {
