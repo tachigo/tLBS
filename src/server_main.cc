@@ -18,20 +18,22 @@ int main(int argc, char *argv[]) {
 
     auto *server = new Server();
     server->init(); // 初始化服务器
-
+    warning("pid: ") << server->getPid();
+    warning("arch bits: ") << server->getArchBits();
     // i/o多路复用代理
     auto *el = new EventLoop(10);
     info("创建i/o多路复用处理对象: " + el->getName());
 
     auto *net = new NetTcp();
-    net->listenPort(); // 建立tcp网络监听
+    net->listenPort(); // 建立tcp网络地址监听
 
-    int *sockFds = net->getTcpFd();
-    int sockFdCount = net->getTcpFdCount();
-    for (j = 0; j < sockFdCount; j++) {
-        // 将监听tcp的文件描述符注册到事件循环中
-        if (el->addFileEvent(sockFds[j], EL_READABLE) != EL_OK) {
-            fatal("创建tcp套接字i/o事件失败");
+    int *tcpFds = net->getTcpFd();
+    int tcpFdCount = net->getTcpFdCount();
+    info("监听tcp网络的文件描述符数: ") << tcpFdCount;
+    for (j = 0; j < tcpFdCount; j++) {
+        // 将监听接受tcp连接时的处理句柄注册到事件循环中
+        if (el->addFileEvent(tcpFds[j], EL_READABLE, NetTcp::acceptHandler, nullptr) != EL_OK) {
+            fatal("将监听接受tcp连接时的处理句柄注册到事件循环中");
         }
     }
     el->start();

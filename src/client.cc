@@ -3,3 +3,10 @@
 //
 
 #include "client.h"
+
+using namespace tLBS;
+
+Client::Client(Connection *conn) {
+    this->conn = conn;
+
+}

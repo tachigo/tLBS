@@ -8,6 +8,7 @@
 
 #include <string>
 #include <fstream>
+
 using namespace tLBS;
 
 DEFINE_string(pid_file, "/var/run/tLBS-server.pid", "PID进程锁文件");
@@ -16,7 +17,7 @@ DEFINE_bool(daemonize, false, "是否以守护进程方式启动");
 
 Server::Server() {
     info("创建server对象");
-    this->pid = getPid();
+    this->pid = ::getpid();
     this->shutdownAsap = 0;
     this->archBits = (sizeof(long) == 8) ? 64 : 32;
 }
@@ -39,7 +40,7 @@ void Server::daemonize() {
         // 父
         exit(0);
     }
-    // 子
+    // 子 脱离会话
     setsid();
 }
 

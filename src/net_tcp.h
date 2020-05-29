@@ -9,6 +9,7 @@
 #define NET_ERR 1
 
 #include <netdb.h>
+#include "el.h"
 
 namespace tLBS {
     class NetTcp {
@@ -25,6 +26,7 @@ namespace tLBS {
         int setReuseAddr(int fd);
         int listen(int fd, struct sockaddr *sa, socklen_t len);
         int server(char *bindAddr, int af);
+        static int genericAccept(int s, struct sockaddr *sa, socklen_t *len);
     public:
         NetTcp();
         ~NetTcp();
@@ -35,6 +37,8 @@ namespace tLBS {
         int listenPort();
         int getTcpFdCount();
         int *getTcpFd();
+        static void acceptHandler(EventLoop *el, int fd, int flags, void *data);
+        static int accept(int fd, char *ip, size_t ipLen, int *port);
     };
 }
 

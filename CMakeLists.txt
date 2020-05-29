@@ -49,7 +49,7 @@ set(SRC_SERVER_TMP
 #        src/command.cc
         src/common.cc
         src/config.cc
-#        src/connection.cc
+        src/connection.cc
 #        src/persistence.cc
         src/db.cc
 #        src/debug.cc

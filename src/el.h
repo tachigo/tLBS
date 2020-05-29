@@ -37,17 +37,18 @@
 #define EL_DELETED_EVENT_ID -1
 
 // 根据系统包含多路复用的层 且根据性能进行降序
+// 统一命名别名为 EventLoopHandler
 #ifdef HAVE_EVPORT
 //    #include "el_evport.h"
-//    #define EventLoopHandler EventLoopEvPort
+//    #define EventLoopHandler EventLoopEvport
 #else
     #ifdef HAVE_EPOLL
 //        #include "el_epoll.h"
-//        #define EventLoopHandler EventLoopEPoll
+//        #define EventLoopHandler EventLoopEpoll
     #else
         #ifdef HAVE_KQUEUE
 //            #include "el_kqueue.h"
-//            #define EventLoopHandler EventLoopKQueue
+//            #define EventLoopHandler EventLoopKqueue
         #else
             #include "el_select.h"
             #define EventLoopHandler EventLoopSelect
@@ -59,6 +60,8 @@
 
 namespace tLBS {
 
+    typedef void elFallback (EventLoop *el, int fd, int flags, void *data);
+
     class FiredEvent {
     public:
         int fd; // 文件描述符
@@ -68,8 +71,9 @@ namespace tLBS {
     class FileEvent {
     public:
         int flags;
-        void (*rFallback)(int fd, int flags); // 读回调
-        void (*wFallback)(int fd, int flags); // 写回调
+        elFallback *rFallback; // 读回调
+        elFallback *wFallback;// 写回调
+        void *data; // 数据
     };
 
     class TimeEvent {
@@ -118,7 +122,7 @@ namespace tLBS {
         bool isStop();
         long long addTimeEvent(long long milliseconds);
         int delTimeEvent(long long id);
-        int addFileEvent(int fd, int flags);
+        int addFileEvent(int fd, int flags, elFallback proc, void *data);
         FileEvent *getEvent(int j);
         void addFiredEvent(int key, int fd, int flags);
     };

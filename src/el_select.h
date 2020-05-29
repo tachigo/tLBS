@@ -12,7 +12,7 @@
 
 namespace tLBS {
 
-    class EventLoop;
+    class EventLoop; // 提前声明一下
 
     class EventLoopSelect {
     private:

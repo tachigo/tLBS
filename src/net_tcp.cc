@@ -6,9 +6,12 @@
 #include "net_tcp.h"
 #include "config.h"
 #include "log.h"
+#include "connection.h"
 
 #include <sys/socket.h>
 #include <sys/file.h>
+#include <arpa/inet.h>
+
 
 using namespace tLBS;
 
@@ -22,10 +25,12 @@ NetTcp::NetTcp() {
 }
 
 int NetTcp::v4server(char *bindAddr) {
+    info("绑定IPv4的一个网络监听");
     return this->server(bindAddr, AF_INET);
 }
 
 int NetTcp::v6server(char *bindAddr) {
+    info("绑定IPv6的一个网络监听");
     return this->server(bindAddr, AF_INET6);
 }
 
@@ -206,6 +211,78 @@ int* NetTcp::getTcpFd() {
 
 int NetTcp::getTcpFdCount() {
     return this->tcpFdCount;
+}
+
+int NetTcp::genericAccept(int s, struct sockaddr *sa, socklen_t *len) {
+    int fd;
+    while (true) {
+        fd = ::accept(s, sa, len);
+        if (fd == -1) {
+            if (errno == EINTR) {
+                // 中断
+                continue;
+            }
+            else {
+                error("accept: ") << strerror(errno);
+                return NET_ERR;
+            }
+        }
+        break;
+    }
+    return fd;
+}
+
+void NetTcp::acceptHandler(EventLoop *el, int fd, int flags, void *data) {
+    UNUSED(el);
+    UNUSED(flags);
+    UNUSED(data);
+
+    int maxAcceptsPerCall = 5;
+    char connIp[INET6_ADDRSTRLEN];
+    int connPort, connFd;
+    while (maxAcceptsPerCall--) {
+        // 接收一个套接字
+        connFd = NetTcp::accept(fd, connIp, sizeof(connIp), &connPort);
+        if (connFd == NET_ERR) {
+            if (errno != EWOULDBLOCK) {
+                error("接受客户端连接失败");
+                return;
+            }
+        }
+        warning("接受连接: ") << connIp << ":" << connPort;
+        // 创建一个连接对象
+        auto *conn = new Connection(connFd);
+
+    }
+}
+
+int NetTcp::accept(int s, char *ip, size_t ipLen, int *port) {
+    int fd;
+    struct sockaddr_storage sa;
+    socklen_t  saLen = sizeof(sa);
+    if ((fd = NetTcp::genericAccept(s, (struct sockaddr *) &sa, &saLen)) == -1) {
+        return NET_ERR;
+    }
+    if (sa.ss_family == AF_INET) {
+        struct sockaddr_in *s = (struct sockaddr_in *) &sa;
+        if (ip) {
+            inet_ntop(AF_INET, (void *) &(s->sin_addr), ip, ipLen);
+        }
+        if (port) {
+            *port = ntohs(s->sin_port);
+        }
+    }
+    else {
+        struct sockaddr_in6 *s = (struct sockaddr_in6 *) &sa;
+        if (ip) {
+            inet_ntop(AF_INET, (void *) &(s->sin6_addr), ip, ipLen);
+        }
+        if (port) {
+            *port = ntohs(s->sin6_port);
+        }
+    }
+
+    return fd;
 }
 
 NetTcp::~NetTcp() {

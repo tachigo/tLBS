@@ -6,6 +6,7 @@
 #define TLBS_CLIENT_H
 
 #include "db.h"
+#include "connection.h"
 
 namespace tLBS {
     class Client {
@@ -15,9 +16,10 @@ namespace tLBS {
         Object *name; // 当前客户端的名称
         time_t ctime; // 客户端创建时间
         uint64_t flags; // 客户端标记
+        Connection *conn; // 一个连接对象
 
     public:
-        Client();
+        Client(Connection *conn);
         ~Client();
         uint64_t getId();
         Db *getDb();

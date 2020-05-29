@@ -148,14 +148,16 @@ int EventLoop::processEvents(int flags) {
             int invert = fe->flags & EL_BARRIER;
             if (!invert && fe->flags & firedFlags & EL_READABLE) {
                 // 处理事件
-
+                info("处理socket读");
+                fe->rFallback(this, fd, firedFlags, fe->data);
                 fired++;
                 fe = this->events[fd];
             }
 
             if (fe->flags & firedFlags & EL_WRITABLE) {
                 if (!fired || fe->rFallback != fe->wFallback) {
-                    fe->wFallback(fd, firedFlags);
+                    info("处理socket写");
+                    fe->wFallback(this, fd, firedFlags, fe->data);
                     fired++;
                 }
             }
@@ -164,7 +166,8 @@ int EventLoop::processEvents(int flags) {
                 fe = this->events[fd];
                 if ((fe->flags & firedFlags & EL_READABLE) &&
                         (!fired || fe->wFallback != fe->rFallback)) {
-                    fe->rFallback(fd, firedFlags);
+                    info("处理socket读");
+                    fe->rFallback(this, fd, firedFlags, fe->data);
                     fired++;
                 }
             }
@@ -209,7 +212,7 @@ int EventLoop::delTimeEvent(long long id) {
     return EL_ERR;
 }
 
-int EventLoop::addFileEvent(int fd, int flags) {
+int EventLoop::addFileEvent(int fd, int flags, elFallback proc, void *data) {
     if (fd >= this->setSize) {
         errno = ERANGE;
         return EL_ERR;
@@ -219,6 +222,13 @@ int EventLoop::addFileEvent(int fd, int flags) {
         return EL_ERR;
     }
     fe->flags |= flags;
+    if (flags & EL_READABLE) {
+        fe->rFallback = proc;
+    }
+    if (flags & EL_WRITABLE) {
+        fe->wFallback = proc;
+    }
+    fe->data = data;
     if (fd > this->maxFd) {
         this->maxFd = fd;
     }
