@@ -4,6 +4,9 @@
 
 #include "connection.h"
 
+#include <unistd.h>
+#include <cerrno>
+
 using namespace tLBS;
 
 Connection::Connection() {
@@ -40,6 +43,35 @@ std::string Connection::getInfo() {
     char buf[100];
     snprintf(buf, sizeof(buf) - 1, "fd=%i", this->fd);
     return buf;
+}
+
+void Connection::close(EventLoop *el) {
+    if (this->fd != -1) {
+        el->delFileEvent(this->fd, EL_READABLE);
+        el->delFileEvent(this->fd, EL_WRITABLE);
+        ::close(this->fd);
+        this->fd = -1;
+    }
+}
+
+int Connection::write(const void *data, size_t dataLen) {
+    int ret = ::write(this->fd, data, dataLen);
+    if (ret < 0 &&  errno != EAGAIN) {
+        this->lastErrno = errno;
+        this->state = ConnectionState::CONN_STATE_ERROR;
+    }
+    return ret;
+}
+
+int Connection::read(void *buf, size_t bufLen) {
+    int ret = ::read(this->fd, buf, bufLen);
+    if (!ret) {
+        this->state = ConnectionState::CONN_STATE_CLOSED;
+    } else if (ret < 0 && errno != EAGAIN) {
+        this->lastErrno = errno;
+        this->state = ConnectionState::CONN_STATE_ERROR;
+    }
+    return ret;
 }
 
 Connection::~Connection() {

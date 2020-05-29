@@ -35,6 +35,8 @@
 
 // 标记一个事件是删除了的
 #define EL_DELETED_EVENT_ID -1
+// max_clients + FD_SET_INCR
+#define FD_SET_INCR (MIN_REVERSED_FDS + 96)
 
 // 根据系统包含多路复用的层 且根据性能进行降序
 // 统一命名别名为 EventLoopHandler
@@ -123,6 +125,7 @@ namespace tLBS {
         long long addTimeEvent(long long milliseconds);
         int delTimeEvent(long long id);
         int addFileEvent(int fd, int flags, elFallback proc, void *data);
+        void delFileEvent(int fd, int flags);
         FileEvent *getEvent(int j);
         void addFiredEvent(int key, int fd, int flags);
     };

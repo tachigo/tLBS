@@ -148,7 +148,7 @@ int EventLoop::processEvents(int flags) {
             int invert = fe->flags & EL_BARRIER;
             if (!invert && fe->flags & firedFlags & EL_READABLE) {
                 // 处理事件
-                info("处理socket读");
+                info("处理socket读fd#") << fd;
                 fe->rFallback(this, fd, firedFlags, fe->data);
                 fired++;
                 fe = this->events[fd];
@@ -156,7 +156,7 @@ int EventLoop::processEvents(int flags) {
 
             if (fe->flags & firedFlags & EL_WRITABLE) {
                 if (!fired || fe->rFallback != fe->wFallback) {
-                    info("处理socket写");
+                    info("处理socket写fd#") << fd;
                     fe->wFallback(this, fd, firedFlags, fe->data);
                     fired++;
                 }
@@ -166,7 +166,7 @@ int EventLoop::processEvents(int flags) {
                 fe = this->events[fd];
                 if ((fe->flags & firedFlags & EL_READABLE) &&
                         (!fired || fe->wFallback != fe->rFallback)) {
-                    info("处理socket读");
+                    info("处理socket读fd#") << fd;
                     fe->rFallback(this, fd, firedFlags, fe->data);
                     fired++;
                 }
@@ -210,6 +210,30 @@ int EventLoop::delTimeEvent(long long id) {
         te = te->next;
     }
     return EL_ERR;
+}
+
+void EventLoop::delFileEvent(int fd, int flags) {
+    if (fd >= this->setSize) {
+        return;
+    }
+    FileEvent *fe = this->events[fd];
+    if (fe->flags == EL_NONE) {
+        return;
+    }
+    if (flags & EL_WRITABLE) {
+        flags |= EL_BARRIER;
+    }
+    this->getHandler()->delEvent(fd, flags);
+    fe->flags = fe->flags & (~flags);
+    if (fd == this->maxFd && fe->flags == EL_NONE) {
+        int j;
+        for (j = this->maxFd - 1; j >= 0; j--) {
+            if (this->events[j]->flags != EL_NONE) {
+                break;
+            }
+        }
+        this->maxFd = j;
+    }
 }
 
 int EventLoop::addFileEvent(int fd, int flags, elFallback proc, void *data) {

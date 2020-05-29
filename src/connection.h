@@ -6,6 +6,7 @@
 #define TLBS_CONNECTION_H
 
 #include <string>
+#include "el.h"
 
 namespace tLBS {
 
@@ -38,10 +39,16 @@ namespace tLBS {
         void decrRefs();
         int getRefs();
 
+        int write(const void *data, size_t dataLen); // 向连接写数据
+        int read(void *buf, size_t bufLen); // 从连接读数据
+        void close(EventLoop *el); // 关闭连接
+
 //        void connHandler();
 //        void writeHandler();
 //        void readHandler();
     };
+
+//    typedef void (*ConnectionFallback)(Connection *conn);
 }
 
 #endif //TLBS_CONNECTION_H

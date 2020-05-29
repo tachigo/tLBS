@@ -7,6 +7,7 @@
 #include "server.h"
 #include "net_tcp.h"
 #include "el.h"
+#include "client.h"
 
 using namespace tLBS;
 
@@ -21,7 +22,8 @@ int main(int argc, char *argv[]) {
     warning("pid: ") << server->getPid();
     warning("arch bits: ") << server->getArchBits();
     // i/o多路复用代理
-    auto *el = new EventLoop(10);
+    Client::adjustMaxClients();
+    auto *el = new EventLoop(FLAGS_max_clients + FD_SET_INCR);
     info("创建i/o多路复用处理对象: " + el->getName());
 
     auto *net = new NetTcp();

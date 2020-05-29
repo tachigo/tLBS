@@ -7,10 +7,10 @@
 
 #include <glog/logging.h>
 
-#define info(x) LOG(INFO) << x
-#define error(x) LOG(ERROR) << x
-#define warning(x) LOG(WARNING) << x
-#define fatal(x) LOG(FATAL) << x
+#define info(x) LOG(INFO) << "\t\t\t" << x
+#define error(x) LOG(ERROR) << "\t\t\t" << x
+#define warning(x) LOG(WARNING) << "\t\t\t" << x
+#define fatal(x) LOG(FATAL) << "\t\t\t" << x
 
 namespace tLBS {
     class Log {

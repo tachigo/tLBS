@@ -7,19 +7,23 @@
 #include "config.h"
 #include "log.h"
 #include "connection.h"
+#include "client.h"
 
 #include <sys/socket.h>
 #include <sys/file.h>
 #include <arpa/inet.h>
+#include <netinet/tcp.h>
 
 
 using namespace tLBS;
 
 DEFINE_string(tcp_port, "8899", "tcp端口号");
+DEFINE_int32(tcp_backlog, 511, "tcp建立连接的队列长度");
+DEFINE_int32(tcp_keepalive, 300, "连接保持存活时长");
 
 
 NetTcp::NetTcp() {
-    this->backlog = 0;
+    this->backlog = FLAGS_tcp_backlog;
     this->bindAddrCount = 0;
     this->tcpFdCount = 0;
 }
@@ -127,7 +131,7 @@ int NetTcp::listenPort() {
             int unsupported = 0;
             this->tcpFd[this->tcpFdCount] = this->v6server(this->bindAddr[j]);
             if (this->tcpFd[this->tcpFdCount] != NET_ERR) {
-                this->setNonBlock(this->tcpFd[this->tcpFdCount]);
+                NetTcp::setNonBlock(this->tcpFd[this->tcpFdCount]);
                 this->tcpFdCount++;
             }
             else if (errno == EAFNOSUPPORT) {
@@ -137,7 +141,7 @@ int NetTcp::listenPort() {
             if (this->tcpFdCount == 1 || unsupported) {
                 this->tcpFd[this->tcpFdCount] = this->v4server(this->bindAddr[j]);
                 if (this->tcpFd[this->tcpFdCount] != NET_ERR) {
-                    this->setNonBlock(this->tcpFd[this->tcpFdCount]);
+                    NetTcp::setNonBlock(this->tcpFd[this->tcpFdCount]);
                     this->tcpFdCount++;
                 }
                 else if (errno == EAFNOSUPPORT) {
@@ -165,7 +169,7 @@ int NetTcp::listenPort() {
                 continue;
             return C_ERR;
         }
-        this->setNonBlock(this->tcpFd[this->tcpFdCount]);
+        NetTcp::setNonBlock(this->tcpFd[this->tcpFdCount]);
         this->tcpFdCount++;
     }
     return C_OK;
@@ -213,6 +217,58 @@ int NetTcp::getTcpFdCount() {
     return this->tcpFdCount;
 }
 
+int NetTcp::setNoDelay(int fd, int val) {
+    if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val)) == -1) {
+        error("setsockopt TCP_NODELAY: ") << strerror(errno);
+        return NET_ERR;
+    }
+    return NET_OK;
+}
+
+int NetTcp::setKeepalive(int fd, int interval) {
+    int val = 1;
+
+    if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val)) == -1) {
+        error("setsockopt SO_KEEPALIVE: ") << strerror(errno);
+        return NET_ERR;
+    }
+
+#ifdef __linux__
+    /* Default settings are more or less garbage, with the keepalive time
+     * set to 7200 by default on Linux. Modify settings to make the feature
+     * actually useful. */
+
+    /* Send first probe after interval. */
+    val = interval;
+    if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &val, sizeof(val)) < 0) {
+        error("setsockopt TCP_KEEPIDLE: ") << strerror(errno);
+        return NET_ERR;
+    }
+
+    /* Send next probes after the specified interval. Note that we set the
+     * delay as interval / 3, as we send three probes before detecting
+     * an error (see the next setsockopt call). */
+    val = interval/3;
+    if (val == 0) val = 1;
+    if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, &val, sizeof(val)) < 0) {
+        error("setsockopt TCP_KEEPINTVL: ") << strerror(errno);
+        return NET_ERR;
+    }
+
+    /* Consider the socket in error state after three we send three ACK
+     * probes without getting a reply. */
+    val = 3;
+    if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, &val, sizeof(val)) < 0) {
+        error("setsockopt TCP_KEEPCNT: ") << strerror(errno);
+        return NET_ERR;
+    }
+#else
+    ((void) interval); /* Avoid unused var warning for non Linux systems. */
+#endif
+
+    return NET_OK;
+}
+
 int NetTcp::genericAccept(int s, struct sockaddr *sa, socklen_t *len) {
     int fd;
     while (true) {
@@ -237,7 +293,7 @@ void NetTcp::acceptHandler(EventLoop *el, int fd, int flags, void *data) {
     UNUSED(flags);
     UNUSED(data);
 
-    int maxAcceptsPerCall = 5;
+    int maxAcceptsPerCall = 1000;
     char connIp[INET6_ADDRSTRLEN];
     int connPort, connFd;
     while (maxAcceptsPerCall--) {
@@ -246,13 +302,32 @@ void NetTcp::acceptHandler(EventLoop *el, int fd, int flags, void *data) {
         if (connFd == NET_ERR) {
             if (errno != EWOULDBLOCK) {
                 error("接受客户端连接失败");
-                return;
             }
+            return;
         }
-        warning("接受连接: ") << connIp << ":" << connPort;
+        // 这里可以使用多线程方式来处理
+        warning("接受的连接fd#") << connFd << " " << connIp << ":" << connPort;
         // 创建一个连接对象
         auto *conn = new Connection(connFd);
+        if (Client::getClients().size() >= FLAGS_max_clients) {
+            // 客户端连接数量超了
+            const char *err = "-ERR max number of clients reached\r\n";
+            conn->write(err, strlen(err));
+            conn->close(el);
+            return;
+        }
+        // 创建一个客户端连接对象
+        auto *client = new Client(conn, flags);
+        NetTcp::setNonBlock(connFd);
+        NetTcp::setNoDelay(connFd, 1);
+        if (FLAGS_tcp_keepalive > 0) {
+            NetTcp::setKeepalive(connFd, FLAGS_tcp_keepalive);
+        }
+        // 将新生成的存储到clients列表中
+        Client::linkClient(client);
 
+        const char *err = "-OK hello world!你好啊!~\r\n";
+        conn->write(err, strlen(err));
     }
 }
 

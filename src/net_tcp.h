@@ -6,7 +6,7 @@
 #define TLBS_NET_TCP_H
 
 #define NET_OK 0
-#define NET_ERR 1
+#define NET_ERR -1
 
 #include <netdb.h>
 #include "el.h"
@@ -32,13 +32,16 @@ namespace tLBS {
         ~NetTcp();
         int v4server(char *bindAddr); // 创建ipv4的服务器
         int v6server(char *bindAddr); // 创建ipv6的服务器
-        int setBlock(int fd);
-        int setNonBlock(int fd);
+
         int listenPort();
         int getTcpFdCount();
         int *getTcpFd();
         static void acceptHandler(EventLoop *el, int fd, int flags, void *data);
         static int accept(int fd, char *ip, size_t ipLen, int *port);
+        static int setBlock(int fd);
+        static int setNonBlock(int fd);
+        static int setNoDelay(int fd, int val);
+        static int setKeepalive(int fd, int interval);
     };
 }
 
