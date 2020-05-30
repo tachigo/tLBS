@@ -7,19 +7,20 @@
 
 #include <glog/logging.h>
 
-#define info(x) LOG(INFO) << "\t\t\t" << x
-#define error(x) LOG(ERROR) << "\t\t\t" << x
-#define warning(x) LOG(WARNING) << "\t\t\t" << x
-#define fatal(x) LOG(FATAL) << "\t\t\t" << x
+#define info(x) LOG(INFO) << x
+#define error(x) LOG(ERROR) << x
+#define warning(x) LOG(WARNING) << x
+#define fatal(x) LOG(FATAL) << x
 
 namespace tLBS {
     class Log {
 
     private:
-        explicit Log(const char *programName);
     public:
-        ~Log();
+        Log() = default;
+        ~Log() = delete;
         static void init(const char *programName);
+        static void free();
     };
 }
 

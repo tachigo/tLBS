@@ -14,11 +14,15 @@ Config *Config::instance = nullptr;
 Config::Config() {
 }
 
-Config* Config::getInstance() {
+Config::~Config() {
+
+}
+
+Config Config::getInstance() {
     if (instance == nullptr) {
-        instance = new Config();
+        *instance = Config();
     }
-    return instance;
+    return *instance;
 }
 
 

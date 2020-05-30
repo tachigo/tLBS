@@ -24,7 +24,8 @@ namespace tLBS {
         int tcpFdCount; // tcp套接字文件描述符数量
         int v6Only(int fd);
         int setReuseAddr(int fd);
-        int listen(int fd, struct sockaddr *sa, socklen_t len);
+        int listen(int fd);
+        int bind(int fd, struct sockaddr *sa, socklen_t len);
         int server(char *bindAddr, int af);
         static int genericAccept(int s, struct sockaddr *sa, socklen_t *len);
     public:
@@ -33,10 +34,10 @@ namespace tLBS {
         int v4server(char *bindAddr); // 创建ipv4的服务器
         int v6server(char *bindAddr); // 创建ipv6的服务器
 
-        int listenPort();
+        int bindAndListen();
         int getTcpFdCount();
         int *getTcpFd();
-        static void acceptHandler(EventLoop *el, int fd, int flags, void *data);
+        static void acceptReader(EventLoop *el, int fd, int flags, void *data);
         static int accept(int fd, char *ip, size_t ipLen, int *port);
         static int setBlock(int fd);
         static int setNonBlock(int fd);

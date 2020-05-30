@@ -104,8 +104,8 @@ namespace tLBS {
         bool stop; // 循环是否停止
         int flags; // 标记
         time_t lastTime; // 记录时钟
-        FileEvent **events;
-        FiredEvent **fired;
+        FileEvent *events;
+        FiredEvent *fired;
         TimeEvent *teHead; // 定时任务事件链表头结点
         long long teNextId; // 定时任务事件ID计数器
 

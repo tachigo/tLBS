@@ -6,7 +6,12 @@
 
 using namespace tLBS;
 
-Log::Log(const char *programName) {
+void Log::free() {
+    info("google日志对象析构");
+    google::ShutdownGoogleLogging();
+}
+
+void Log::init(const char *programName) {
     google::InitGoogleLogging(programName);
     FLAGS_log_dir = "../log";
     FLAGS_log_prefix = true;
@@ -15,13 +20,4 @@ Log::Log(const char *programName) {
     FLAGS_stop_logging_if_full_disk = true;
     FLAGS_max_log_size = 100; // 100M
     info("初始化google日志对象");
-}
-
-Log::~Log() {
-    info("google日志对象析构");
-    google::ShutdownGoogleLogging();
-}
-
-void Log::init(const char *programName) {
-    new Log(programName);
 }

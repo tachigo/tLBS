@@ -28,8 +28,8 @@ namespace tLBS {
 
     public:
         static void init(int *argc, char*** argv);
-        static Config *getInstance();
-        ~Config() = default;
+        static Config getInstance();
+        ~Config();
     };
 
 }

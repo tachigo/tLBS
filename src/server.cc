@@ -22,6 +22,10 @@ Server::Server() {
     this->archBits = (sizeof(long) == 8) ? 64 : 32;
 }
 
+Server::~Server() {
+    info("析构server对象");
+}
+
 pid_t Server::getPid() {
     return this->pid;
 }

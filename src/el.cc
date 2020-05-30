@@ -33,19 +33,19 @@ EventLoop::EventLoop(int setSize) {
     this->teHead = nullptr;
     this->teNextId = 0;
     int j;
-    this->events = (FileEvent **) malloc(sizeof(FileEvent) * setSize);
-    this->fired = (FiredEvent **) malloc(sizeof(FiredEvent) * setSize);
+    this->events = (FileEvent *) malloc(sizeof(FileEvent) * setSize);
+    this->fired = (FiredEvent *) malloc(sizeof(FiredEvent) * setSize);
     for (j = 0; j < setSize; j++) {
-        this->events[j] = new FileEvent();
-        this->events[j]->flags = EL_NONE;
+        this->events[j] = FileEvent();
+        this->events[j].flags = EL_NONE;
 
-        this->fired[j] = new FiredEvent();
+        this->fired[j] = FiredEvent();
     }
     this->handler = new EventLoopHandler();
 }
 
 FileEvent* EventLoop::getEvent(int j) {
-    return this->events[j];
+    return &this->events[j];
 }
 
 EventLoop::~EventLoop() {
@@ -138,9 +138,9 @@ int EventLoop::processEvents(int flags) {
             // todo
         }
         for (j = 0; j < numEvents; j++) {
-            int fd = this->fired[j]->fd;
-            int firedFlags = this->fired[j]->flags;
-            FileEvent *fe = this->events[fd];
+            int fd = this->fired[j].fd;
+            int firedFlags = this->fired[j].flags;
+            FileEvent *fe = &this->events[fd];
             int fired = 0;
 
             // 正常情况下 先执行读，再执行写
@@ -151,7 +151,7 @@ int EventLoop::processEvents(int flags) {
                 info("处理socket读fd#") << fd;
                 fe->rFallback(this, fd, firedFlags, fe->data);
                 fired++;
-                fe = this->events[fd];
+                fe = &this->events[fd];
             }
 
             if (fe->flags & firedFlags & EL_WRITABLE) {
@@ -163,7 +163,7 @@ int EventLoop::processEvents(int flags) {
             }
 
             if (invert) {
-                fe = this->events[fd];
+                fe = &this->events[fd];
                 if ((fe->flags & firedFlags & EL_READABLE) &&
                         (!fired || fe->wFallback != fe->rFallback)) {
                     info("处理socket读fd#") << fd;
@@ -216,7 +216,7 @@ void EventLoop::delFileEvent(int fd, int flags) {
     if (fd >= this->setSize) {
         return;
     }
-    FileEvent *fe = this->events[fd];
+    FileEvent *fe = &this->events[fd];
     if (fe->flags == EL_NONE) {
         return;
     }
@@ -228,7 +228,7 @@ void EventLoop::delFileEvent(int fd, int flags) {
     if (fd == this->maxFd && fe->flags == EL_NONE) {
         int j;
         for (j = this->maxFd - 1; j >= 0; j--) {
-            if (this->events[j]->flags != EL_NONE) {
+            if (this->events[j].flags != EL_NONE) {
                 break;
             }
         }
@@ -241,7 +241,7 @@ int EventLoop::addFileEvent(int fd, int flags, elFallback proc, void *data) {
         errno = ERANGE;
         return EL_ERR;
     }
-    FileEvent *fe = this->events[fd];
+    FileEvent *fe = &this->events[fd];
     if (this->getHandler()->addEvent(fd, flags) == -1) {
         return EL_ERR;
     }
@@ -265,6 +265,6 @@ int EventLoop::getMaxFd() {
 }
 
 void EventLoop::addFiredEvent(int key, int fd, int flags) {
-    this->fired[key]->fd = fd;
-    this->fired[key]->flags = flags;
+    this->fired[key].fd = fd;
+    this->fired[key].flags = flags;
 }

@@ -67,7 +67,10 @@ int NetTcp::server(char *bindAddr, int af) {
         if (this->setReuseAddr(fd) == NET_ERR) {
             goto error;
         }
-        if (this->listen(fd, p->ai_addr, p->ai_addrlen) == NET_ERR) {
+        if (this->bind(fd, p->ai_addr, p->ai_addrlen) == NET_ERR) {
+            fd = NET_ERR;
+        }
+        if (this->listen(fd) == NET_ERR) {
             fd = NET_ERR;
         }
         goto end;
@@ -87,12 +90,18 @@ end:
     return fd;
 }
 
-int NetTcp::listen(int fd, struct sockaddr *sa, socklen_t len) {
-    if (bind(fd, sa, len) == -1) {
+int NetTcp::bind(int fd, struct sockaddr *sa, socklen_t len) {
+    // 关联地址和tcp套接字
+    if (::bind(fd, sa, len) == -1) {
         error("bind: ") << strerror(errno);
         close(fd);
         return NET_ERR;
     }
+    return NET_OK;
+}
+
+int NetTcp::listen(int fd) {
+    // 宣告服务器愿意接受连接请求
     if (::listen(fd, this->backlog) == -1) {
         error("listen: ") << strerror(errno);
         close(fd);
@@ -120,7 +129,7 @@ int NetTcp::v6Only(int fd) {
     return NET_OK;
 }
 
-int NetTcp::listenPort() {
+int NetTcp::bindAndListen() {
     info("建立tcp网络监听");
     int j;
     if (this->bindAddrCount == 0) {
@@ -272,6 +281,7 @@ int NetTcp::setKeepalive(int fd, int interval) {
 int NetTcp::genericAccept(int s, struct sockaddr *sa, socklen_t *len) {
     int fd;
     while (true) {
+        // 获得连接请求并建立连接fd
         fd = ::accept(s, sa, len);
         if (fd == -1) {
             if (errno == EINTR) {
@@ -288,7 +298,7 @@ int NetTcp::genericAccept(int s, struct sockaddr *sa, socklen_t *len) {
     return fd;
 }
 
-void NetTcp::acceptHandler(EventLoop *el, int fd, int flags, void *data) {
+void NetTcp::acceptReader(EventLoop *el, int fd, int flags, void *data) {
     UNUSED(el);
     UNUSED(flags);
     UNUSED(data);
@@ -306,6 +316,7 @@ void NetTcp::acceptHandler(EventLoop *el, int fd, int flags, void *data) {
             return;
         }
         // 这里可以使用多线程方式来处理
+
         warning("接受的连接fd#") << connFd << " " << connIp << ":" << connPort;
         // 创建一个连接对象
         auto *conn = new Connection(connFd);
@@ -334,7 +345,7 @@ void NetTcp::acceptHandler(EventLoop *el, int fd, int flags, void *data) {
 int NetTcp::accept(int s, char *ip, size_t ipLen, int *port) {
     int fd;
     struct sockaddr_storage sa;
-    socklen_t  saLen = sizeof(sa);
+    socklen_t saLen = sizeof(sa);
     if ((fd = NetTcp::genericAccept(s, (struct sockaddr *) &sa, &saLen)) == -1) {
         return NET_ERR;
     }
