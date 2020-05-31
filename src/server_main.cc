@@ -8,6 +8,7 @@
 #include "net_tcp.h"
 #include "el.h"
 #include "client.h"
+#include "threadpool_c.h"
 
 using namespace tLBS;
 
@@ -22,6 +23,9 @@ int main(int argc, char *argv[]) {
     server.init(); // 初始化服务器
     warning("pid: ") << server.getPid();
     warning("arch bits: ") << server.getArchBits();
+    // 初始化线程池
+    // 1.初始化主要的线程池
+    ThreadPool mainThreadPool = ThreadPool("main", 10, 5);
     // i/o多路复用代理
     Client::adjustMaxClients();
     EventLoop el = EventLoop(FLAGS_max_clients + FD_SET_INCR);

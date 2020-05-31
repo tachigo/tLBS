@@ -139,7 +139,7 @@ images), and run *much, much faster*.
 
 If you are lucky, the mocks you need to use have already been implemented by
 some nice people. If, however, you find yourself in the position to write a mock
-class, relax - gMock turns this task into a fun game! (Well, almost.)
+class, relax - gMock turns this execute into a fun game! (Well, almost.)
 
 #### How to Define It
 

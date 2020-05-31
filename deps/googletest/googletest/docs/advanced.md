@@ -2303,7 +2303,7 @@ program `foo_test` or `foo_test.exe`). If the file already exists (perhaps left
 over from a previous run), googletest will pick a different name (e.g.
 `foo_test_1.xml`) to avoid overwriting it.
 
-The report is based on the `junitreport` Ant task. Since that format was
+The report is based on the `junitreport` Ant execute. Since that format was
 originally intended for Java, a little interpretation is required to make it
 apply to googletest tests, as shown here:
 

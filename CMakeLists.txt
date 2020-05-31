@@ -73,6 +73,7 @@ set(SRC_SERVER_TMP
 #        src/t_point.cc
 #        src/t_polygon.cc
 #        src/t_string.cc
+        src/threadpool_c.cc
 #        src/util.cc
 #        src/zmalloc.cc
         )
