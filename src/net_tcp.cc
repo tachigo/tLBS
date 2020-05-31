@@ -21,6 +21,14 @@ DEFINE_string(tcp_port, "8899", "tcp端口号");
 DEFINE_int32(tcp_backlog, 511, "tcp建立连接的队列长度");
 DEFINE_int32(tcp_keepalive, 300, "连接保持存活时长");
 
+NetTcp *NetTcp::instance = nullptr;
+
+NetTcp * NetTcp::getInstance() {
+    if (instance == nullptr) {
+        instance = new NetTcp();
+    }
+    return instance;
+}
 
 NetTcp::NetTcp() {
     this->backlog = FLAGS_tcp_backlog;
@@ -315,8 +323,7 @@ void NetTcp::acceptReader(EventLoop *el, int fd, int flags, void *data) {
             }
             return;
         }
-        // 这里可以使用多线程方式来处理
-
+        // 这里可以使用多线程方式来处理 todo
         warning("接受的连接fd#") << connFd << " " << connIp << ":" << connPort;
         // 创建一个连接对象
         auto *conn = new Connection(connFd);
@@ -339,6 +346,8 @@ void NetTcp::acceptReader(EventLoop *el, int fd, int flags, void *data) {
 
         const char *err = "-OK hello world!你好啊!~\r\n";
         conn->write(err, strlen(err));
+        // 继续将fd放入i/o多路复用的地方监听下一次读
+
     }
 }
 
@@ -371,6 +380,11 @@ int NetTcp::accept(int s, char *ip, size_t ipLen, int *port) {
     return fd;
 }
 
-NetTcp::~NetTcp() {
+void NetTcp::free() {
+    NetTcp *inst = NetTcp::getInstance();
+    delete inst;
+}
 
+NetTcp::~NetTcp() {
+    info("销毁tcp网络对象");
 }

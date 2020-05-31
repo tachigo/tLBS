@@ -23,6 +23,18 @@ using namespace tLBS;
     #endif
 #endif
 
+EventLoop *EventLoop::instance = nullptr;
+
+EventLoop * EventLoop::create(int setSize) {
+    if (instance == nullptr) {
+        instance = new EventLoop(setSize);
+    }
+    return instance;
+}
+
+EventLoop * EventLoop::getInstance() {
+    return instance;
+}
 
 EventLoop::EventLoop(int setSize) {
     this->setSize = setSize;
@@ -48,10 +60,14 @@ FileEvent* EventLoop::getEvent(int j) {
     return &this->events[j];
 }
 
+void EventLoop::free() {
+    delete instance;
+}
+
 EventLoop::~EventLoop() {
     this->handler = nullptr;
-    free(this->events);
-    free(this->fired);
+    ::free(this->events);
+    ::free(this->fired);
 }
 
 int EventLoop::getSetSize() {
@@ -80,6 +96,54 @@ TimeEvent* EventLoop::searchEarliestTimeEvent() {
         te = te->next;
     }
     return nearest;
+}
+
+
+int EventLoop::processTimeEvents() {
+//    info("处理事件事件");
+    int processed = 0;
+    time_t now = time(nullptr);
+    this->lastTime = now;
+
+    TimeEvent *te = this->teHead;
+    long long maxId = this->teNextId - 1;
+    while (te) {
+        long nowSec, nowMs;
+        if (te->id == EL_DELETED_EVENT_ID) {
+            // 从链表中删除一个节点
+            TimeEvent *nextTe = te->next;
+            if (te->prev) {
+                te->prev->next = te->next;
+            }
+            else {
+                this->teHead = te->next;
+            }
+            if (te->next) {
+                te->next->prev = te->prev;
+            }
+            delete te;
+            te = nextTe;
+            continue;
+        }
+        if (te->id > maxId) {
+            te = te->next;
+            continue;
+        }
+        getTimeval(&nowSec, &nowMs);
+        if (nowSec > te->whenSec ||
+                (nowSec == te->whenSec && nowMs >= te->whenMs)) {
+            int ret = te->timeFallback(this, te->id, te->data);
+            processed++;
+            if (ret != EL_NO_MORE) {
+                addMillisecondsToNow(ret, &te->whenSec, &te->whenMs);
+            }
+            else {
+                te->id = EL_DELETED_EVENT_ID;
+            }
+        }
+        te = te->next;
+    }
+    return processed;
 }
 
 
@@ -176,7 +240,7 @@ int EventLoop::processEvents(int flags) {
     }
     // 最后检查是否能处理定时任务事件
     if (flags & EL_TIME_EVENT) {
-        // todo
+        processed += this->processTimeEvents();
     }
     return processed;
 }
@@ -193,9 +257,9 @@ std::string EventLoop::getName() {
     return this->handler->getName();
 }
 
-long long EventLoop::addTimeEvent(long long milliseconds) {
+long long EventLoop::addTimeEvent(long long milliseconds, elTimeFallback timeFallback, void *data) {
     long long id = this->teNextId++;
-    this->teHead = new TimeEvent(id, milliseconds, nullptr, this->teHead);
+    this->teHead = new TimeEvent(id, milliseconds, timeFallback, data, nullptr, this->teHead);
     return id;
 }
 
@@ -236,7 +300,7 @@ void EventLoop::delFileEvent(int fd, int flags) {
     }
 }
 
-int EventLoop::addFileEvent(int fd, int flags, elFallback proc, void *data) {
+int EventLoop::addFileEvent(int fd, int flags, elFileFallback proc, void *data) {
     if (fd >= this->setSize) {
         errno = ERANGE;
         return EL_ERR;

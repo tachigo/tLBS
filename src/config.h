@@ -11,6 +11,7 @@
 // server config
 DECLARE_string(pid_file); // PID进程锁文件
 DECLARE_bool(daemonize); // 是否以守护进程启动
+DECLARE_int32(server_hz); // server时间事件频率 每秒多少次
 
 // net tcp
 DECLARE_string(tcp_port); // tcp端口号
@@ -28,7 +29,8 @@ namespace tLBS {
 
     public:
         static void init(int *argc, char*** argv);
-        static Config getInstance();
+        static void free();
+        static Config *getInstance();
         ~Config();
     };
 

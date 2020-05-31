@@ -32,7 +32,8 @@
 // sleep后调用的事件
 #define EL_CALL_AFTER_SLEEP (1<<3)
 
-
+// 不重复执行
+#define EL_NO_MORE -1
 // 标记一个事件是删除了的
 #define EL_DELETED_EVENT_ID -1
 // max_clients + FD_SET_INCR
@@ -62,7 +63,8 @@
 
 namespace tLBS {
 
-    typedef void elFallback (EventLoop *el, int fd, int flags, void *data);
+    typedef void elFileFallback (EventLoop *el, int fd, int flags, void *data);
+    typedef int elTimeFallback (EventLoop *el, long long id, void *data);
 
     class FiredEvent {
     public:
@@ -73,8 +75,8 @@ namespace tLBS {
     class FileEvent {
     public:
         int flags;
-        elFallback *rFallback; // 读回调
-        elFallback *wFallback;// 写回调
+        elFileFallback *rFallback; // 读回调
+        elFileFallback *wFallback; // 写回调
         void *data; // 数据
     };
 
@@ -83,12 +85,16 @@ namespace tLBS {
         long long id;
         long whenSec;
         long whenMs;
+        elTimeFallback *timeFallback; // 定时任务
+        void *data;
         TimeEvent *prev;
         TimeEvent *next;
 
-        TimeEvent(long long id, long long milliseconds, TimeEvent *prev, TimeEvent *next) {
+        TimeEvent(long long id, long long milliseconds, elTimeFallback *timeFallback, void *data, TimeEvent *prev, TimeEvent *next) {
             this->id = id;
             addMillisecondsToNow(milliseconds, &this->whenSec, &this->whenMs);
+            this->timeFallback = timeFallback;
+            this->data = data;
             this->prev = prev;
             this->next = next;
             if (this->next) {
@@ -99,6 +105,7 @@ namespace tLBS {
 
     class EventLoop {
     private:
+        static EventLoop* instance;
         int maxFd; // 当前注册了的最大的事件数
         int setSize; // 文件描述符集的大小
         bool stop; // 循环是否停止
@@ -112,8 +119,12 @@ namespace tLBS {
         EventLoopHandler *handler;
         TimeEvent *searchEarliestTimeEvent(); // 搜索最早的定时任务事件
         int processEvents(int flags);
-    public:
+        int processTimeEvents();
         explicit EventLoop(int setSize);
+    public:
+        static EventLoop *create(int setSize);
+        static EventLoop *getInstance();
+        static void free();
         ~EventLoop();
         EventLoopHandler *getHandler();
         std::string getName();
@@ -122,9 +133,9 @@ namespace tLBS {
         void start();
         void setStop();
         bool isStop();
-        long long addTimeEvent(long long milliseconds);
+        long long addTimeEvent(long long milliseconds, elTimeFallback timeFallback, void *data);
         int delTimeEvent(long long id);
-        int addFileEvent(int fd, int flags, elFallback proc, void *data);
+        int addFileEvent(int fd, int flags, elFileFallback proc, void *data);
         void delFileEvent(int fd, int flags);
         FileEvent *getEvent(int j);
         void addFiredEvent(int key, int fd, int flags);

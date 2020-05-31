@@ -14,7 +14,7 @@
 namespace tLBS {
     class NetTcp {
     private:
-
+        static NetTcp *instance;
         int backlog;
 
         char *bindAddr[16]; // 绑定的地址列表
@@ -28,8 +28,10 @@ namespace tLBS {
         int bind(int fd, struct sockaddr *sa, socklen_t len);
         int server(char *bindAddr, int af);
         static int genericAccept(int s, struct sockaddr *sa, socklen_t *len);
-    public:
         NetTcp();
+    public:
+        static NetTcp *getInstance();
+        static void free();
         ~NetTcp();
         int v4server(char *bindAddr); // 创建ipv4的服务器
         int v6server(char *bindAddr); // 创建ipv6的服务器

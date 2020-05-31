@@ -7,7 +7,7 @@
 using namespace tLBS;
 
 void Log::free() {
-    info("google日志对象析构");
+    info("销毁log对象");
     google::ShutdownGoogleLogging();
 }
 
@@ -19,5 +19,5 @@ void Log::init(const char *programName) {
     FLAGS_colorlogtostderr = true;
     FLAGS_stop_logging_if_full_disk = true;
     FLAGS_max_log_size = 100; // 100M
-    info("初始化google日志对象");
+    info("初始化log对象");
 }
