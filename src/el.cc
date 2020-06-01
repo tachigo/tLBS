@@ -50,7 +50,6 @@ EventLoop::EventLoop(int setSize) {
     for (j = 0; j < setSize; j++) {
         this->events[j] = FileEvent();
         this->events[j].flags = EL_NONE;
-
         this->fired[j] = FiredEvent();
     }
     this->handler = new EventLoopHandler();
@@ -132,7 +131,7 @@ int EventLoop::processTimeEvents() {
         getTimeval(&nowSec, &nowMs);
         if (nowSec > te->whenSec ||
                 (nowSec == te->whenSec && nowMs >= te->whenMs)) {
-            int ret = te->timeFallback(this, te->id, te->data);
+            int ret = te->timeFallback(te->id, te->data);
             processed++;
             if (ret != EL_NO_MORE) {
                 addMillisecondsToNow(ret, &te->whenSec, &te->whenMs);
@@ -213,7 +212,7 @@ int EventLoop::processEvents(int flags) {
             if (!invert && fe->flags & firedFlags & EL_READABLE) {
                 // 处理事件
                 info("处理socket读fd#") << fd;
-                fe->rFallback(this, fd, firedFlags, fe->data);
+                fe->rFallback(fd, firedFlags, fe->data);
                 fired++;
                 fe = &this->events[fd];
             }
@@ -221,7 +220,7 @@ int EventLoop::processEvents(int flags) {
             if (fe->flags & firedFlags & EL_WRITABLE) {
                 if (!fired || fe->rFallback != fe->wFallback) {
                     info("处理socket写fd#") << fd;
-                    fe->wFallback(this, fd, firedFlags, fe->data);
+                    fe->wFallback(fd, firedFlags, fe->data);
                     fired++;
                 }
             }
@@ -231,7 +230,7 @@ int EventLoop::processEvents(int flags) {
                 if ((fe->flags & firedFlags & EL_READABLE) &&
                         (!fired || fe->wFallback != fe->rFallback)) {
                     info("处理socket读fd#") << fd;
-                    fe->rFallback(this, fd, firedFlags, fe->data);
+                    fe->rFallback(fd, firedFlags, fe->data);
                     fired++;
                 }
             }

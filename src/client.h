@@ -24,21 +24,24 @@ namespace tLBS {
         Connection *conn; // 一个连接对象
 
         static std::map<uint64_t, Client *> clients;
-        static _Atomic uint64_t nextClientId;
-    public:
         Client(Connection *conn, int flags);
+    public:
+        static Client *create(Connection *conn, int flags);
+        static Client *getClient(uint64_t clientId);
+        static void free(Client *client);
         ~Client();
         uint64_t getId();
 //        Db *getDb();
         Object *getName();
 //        time_t getCreateTime();
         uint64_t getFlags();
+        Connection *getConnection();
+
+        void readFromConnection();
 
         static std::map<uint64_t, Client *> getClients();
-        static void linkClient(Client *client);
-        static void unlinkClient(Client *client);
-
         static void adjustMaxClients();
+        static void connReadHandler(Connection *data);
     };
 }
 

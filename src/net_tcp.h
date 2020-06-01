@@ -10,6 +10,7 @@
 
 #include <netdb.h>
 #include "el.h"
+#include "connection.h"
 
 namespace tLBS {
     class NetTcp {
@@ -39,7 +40,8 @@ namespace tLBS {
         int bindAndListen();
         int getTcpFdCount();
         int *getTcpFd();
-        static void acceptReader(EventLoop *el, int fd, int flags, void *data);
+        static void acceptHandler(int fd, int flags, void *data);
+        static void acceptCommonHandler(Connection *conn, int flags, char *ip);
         static int accept(int fd, char *ip, size_t ipLen, int *port);
         static int setBlock(int fd);
         static int setNonBlock(int fd);

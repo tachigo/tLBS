@@ -34,8 +34,8 @@ int main(int argc, char *argv[]) {
     warning("arch bits: ") << server->getArchBits();
     // 初始化线程池
     // 1.初始化主要的线程池
-    ThreadPool::createPool("main", 10, 100, 5);
-    atexit(ThreadPool::destroyPools);
+//    ThreadPool::createPool("main", 10, 100, 5);
+//    atexit(ThreadPool::destroyPools);
 //    for (j = 0; j < 100; j++) {
 //        ThreadPool::getPool("main")->enqueueTask(testThread, nullptr);
 //    }
@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
     warning("监听tcp网络的文件描述符数: ") << tcpFdCount;
     for (j = 0; j < tcpFdCount; j++) {
         // 将监听接受tcp连接时的处理句柄注册到事件循环中
-        if (el->addFileEvent(tcpFds[j], EL_READABLE, NetTcp::acceptReader, nullptr) != EL_OK) {
+        if (el->addFileEvent(tcpFds[j], EL_READABLE, NetTcp::acceptHandler, nullptr) != EL_OK) {
             fatal("将监听接受tcp连接时的处理句柄注册到事件循环中");
         }
     }

@@ -34,10 +34,10 @@ ThreadPool * ThreadPool::getPool(std::string group) {
 }
 
 void ThreadPool::destroyPools() {
-    info("销毁所有的thread pool对象");
     for (auto mapIter = map.begin(); mapIter != map.end(); mapIter++) {
         std::string group = mapIter->first;
         delete map[group];
+        info("销毁所有的线程池(" + group + ")对象");
 //        map.erase(group);
     }
 }

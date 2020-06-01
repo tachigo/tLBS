@@ -5,6 +5,7 @@
 #include "server.h"
 #include "config.h"
 #include "log.h"
+#include "el.h"
 
 #include <string>
 #include <fstream>
@@ -123,8 +124,8 @@ int Server::getCronHz() {
 }
 
 
-int Server::cron(EventLoop *el, long long id, void *data) {
-//    info("server cron");
+int Server::cron(long long id, void *data) {
+    EventLoop *el = EventLoop::getInstance();
     Server *server = getInstance();
 
     if (server->getShutdownAsap()) {

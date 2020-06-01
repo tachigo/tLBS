@@ -63,8 +63,8 @@
 
 namespace tLBS {
 
-    typedef void elFileFallback (EventLoop *el, int fd, int flags, void *data);
-    typedef int elTimeFallback (EventLoop *el, long long id, void *data);
+    typedef void elFileFallback (int fd, int flags, void *data);
+    typedef int elTimeFallback (long long id, void *data);
 
     class FiredEvent {
     public:

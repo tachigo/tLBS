@@ -7,7 +7,6 @@
 
 #include <string>
 #include <vector>
-#include "el.h"
 
 // server关闭的flags
 #define SERVER_SHUTDOWN_NO_FLAGS 0
@@ -38,7 +37,7 @@ namespace tLBS {
         void init();
         static void shutdown(int sig);
         static int prepareShutdown(int flags);
-        static int cron(EventLoop *el, long long id, void *data);
+        static int cron(long long id, void *data);
         static void free();
     };
 }

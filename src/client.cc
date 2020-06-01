@@ -10,7 +10,6 @@ using namespace tLBS;
 
 DEFINE_int32(max_clients, 10000, "最大的同事产生的客户端连接数");
 
-_Atomic uint64_t Client::nextClientId = 0;
 std::map<uint64_t, Client *> Client::clients;
 
 void Client::adjustMaxClients() {
@@ -72,20 +71,11 @@ std::map<uint64_t, Client *> Client::getClients() {
     return Client::clients;
 }
 
-void Client::linkClient(Client *client) {
-    info("成功创建了一个新的client#") << client->getId();
-    Client::clients[client->getId()] = client;
-}
 
-void Client::unlinkClient(Client *client) {
-    info("删除client#") << client->getId();
-    auto mapIter = Client::clients.find(client->getId());
-    if (mapIter != Client::clients.end()) {
-        Client::clients.erase(client->getId());
-    }
-    client = nullptr;
-}
 
+Client* Client::getClient(uint64_t clientId) {
+    return clients[clientId];
+}
 
 uint64_t Client::getId() {
     return this->id;
@@ -95,20 +85,59 @@ uint64_t Client::getFlags() {
     return this->flags;
 }
 
+Client* Client::create(Connection *conn, int flags) {
+    auto mapIter = clients.find(conn->getFd());
+    if (mapIter == clients.end()) {
+        clients[conn->getFd()] = new Client(conn, flags);
+        conn->setData(clients[conn->getFd()]);
+    }
+    return clients[conn->getFd()];
+}
+
 Client::Client(Connection *conn, int flags) {
     this->flags = 0;
     this->conn = conn;
     this->flags |= flags;
-    this->id = ++Client::nextClientId;
+    this->id = conn->getFd();
     this->name = nullptr;
+    info("创建一个client#") << this->id;
+    // 向connection安装client的读句柄
+    conn->setReadHandler(connReadHandler);
 }
 
 Object * Client::getName() {
     return this->name;
 }
 
+void Client::free(tLBS::Client *client) {
+    auto mapIter = Client::clients.find(client->getId());
+    if (mapIter != Client::clients.end()) {
+        Client::clients.erase(client->getId());
+    }
+}
+
 Client::~Client() {
-    this->conn = nullptr;
+    info("销毁client#") << this->getId();
+}
+
+Connection* Client::getConnection() {
+    return this->conn;
+}
+
+
+void Client::readFromConnection() {
+    char *queryBuf = (char *)malloc(sizeof(char) * (1024 * 1024 * 32)); // 32M
+    int nRead = conn->read(queryBuf, sizeof(queryBuf));
+    info("client#") << this->getId()
+        << "从connection中读取出" << nRead << "个字符: " << queryBuf;
+
+    ::free(queryBuf);
+}
+
+void Client::connReadHandler(Connection *data) {
+    auto *conn = (Connection *)data;
+    auto *client = (Client *)conn->getData();
+    client->readFromConnection();
 }
 
 

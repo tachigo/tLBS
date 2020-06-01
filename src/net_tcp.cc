@@ -149,6 +149,7 @@ int NetTcp::bindAndListen() {
             this->tcpFd[this->tcpFdCount] = this->v6server(this->bindAddr[j]);
             if (this->tcpFd[this->tcpFdCount] != NET_ERR) {
                 NetTcp::setNonBlock(this->tcpFd[this->tcpFdCount]);
+//                NetTcp::setBlock(this->tcpFd[this->tcpFdCount]);
                 this->tcpFdCount++;
             }
             else if (errno == EAFNOSUPPORT) {
@@ -159,6 +160,7 @@ int NetTcp::bindAndListen() {
                 this->tcpFd[this->tcpFdCount] = this->v4server(this->bindAddr[j]);
                 if (this->tcpFd[this->tcpFdCount] != NET_ERR) {
                     NetTcp::setNonBlock(this->tcpFd[this->tcpFdCount]);
+//                    NetTcp::setBlock(this->tcpFd[this->tcpFdCount]);
                     this->tcpFdCount++;
                 }
                 else if (errno == EAFNOSUPPORT) {
@@ -187,6 +189,7 @@ int NetTcp::bindAndListen() {
             return C_ERR;
         }
         NetTcp::setNonBlock(this->tcpFd[this->tcpFdCount]);
+//        NetTcp::setBlock(this->tcpFd[this->tcpFdCount]);
         this->tcpFdCount++;
     }
     return C_OK;
@@ -297,7 +300,8 @@ int NetTcp::genericAccept(int s, struct sockaddr *sa, socklen_t *len) {
                 continue;
             }
             else {
-                error("accept: ") << strerror(errno);
+                // 非阻塞情况下 可能会accept一个空队列 报EAGAIN 这里不管了
+//                error("accept: ") << strerror(errno);
                 return NET_ERR;
             }
         }
@@ -306,8 +310,29 @@ int NetTcp::genericAccept(int s, struct sockaddr *sa, socklen_t *len) {
     return fd;
 }
 
-void NetTcp::acceptReader(EventLoop *el, int fd, int flags, void *data) {
-    UNUSED(el);
+
+void NetTcp::acceptCommonHandler(Connection *conn, int flags, char *ip) {
+    UNUSED(ip);
+    if (Client::getClients().size() >= FLAGS_max_clients) {
+        // 客户端连接数量超了
+        const char *err = "-ERR max number of clients reached\r\n";
+        conn->write(err, strlen(err));
+        conn->close();
+        return;
+    }
+    // 创建一个客户端连接对象
+    Client::create(conn, flags);
+
+    NetTcp::setNonBlock(conn->getFd());
+    NetTcp::setNoDelay(conn->getFd(), 1);
+    if (FLAGS_tcp_keepalive > 0) {
+        NetTcp::setKeepalive(conn->getFd(), FLAGS_tcp_keepalive);
+    }
+    const char *err = "-OK hello world!你好啊!~👋\r\n";
+    conn->write(err, strlen(err));
+}
+
+void NetTcp::acceptHandler(int fd, int flags, void *data) {
     UNUSED(flags);
     UNUSED(data);
 
@@ -326,28 +351,7 @@ void NetTcp::acceptReader(EventLoop *el, int fd, int flags, void *data) {
         // 这里可以使用多线程方式来处理 todo
         warning("接受的连接fd#") << connFd << " " << connIp << ":" << connPort;
         // 创建一个连接对象
-        auto *conn = new Connection(connFd);
-        if (Client::getClients().size() >= FLAGS_max_clients) {
-            // 客户端连接数量超了
-            const char *err = "-ERR max number of clients reached\r\n";
-            conn->write(err, strlen(err));
-            conn->close(el);
-            return;
-        }
-        // 创建一个客户端连接对象
-        auto *client = new Client(conn, flags);
-        NetTcp::setNonBlock(connFd);
-        NetTcp::setNoDelay(connFd, 1);
-        if (FLAGS_tcp_keepalive > 0) {
-            NetTcp::setKeepalive(connFd, FLAGS_tcp_keepalive);
-        }
-        // 将新生成的存储到clients列表中
-        Client::linkClient(client);
-
-        const char *err = "-OK hello world!你好啊!~\r\n";
-        conn->write(err, strlen(err));
-        // 继续将fd放入i/o多路复用的地方监听下一次读
-
+        acceptCommonHandler(Connection::create(connFd), 0, connIp);
     }
 }
 
