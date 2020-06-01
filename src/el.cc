@@ -99,7 +99,7 @@ TimeEvent* EventLoop::searchEarliestTimeEvent() {
 
 
 int EventLoop::processTimeEvents() {
-//    info("处理事件事件");
+//    info("处理时间事件");
     int processed = 0;
     time_t now = time(nullptr);
     this->lastTime = now;
@@ -153,6 +153,7 @@ int EventLoop::processEvents(int flags) {
         // 很奇怪 即不是文件事件 也不是定时任务事件 想干嘛
         return processed;
     }
+//    info(this->maxFd);
     if (this->maxFd != -1 ||
             ((flags & EL_TIME_EVENT) && !(flags & EL_NOT_WAIT))) {
         // 没有文件事件的话，看看有没有定时任务事件能够执行
@@ -194,7 +195,8 @@ int EventLoop::processEvents(int flags) {
             tv.tv_sec = tv.tv_usec = 0;
             tvp = &tv;
         }
-
+//        info("tvp->tv_sec: ") << tvp->tv_sec;
+//        info("tvp->tv_usec: ") << tvp->tv_usec;
         numEvents = this->getHandler()->poll(this, tvp);
         // 上一步如果阻塞进入sleep，需要做一些清理工作
         if (flags & EL_CALL_AFTER_SLEEP) {

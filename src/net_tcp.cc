@@ -321,15 +321,16 @@ void NetTcp::acceptCommonHandler(Connection *conn, int flags, char *ip) {
         return;
     }
     // 创建一个客户端连接对象
-    Client::create(conn, flags);
+    auto *client = new Client(conn, flags);
 
     NetTcp::setNonBlock(conn->getFd());
     NetTcp::setNoDelay(conn->getFd(), 1);
     if (FLAGS_tcp_keepalive > 0) {
         NetTcp::setKeepalive(conn->getFd(), FLAGS_tcp_keepalive);
     }
-    const char *err = "-OK hello world!你好啊!~👋\r\n";
+    const char *err = "+OK hello world!你好啊!~👋\r\n";
     conn->write(err, strlen(err));
+    Client::link(client);
 }
 
 void NetTcp::acceptHandler(int fd, int flags, void *data) {
@@ -351,7 +352,7 @@ void NetTcp::acceptHandler(int fd, int flags, void *data) {
         // 这里可以使用多线程方式来处理 todo
         warning("接受的连接fd#") << connFd << " " << connIp << ":" << connPort;
         // 创建一个连接对象
-        acceptCommonHandler(Connection::create(connFd), 0, connIp);
+        acceptCommonHandler(new Connection(connFd), 0, connIp);
     }
 }
 

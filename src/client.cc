@@ -11,6 +11,7 @@ using namespace tLBS;
 DEFINE_int32(max_clients, 10000, "最大的同事产生的客户端连接数");
 
 std::map<uint64_t, Client *> Client::clients;
+_Atomic uint64_t Client::nextClientId = 0;
 
 void Client::adjustMaxClients() {
     info("适配最大可打开文件数的限制");
@@ -85,35 +86,29 @@ uint64_t Client::getFlags() {
     return this->flags;
 }
 
-Client* Client::create(Connection *conn, int flags) {
-    auto mapIter = clients.find(conn->getFd());
-    if (mapIter == clients.end()) {
-        clients[conn->getFd()] = new Client(conn, flags);
-        conn->setData(clients[conn->getFd()]);
-    }
-    return clients[conn->getFd()];
-}
-
 Client::Client(Connection *conn, int flags) {
     this->flags = 0;
     this->conn = conn;
     this->flags |= flags;
-    this->id = conn->getFd();
-    this->name = nullptr;
+    this->id = ++nextClientId;
+    conn->setData(this);
     info("创建一个client#") << this->id;
     // 向connection安装client的读句柄
     conn->setReadHandler(connReadHandler);
 }
 
-Object * Client::getName() {
-    return this->name;
+void Client::link(Client *client) {
+    clients[client->getId()] = client;
+    info("client池大小: ") << clients.size();
 }
 
-void Client::free(tLBS::Client *client) {
+void Client::free(Client *client) {
     auto mapIter = Client::clients.find(client->getId());
     if (mapIter != Client::clients.end()) {
         Client::clients.erase(client->getId());
+        delete client;
     }
+    info("client池大小: ") << clients.size();
 }
 
 Client::~Client() {
@@ -126,12 +121,50 @@ Connection* Client::getConnection() {
 
 
 void Client::readFromConnection() {
-    char *queryBuf = (char *)malloc(sizeof(char) * (1024 * 1024 * 32)); // 32M
-    int nRead = conn->read(queryBuf, sizeof(queryBuf));
-    info("client#") << this->getId()
-        << "从connection中读取出" << nRead << "个字符: " << queryBuf;
+    int strLen = (1024 * 1024 * 32); // 32M
+    char *qb = (char *)malloc(sizeof(char) * strLen);
+    memset(qb, 0, sizeof(char) * strLen);
+    int nRead = conn->read(qb, strLen);
 
-    ::free(queryBuf);
+    if (nRead == -1) {
+        if (conn->getState() == ConnectionState::CONN_STATE_CONNECTED) {
+            return;
+        }
+        else {
+            error("connection#") << conn->getFd()
+                << "读取数据错误: " << strerror(conn->getLastErrno());
+            return;
+        }
+    }
+    else if (nRead == 0) {
+        warning("connection输入为0,client#") << this->getId()
+            << " 关闭connection#" << conn->getFd();
+        conn->close();
+        return;
+    }
+
+    std::string q = qb;
+    ::free(qb);
+    // 去掉末尾的\r\n \t
+    size_t n = q.find_last_not_of("\r \n\t");
+    q.erase(n + 1, q.size() - n);
+
+    n = q.find_first_not_of(" \r\n\t");
+    q.erase(0, n);
+
+    const char *queryBuf = q.c_str();
+//    for (int i = 0; i < strlen(queryBuf); i++) {
+//        char msg[1024];
+//        snprintf(msg, sizeof(msg), "%d -- %d : %c", i, *(queryBuf + i), *(queryBuf + i));
+//        info(msg);
+//    }
+    info("client#") << this->getId()
+        << "从connection中读取出" << strlen(queryBuf) // \r\n
+        << "个字符: " << queryBuf;
+    this->queryBuf = queryBuf;
+
+//    const char *resp = "+OK\r\n";
+//    conn->write(resp, strlen(resp));
 }
 
 void Client::connReadHandler(Connection *data) {

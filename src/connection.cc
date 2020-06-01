@@ -12,25 +12,6 @@
 using namespace tLBS;
 
 
-std::map<int, Connection *> Connection::connections;
-
-Connection* Connection::getInstance(int fd) {
-    auto mapIter = connections.find(fd);
-    if (mapIter == connections.end()) {
-        return connections[fd];
-    }
-    return nullptr;
-}
-
-Connection* Connection::create(int fd) {
-    auto mapIter = connections.find(fd);
-    if (mapIter == connections.end()) {
-        connections[fd] = new Connection(fd);
-    }
-    return connections[fd];
-//    return new Connection(fd);
-}
-
 Connection::Connection(int fd) {
     this->fd = fd;
     this->state = ConnectionState::CONN_STATE_ACCEPTING;
@@ -71,15 +52,15 @@ std::string Connection::getInfo() {
 }
 
 void Connection::close() {
-    if (this->fd != -1) {
-        EventLoop *el = EventLoop::getInstance();
-        el->delFileEvent(this->fd, EL_READABLE);
-        el->delFileEvent(this->fd, EL_WRITABLE);
-        ::close(this->fd);
-        this->fd = -1;
-        Client::free((Client *)this->data);
-        free(this);
-    }
+    EventLoop *el = EventLoop::getInstance();
+    el->delFileEvent(this->fd, EL_READABLE);
+//    info("删除文件事件#") << this->fd;
+    el->delFileEvent(this->fd, EL_WRITABLE);
+//    info("删除文件事件#") << this->fd;
+    ::close(this->fd);
+    auto *client = (Client *)this->data;
+    free(this);
+    Client::free(client);
 }
 
 int Connection::write(const void *data, size_t dataLen) {
@@ -102,11 +83,12 @@ int Connection::read(void *buf, size_t bufLen) {
     return ret;
 }
 
-void Connection::free(tLBS::Connection *conn) {
-    auto mapIter = connections.find(conn->getFd());
-    if (mapIter != connections.end()) {
-        connections.erase(conn->getFd());
-    }
+int Connection::getLastErrno() {
+    return this->lastErrno;
+}
+
+void Connection::free(Connection *conn) {
+    delete conn;
 }
 
 Connection::~Connection() {
@@ -125,7 +107,6 @@ int Connection::invokeHandler(ConnectionFallback handler) {
     this->incrRefs();
     if (handler) {
         handler(this);
-        sleep(100);
     }
     this->decrRefs();
     if (this->flags & CONN_FLAG_CLOSE_SCHEDULED) {

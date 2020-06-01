@@ -18,21 +18,23 @@ namespace tLBS {
     private:
         uint64_t id; // 客户端id
 //        Db *db; // 客户端连接的库
-        Object *name; // 当前客户端的名称
+//        Object *name; // 当前客户端的名称
 //        time_t ctime; // 客户端创建时间
         uint64_t flags; // 客户端标记
         Connection *conn; // 一个连接对象
-
+        const char *queryBuf;
+        static _Atomic uint64_t nextClientId;
         static std::map<uint64_t, Client *> clients;
-        Client(Connection *conn, int flags);
     public:
+        Client(Connection *conn, int flags);
         static Client *create(Connection *conn, int flags);
         static Client *getClient(uint64_t clientId);
+        static void link(Client *client);
         static void free(Client *client);
         ~Client();
         uint64_t getId();
 //        Db *getDb();
-        Object *getName();
+//        Object *getName();
 //        time_t getCreateTime();
         uint64_t getFlags();
         Connection *getConnection();

@@ -94,3 +94,6 @@ add_executable(tLBS-server ${SRC_SERVER})
 target_link_libraries(tLBS-server
         ${GFLAGS_LIBRARIES} ${GLOG_LIBRARIES}
         )
+
+# 测试
+add_subdirectory(test)

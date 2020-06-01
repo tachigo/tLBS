@@ -41,12 +41,8 @@ namespace tLBS {
         ConnectionFallback readHandler;
         ConnectionFallback writeHandler;
 
-        static std::map<int, Connection *> connections;
-        explicit Connection(int fd); // 通过文件描述符来创建tcp连接对象
-        Connection(const Connection&) = default;
     public:
-        static Connection *create(int fd);
-        static Connection *getInstance(int fd);
+        explicit Connection(int fd); // 通过文件描述符来创建tcp连接对象
         static void free(Connection *conn);
         ~Connection();
 
@@ -57,6 +53,7 @@ namespace tLBS {
         int getFd();
         void setData(void *data);
         void *getData();
+        int getLastErrno();
         int getFlags();
         ConnectionState getState();
         void setState(ConnectionState state);

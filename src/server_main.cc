@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
     Server *server = Server::getInstance();
     atexit(Server::free);
     server->init(); // 初始化服务器
-    warning("<====!!!!====> Hello! tLBS-SERVER~ <====!!!!====>");
+    warning("👋👋👋👋👋👋👋👋 Hello! tLBS-SERVER~ 👋👋👋👋👋👋👋👋");
     warning("pid: ") << server->getPid();
     warning("arch bits: ") << server->getArchBits();
     // 初始化线程池
