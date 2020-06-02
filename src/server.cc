@@ -6,6 +6,7 @@
 #include "config.h"
 #include "log.h"
 #include "el.h"
+#include "client.h"
 
 #include <string>
 #include <fstream>
@@ -138,6 +139,9 @@ int Server::cron(long long id, void *data) {
             server->setShutdownAsap(0);
         }
     }
+
+    Client::cron(id, data);
+
     return 1000 / server->getCronHz();
 }
 

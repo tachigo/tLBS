@@ -9,6 +9,7 @@
 #include "el.h"
 #include "client.h"
 #include "threadpool_c.h"
+#include "command.h"
 
 using namespace tLBS;
 
@@ -29,6 +30,8 @@ int main(int argc, char *argv[]) {
     Server *server = Server::getInstance();
     atexit(Server::free);
     server->init(); // 初始化服务器
+    Command::init();
+    atexit(Command::free);
     warning("👋👋👋👋👋👋👋👋 Hello! tLBS-SERVER~ 👋👋👋👋👋👋👋👋");
     warning("pid: ") << server->getPid();
     warning("arch bits: ") << server->getArchBits();

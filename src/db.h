@@ -10,6 +10,9 @@
 #include "object.h"
 
 namespace tLBS {
+
+    class Client;
+
     class Db {
     private:
         int id;
@@ -27,6 +30,11 @@ namespace tLBS {
         void tableAdd(Object *keyObj, Object *valObj);
         int tableExists(Object *keyObj);
         int tableRemove(Object *keyObj);
+
+
+        static void init();
+        // command
+        static void dbSelect(Client *client);
     };
 }
 

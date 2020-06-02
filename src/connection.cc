@@ -19,6 +19,7 @@ Connection::Connection(int fd) {
     this->flags = 0;
     this->lastErrno = 0;
     this->refs = 0;
+    info("创建connection#") << fd;
 }
 
 void Connection::setData(void *data) {
@@ -59,8 +60,8 @@ void Connection::close() {
 //    info("删除文件事件#") << this->fd;
     ::close(this->fd);
     auto *client = (Client *)this->data;
+    client->pendingClose();
     free(this);
-    Client::free(client);
 }
 
 int Connection::write(const void *data, size_t dataLen) {

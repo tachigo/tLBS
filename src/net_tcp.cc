@@ -328,7 +328,7 @@ void NetTcp::acceptCommonHandler(Connection *conn, int flags, char *ip) {
     if (FLAGS_tcp_keepalive > 0) {
         NetTcp::setKeepalive(conn->getFd(), FLAGS_tcp_keepalive);
     }
-    const char *err = "+OK hello world!你好啊!~👋\r\n";
+    const char *err = "+OK 你好啊!~👋\r\n";
     conn->write(err, strlen(err));
     Client::link(client);
 }
