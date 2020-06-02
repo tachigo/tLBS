@@ -328,8 +328,7 @@ void NetTcp::acceptCommonHandler(Connection *conn, int flags, char *ip) {
     if (FLAGS_tcp_keepalive > 0) {
         NetTcp::setKeepalive(conn->getFd(), FLAGS_tcp_keepalive);
     }
-    const char *err = "+OK 你好啊!~👋\r\n";
-    conn->write(err, strlen(err));
+    client->success("+OK 你好啊!~👋");
     Client::link(client);
 }
 
@@ -349,8 +348,8 @@ void NetTcp::acceptHandler(int fd, int flags, void *data) {
             }
             return;
         }
-        // 这里可以使用多线程方式来处理 todo
-        warning("接受的连接fd#") << connFd << " " << connIp << ":" << connPort;
+        // 这里可以使用多线程方式来处理
+//        warning("接受的连接fd#") << connFd << " " << connIp << ":" << connPort;
         // 创建一个连接对象
         acceptCommonHandler(new Connection(connFd), 0, connIp);
     }

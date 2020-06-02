@@ -13,6 +13,7 @@
 // 最小保留的文件描述符数
 #define MIN_REVERSED_FDS 32
 #define CLIENT_FLAGS_PENDING_CLOSE (1<<0)
+#define CLIENT_FLAGS_CLOSE_AFTER_REPLY (1<<1)
 
 namespace tLBS {
 
@@ -24,6 +25,7 @@ namespace tLBS {
     class Client {
     private:
         uint64_t id; // 客户端id
+        std::string info;
 //        Db *db; // 客户端连接的库
 //        time_t ctime; // 客户端创建时间
         uint64_t flags; // 客户端标记
@@ -33,6 +35,8 @@ namespace tLBS {
         static std::map<uint64_t, Client *> clients;
         std::string query;
         std::vector<std::string> args;
+        std::string response;
+        int sent; // 发送数据的数量
         static void parseCommandLine(const char *line, std::vector<std::string> *argv);
         int processCommand();
     public:
@@ -48,6 +52,10 @@ namespace tLBS {
         void setFlags(uint64_t flags);
         void pendingClose();
         Connection *getConnection();
+        std::string getInfo();
+
+        int getSent();
+        void setSent(int sent);
 
         std::vector<std::string> getArgs();
         std::string arg(int i);
@@ -61,11 +69,13 @@ namespace tLBS {
         int fail(const char *fmt, ...);
 
         void readFromConnection();
+        void writeToConnection();
         int processCommandAndReset();
 
         static std::map<uint64_t, Client *> getClients();
         static void adjustMaxClients();
         static void connReadHandler(Connection *data);
+        static void connWriteHandler(Connection *data);
 
         static int cron(long long id, void *data);
 

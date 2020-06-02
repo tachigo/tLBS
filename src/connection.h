@@ -30,6 +30,9 @@ namespace tLBS {
 
     class Connection {
     private:
+        static _Atomic uint64_t nextConnectionId;
+        uint64_t id;
+        std::string info;
         int fd; // 连接的文件描述符
         ConnectionState state;
         short int flags;
@@ -50,13 +53,16 @@ namespace tLBS {
         void incrRefs();
         void decrRefs();
         int getRefs();
+        uint64_t getId();
         int getFd();
         void setData(void *data);
         void *getData();
         int getLastErrno();
         int getFlags();
+        void setFlags(int flags);
         ConnectionState getState();
         void setState(ConnectionState state);
+        void scheduleClose();
 
         int write(const void *data, size_t dataLen); // 向连接写数据
         int read(void *buf, size_t bufLen); // 从连接读数据

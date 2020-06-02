@@ -11,15 +11,23 @@
 
 using namespace tLBS;
 
+_Atomic uint64_t Connection::nextConnectionId = 0;
 
 Connection::Connection(int fd) {
+    this->id = ++Connection::nextConnectionId;
     this->fd = fd;
     this->state = ConnectionState::CONN_STATE_ACCEPTING;
     this->data = nullptr;
     this->flags = 0;
     this->lastErrno = 0;
     this->refs = 0;
-    info("创建connection#") << fd;
+    char buf[100];
+    snprintf(buf, sizeof(buf) - 1, "connection#%llu[fd:%d]", this->id, this->fd);
+    this->info = buf;
+    this->connectHandler = nullptr;
+    this->readHandler = nullptr;
+    this->writeHandler = nullptr;
+    info("创建") << this->getInfo();
 }
 
 void Connection::setData(void *data) {
@@ -28,6 +36,10 @@ void Connection::setData(void *data) {
 
 void* Connection::getData() {
     return this->data;
+}
+
+uint64_t Connection::getId() {
+    return this->id;
 }
 
 int Connection::getFd() {
@@ -47,21 +59,21 @@ int Connection::getRefs() {
 }
 
 std::string Connection::getInfo() {
-    char buf[100];
-    snprintf(buf, sizeof(buf) - 1, "fd=%i", this->fd);
-    return buf;
+    return this->info;
 }
 
 void Connection::close() {
     EventLoop *el = EventLoop::getInstance();
     el->delFileEvent(this->fd, EL_READABLE);
-//    info("删除文件事件#") << this->fd;
     el->delFileEvent(this->fd, EL_WRITABLE);
-//    info("删除文件事件#") << this->fd;
     ::close(this->fd);
     auto *client = (Client *)this->data;
     client->pendingClose();
-    free(this);
+//    free(this);
+}
+
+void Connection::scheduleClose() {
+    this->flags |= CONN_FLAG_CLOSE_SCHEDULED;
 }
 
 int Connection::write(const void *data, size_t dataLen) {
@@ -93,7 +105,11 @@ void Connection::free(Connection *conn) {
 }
 
 Connection::~Connection() {
-    info("销毁connection#") << this->fd;
+    if (this->data != nullptr) {
+        auto *client = (Client *)this->data;
+        Client::free(client);
+    }
+    info("销毁") << this->getInfo();
 }
 
 ConnectionState Connection::getState() {
@@ -110,20 +126,13 @@ int Connection::invokeHandler(ConnectionFallback handler) {
         handler(this);
     }
     this->decrRefs();
-    if (this->flags & CONN_FLAG_CLOSE_SCHEDULED) {
-        if (this->getRefs()) {
-            this->close();
-        }
-        else {
-            return 0;
-        }
-    }
     return 1;
 }
 
 int Connection::setReadHandler(ConnectionFallback handler) {
     EventLoop *el = EventLoop::getInstance();
     if (handler == this->getReadHandler()) {
+        error(this->getInfo()) << "重复设置readHandler";
         return C_OK;
     }
     this->readHandler = handler;
@@ -141,7 +150,18 @@ ConnectionFallback Connection::getReadHandler() {
 }
 
 int Connection::setWriteHandler(tLBS::ConnectionFallback handler) {
-
+    EventLoop *el = EventLoop::getInstance();
+    if (handler == this->getWriteHandler()) {
+        error(this->getInfo()) << "重复设置readHandler";
+        return C_OK;
+    }
+    this->writeHandler = handler;
+    if (!this->writeHandler) {
+        el->delFileEvent(this->getFd(), EL_WRITABLE);
+    }
+    else {
+        el->addFileEvent(this->getFd(), EL_WRITABLE, eventHandler, this);
+    }
     return C_OK;
 }
 
@@ -160,6 +180,10 @@ ConnectionFallback Connection::getConnectHandler() {
 
 int Connection::getFlags() {
     return this->flags;
+}
+
+void Connection::setFlags(int flags) {
+    this->flags = flags;
 }
 
 void Connection::eventHandler(int fd, int flags, void *data) {
@@ -201,4 +225,10 @@ void Connection::eventHandler(int fd, int flags, void *data) {
         }
     }
 
+    if (conn->getFlags() & CONN_FLAG_CLOSE_SCHEDULED) {
+        if (!conn->getRefs()) {
+            conn->close();
+            delete conn;
+        }
+    }
 }

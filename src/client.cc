@@ -11,6 +11,7 @@
 using namespace tLBS;
 
 DEFINE_int32(max_clients, 10000, "最大的同事产生的客户端连接数");
+DEFINE_string(format, "legacy", "client返回数据格式");
 
 std::map<uint64_t, Client *> Client::clients;
 _Atomic uint64_t Client::nextClientId = 0;
@@ -74,6 +75,9 @@ std::map<uint64_t, Client *> Client::getClients() {
     return Client::clients;
 }
 
+std::string Client::getInfo() {
+    return this->info;
+}
 
 
 Client* Client::getClient(uint64_t clientId) {
@@ -101,9 +105,19 @@ Client::Client(Connection *conn, int flags) {
     this->conn = conn;
     this->flags |= flags;
     this->id = ++nextClientId;
-    this->format = ClientFormat::CLIENT_FORMAT_LEGACY;
+    if (strcmp(FLAGS_format.c_str(), "json") == 0) {
+        this->format = ClientFormat::CLIENT_FORMAT_JSON;
+    }
+    else {
+        this->format = ClientFormat::CLIENT_FORMAT_LEGACY;
+    }
     conn->setData(this);
-    info("创建一个client#") << this->id;
+    char buf[100];
+    snprintf(buf, sizeof(buf) - 1, "client#%llu[fd:%d]", this->id, this->conn->getFd());
+    this->info = buf;
+    this->response = "";
+    this->sent = 0;
+    info("创建") << this->getInfo();
     // 向connection安装client的读句柄
     conn->setReadHandler(connReadHandler);
 }
@@ -131,14 +145,27 @@ void Client::free(Client *client) {
 }
 
 Client::~Client() {
-    info("销毁client#") << this->getId();
+    if (this->conn != nullptr) {
+        this->conn->close();
+        Connection::free(this->conn);
+    }
+    info("销毁") << this->getInfo();
 }
 
 Connection* Client::getConnection() {
     return this->conn;
 }
 
+void Client::writeToConnection() {
+    conn->write(this->response.c_str(), this->response.size());
+    this->sent = this->response.size();
+    conn->setWriteHandler(nullptr);
+}
+
 void Client::readFromConnection() {
+//    info(this->getInfo()) << "::readFromConnection()";
+    this->response = "";
+    this->sent = 0;
     long long start = ustime();
     int segLen = (1024); // 32M
     int totalRead = 0;
@@ -153,7 +180,7 @@ void Client::readFromConnection() {
                 return;
             }
             else if (conn->getLastErrno() != 0) {
-                error("connection#") << conn->getFd() << "读取数据错误: " << strerror(conn->getLastErrno());
+                error("读取数据") << conn->getInfo() << "错误: " << strerror(conn->getLastErrno());
                 return;
             }
             else {
@@ -175,7 +202,7 @@ void Client::readFromConnection() {
         }
     }
     if (totalRead == 0) {
-        warning("connection输入为0,client#") << this->getId() << " 关闭connection#" << conn->getFd();
+        warning(conn->getInfo()) << "读取数据长度为0, " << this->getInfo() << "准备关闭";
         conn->close();
         return;
     }
@@ -188,8 +215,8 @@ void Client::readFromConnection() {
     qb.erase(0, n);
     this->query = qb;
 
-    info("client#") << this->getId()
-        << "从connection中读取出" << this->query.size()
+    info(this->getInfo()) << "从"
+        << conn->getInfo() << "中读取出" << this->query.size()
         << "个字符: " << this->query;
     this->args.clear();
     Client::parseCommandLine(this->query.c_str(), &this->args);
@@ -203,13 +230,13 @@ void Client::readFromConnection() {
             long long duration = ustime() - start;
             char msg[128];
             sprintf(msg, "命令[%s]外部执行时间: %0.5f 毫秒", this->args[0].c_str(), (double)duration / (double)1000);
-            info(msg);
+            info(this->getInfo()) << msg;
         }
     }
 }
 
 int Client::processCommand() {
-    info("执行命令: ") << this->args[0];
+    info(this->getInfo()) << "执行命令: " << this->args[0];
     Command *command = Command::findCommand(this->args[0]);
     if (command == nullptr) {
         // 没有找到命令
@@ -219,10 +246,12 @@ int Client::processCommand() {
     }
     long long start = ustime();
     int ret = command->call(this);
-    long long duration = ustime() - start;
-    char msg[128];
-    sprintf(msg, "命令[%s]内部执行时间: %0.5f 毫秒", this->args[0].c_str(), (double)duration/(double)1000);
-    info(msg);
+    if (ret == C_OK) {
+        long long duration = ustime() - start;
+        char msg[128];
+        sprintf(msg, "命令[%s]内部执行时间: %0.5f 毫秒", this->args[0].c_str(), (double)duration/(double)1000);
+        info(this->getInfo()) << msg;
+    }
     return ret;
 }
 
@@ -238,6 +267,12 @@ void Client::connReadHandler(Connection *data) {
     auto *conn = (Connection *)data;
     auto *client = (Client *)conn->getData();
     client->readFromConnection();
+}
+
+void Client::connWriteHandler(Connection *data) {
+    auto *conn = (Connection *)data;
+    auto *client = (Client *)conn->getData();
+    client->writeToConnection();
 }
 
 
@@ -368,13 +403,13 @@ int Client::formatSelect(tLBS::Client *client) {
     if (strcmp(format.c_str(), "json") == 0) {
         client->success();
         client->setFormat(ClientFormat::CLIENT_FORMAT_JSON);
-        info("设置client返回数据格式为: json");
+        info(client->getInfo()) << "设置client返回数据格式为: json";
         return C_OK;
     }
     else if (strcmp(format.c_str(), "legacy") == 0) {
         client->success();
         client->setFormat(ClientFormat::CLIENT_FORMAT_LEGACY);
-        info("设置client返回数据格式为: legacy");
+        info(client->getInfo()) << "设置client返回数据格式为: legacy";
         return C_OK;
     }
     else {
@@ -396,11 +431,20 @@ int Client::success() {
     }
 }
 
+void Client::setSent(int sent) {
+    this->sent = sent;
+}
+
+int Client::getSent() {
+    return this->sent;
+}
+
 int Client::success(const char *msg) {
     std::string str = msg;
     str += "\r\n";
-    const char *data = str.c_str();
-    conn->write((void *)data, strlen(data));
+    this->response = str;
+//    conn->write((void *)data, strlen(data));
+    conn->setWriteHandler(connWriteHandler);
     return C_OK;
 }
 
@@ -422,28 +466,31 @@ int Client::fail(const char *fmt, ...) {
 
     std::string str = msg;
     str += "\r\n";
-    const char *data = str.c_str();
-
-    conn->write((void *)data, strlen(data));
+    this->response = str;
+//    conn->write((void *)data, strlen(data));
+    conn->setWriteHandler(connWriteHandler);
     return C_OK;
 }
 
 
 int Client::cron(long long id, void *data) {
     // 断开一些client
-    std::vector<uint64_t > freeClients;
+    std::vector<Client *> freeClients;
     for (auto mapIter = clients.begin(); mapIter != clients.end(); mapIter++) {
         Client *client = mapIter->second;
         int flags = client->getFlags();
         if (flags & CLIENT_FLAGS_PENDING_CLOSE) {
-            freeClients.push_back(client->getId());
+            freeClients.push_back(client);
+        }
+        else if (flags & CLIENT_FLAGS_CLOSE_AFTER_REPLY) {
+            if (client->getSent() > 0) {
+//                info(client->getInfo()) << "被设置为响应后关闭";
+                freeClients.push_back(client);
+            }
         }
     }
     for (int i = 0; i < freeClients.size(); i++) {
-        uint64_t clientId = freeClients[i];
-        Client *client = clients[clientId];
-        clients.erase(clientId);
-        delete client;
+        free(freeClients[i]);
     }
     return C_OK;
 }

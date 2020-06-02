@@ -43,9 +43,11 @@ commandFallback Command::getFallback() {
 
 int Command::quit(tLBS::Client *client) {
     Connection *conn = client->getConnection();
-    const char *resp = "👋啊朋友再见，啊朋友再见，啊朋友再见吧再见吧~再见吧!👋\r\n";
-    conn->write(resp, strlen(resp));
-    conn->close();
+    const char *resp = "👋啊朋友再见，啊朋友再见，啊朋友再见吧再见吧~再见吧!👋";
+    client->success(resp);
+    uint64_t clientFlags = client->getFlags();
+    clientFlags |= CLIENT_FLAGS_CLOSE_AFTER_REPLY;
+    client->setFlags(clientFlags);
     return C_ERR;
 }
 

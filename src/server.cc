@@ -16,7 +16,7 @@ using namespace tLBS;
 
 DEFINE_string(pid_file, "/var/run/tLBS-server.pid", "PID进程锁文件");
 DEFINE_bool(daemonize, false, "是否以守护进程方式启动");
-DEFINE_int32(server_hz, 1, "server时间事件每秒执行多少次");
+DEFINE_int32(server_hz, 2, "server时间事件每秒执行多少次");
 
 Server *Server::instance = nullptr;
 
@@ -126,7 +126,7 @@ int Server::getCronHz() {
 
 
 int Server::cron(long long id, void *data) {
-    EventLoop *el = EventLoop::getInstance();
+//    EventLoop *el = EventLoop::getInstance();
     Server *server = getInstance();
 
     if (server->getShutdownAsap()) {
@@ -139,7 +139,6 @@ int Server::cron(long long id, void *data) {
             server->setShutdownAsap(0);
         }
     }
-
     Client::cron(id, data);
 
     return 1000 / server->getCronHz();
