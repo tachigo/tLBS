@@ -10,6 +10,7 @@
 #include "client.h"
 #include "threadpool_c.h"
 #include "command.h"
+#include "db.h"
 
 using namespace tLBS;
 
@@ -30,9 +31,11 @@ int main(int argc, char *argv[]) {
     Server *server = Server::getInstance();
     atexit(Server::free);
     server->init(); // 初始化服务器
+    server->setExecutable(getAbsolutePath(argv[0]));
     Command::init();
     atexit(Command::free);
     warning("👋👋👋👋👋👋👋👋 Hello! tLBS-SERVER~ 👋👋👋👋👋👋👋👋");
+    warning("executable: ") << server->getExecutable();
     warning("pid: ") << server->getPid();
     warning("arch bits: ") << server->getArchBits();
     // 初始化线程池
@@ -42,6 +45,9 @@ int main(int argc, char *argv[]) {
 //    for (j = 0; j < 100; j++) {
 //        ThreadPool::getPool("main")->enqueueTask(testThread, nullptr);
 //    }
+    // 初始化db
+    Db::init();
+    atexit(Db::free);
     // i/o多路复用代理
     Client::adjustMaxClients();
     EventLoop *el = EventLoop::create(FLAGS_max_clients + FD_SET_INCR);

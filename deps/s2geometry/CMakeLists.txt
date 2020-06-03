@@ -36,7 +36,7 @@ add_feature_info(SHARED_LIBS BUILD_SHARED_LIBS
 option(BUILD_EXAMPLES "Build s2 documentation examples." ON)
 
 feature_summary(WHAT ALL)
-
+set(WITH_GLOG ON)
 if (WITH_GLOG)
     find_package(Glog REQUIRED)
     # FindGFlags.cmake and FindGlog.cmake do not seem to implement REQUIRED;
@@ -49,7 +49,7 @@ else()
     # Don't output anything for LOG(INFO).
     add_definitions(-DABSL_MIN_LOG_LEVEL=1)
 endif()
-
+set(WITH_GFLAGS ON)
 if (WITH_GFLAGS)
     find_package(GFlags REQUIRED)
     if (NOT ${GFLAGS_FOUND})
@@ -202,6 +202,7 @@ add_library(s2testing STATIC
             src/s2/s2builderutil_testing.cc
             src/s2/s2shapeutil_testing.cc
             src/s2/s2testing.cc)
+message("OPENSSL_LIBRARIES ${OPENSSL_LIBRARIES}")
 target_link_libraries(
     s2
     ${GFLAGS_LIBRARIES} ${GLOG_LIBRARIES} ${OPENSSL_LIBRARIES}
@@ -409,6 +410,7 @@ install(FILES src/s2/util/units/length-units.h
         DESTINATION include/s2/util/units)
 install(TARGETS s2 s2testing DESTINATION lib)
 
+set(GTEST_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../googletest/googletest)
 message("GTEST_ROOT: ${GTEST_ROOT}")
 if (GTEST_ROOT)
   add_subdirectory(${GTEST_ROOT} build_gtest)

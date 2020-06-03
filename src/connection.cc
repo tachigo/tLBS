@@ -63,13 +63,16 @@ std::string Connection::getInfo() {
 }
 
 void Connection::close() {
-    EventLoop *el = EventLoop::getInstance();
-    el->delFileEvent(this->fd, EL_READABLE);
-    el->delFileEvent(this->fd, EL_WRITABLE);
-    ::close(this->fd);
-    auto *client = (Client *)this->data;
-    client->pendingClose();
-//    free(this);
+    if (this->fd != -1) {
+        EventLoop *el = EventLoop::getInstance();
+        el->delFileEvent(this->fd, EL_READABLE);
+        el->delFileEvent(this->fd, EL_WRITABLE);
+        ::close(this->fd);
+        auto *client = (Client *)this->data;
+        if (client != nullptr) {
+            client->pendingClose();
+        }
+    }
 }
 
 void Connection::scheduleClose() {
@@ -152,7 +155,7 @@ ConnectionFallback Connection::getReadHandler() {
 int Connection::setWriteHandler(tLBS::ConnectionFallback handler) {
     EventLoop *el = EventLoop::getInstance();
     if (handler == this->getWriteHandler()) {
-        error(this->getInfo()) << "重复设置readHandler";
+        error(this->getInfo()) << "重复设置writeHandler";
         return C_OK;
     }
     this->writeHandler = handler;

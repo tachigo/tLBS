@@ -83,3 +83,83 @@ long long ustime() {
 long long mstime() {
     return ustime()/1000;
 }
+
+char *trimString(const char *str1, const char *str2) {
+    std::string str = str1;
+    size_t n = str.find_last_not_of(str2);
+    str.erase(n + 1, str.size() - n);
+
+    n = str.find_first_not_of(str2);
+    str.erase(0, n);
+    return (char *)str.c_str();
+}
+
+
+char *getAbsolutePath(const char *filename) {
+    char cwd[1024];
+    std::string absPath;
+    std::string relPath = trimString(filename, " \r\n\t");
+    if (relPath[0] == '/') {
+        return (char *)relPath.c_str();
+    }
+    if (getcwd(cwd, sizeof(cwd)) == nullptr) {
+        return nullptr;
+    }
+    absPath = cwd;
+    if (absPath.size() > 0 && absPath[absPath.size() - 1] != '/') {
+        // 如果最后一个字符是不是/ 在后边添加/
+        absPath += "/";
+    }
+    if (relPath.size() >= 2 &&
+        relPath[0] == '.' && relPath[1] == '/') {
+        // ./开头的
+        relPath = relPath.substr(2, relPath.size() - 2);
+    }
+
+//    info("准备好的absPath: ") << absPath;
+
+    while (true) {
+        if (relPath.size() >= 3 &&
+            relPath[0] == '.' && relPath[1] == '.' && relPath[2] == '/') {
+            // ../开头这种形式
+//            info("relPath: ") << relPath;
+            relPath = relPath.substr(3, relPath.size() - 3);
+//            info("relPath: ") << relPath;
+            if (absPath.size() > 1) {
+                // 从absPath最后一个位置开始往前截断
+                int p = absPath.size() - 2;
+                int trimLen = 1;
+                while (absPath[p] != '/') {
+                    p--;
+                    trimLen++;
+                }
+                absPath = absPath.substr(0, absPath.size() - trimLen);
+//                info("absPath:") << absPath;
+            }
+        }
+        else if (relPath.size() > 0) {
+            // 如果是指定的路径名，则往absPath上添加
+            int p = 0;
+            while (relPath[p] != '/' && p < relPath.size()) {
+                p++;
+            }
+            if (relPath[p] == '\0') {
+                // 判断是否到字符串最后一个字符了 说明这个relPath字符串里已经没有/了
+                break;
+            }
+            absPath = absPath + relPath.substr(0, p + 1);
+//            info("absPath: ") << absPath;
+            relPath = relPath.substr(p + 1, relPath.size() - p);
+//            info("relPath: ") << relPath;
+        }
+        else {
+            break;
+        }
+    }
+    // 上面的while循环执行完成以后 relPath 要么size() == 0 要么 是不包含以/开头的部分
+//    info("absPath: ") << absPath;
+//    info("relPath: ") << relPath;
+    absPath = absPath + relPath;
+//    info("absPath: ") << absPath;
+    return (char *)absPath.c_str();
+}

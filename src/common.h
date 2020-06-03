@@ -22,6 +22,9 @@ int hexDigit2int(char c);
 long long ustime();
 long long mstime();
 
+char *getAbsolutePath(const char *filename);
+char *trimString(const char *str1, const char *str2);
+
 
 // 定义错误码
 #define ERRNO_CMD_SYNTAX_ERR 1

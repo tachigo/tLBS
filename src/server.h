@@ -20,12 +20,17 @@ namespace tLBS {
         int archBits; // 操作系统是多少位的
         int cronHz; // server时间事件的频率
         bool daemonized; // 是否守护进程化
+        std::string binRoot; // server进程的根路径
+        std::string executable; // 可执行文件
 
         void daemonize();
         Server();
     public:
         static Server * getInstance();
         ~Server();
+        std::string getExecutable();
+        void setExecutable(std::string executable);
+        std::string getBinRoot();
         void createPidFile();
         void deletePidFile();
         pid_t getPid();

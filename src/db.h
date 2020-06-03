@@ -7,7 +7,7 @@
 
 #include <string>
 #include <map>
-#include "object.h"
+#include <vector>
 
 namespace tLBS {
 
@@ -17,22 +17,23 @@ namespace tLBS {
     private:
         int id;
         std::map<std::string, void *> table;
-
+        static std::vector<Db *> dbs;
     public:
-        Db();
+        Db(int id);
         ~Db();
         int getId();
-        Object *lookupKey(Object *keyObj, int flags);
-        Object *lookupKeyRead(Object *keyObj);
-        Object *lookupKeyWrite(Object *keyObj);
-        Object *lookupKeyReadWithFlags(Object *keyObj, int flags);
-        Object *lookupKeyWriteWithFlags(Object *keyObj, int flags);
-        void tableAdd(Object *keyObj, Object *valObj);
-        int tableExists(Object *keyObj);
-        int tableRemove(Object *keyObj);
+        void *lookupKey(std::string key, int flags);
+        void *lookupKeyRead(std::string key);
+        void *lookupKeyWrite(std::string key);
+        void *lookupKeyReadWithFlags(std::string key, int flags);
+        void *lookupKeyWriteWithFlags(std::string key, int flags);
+        void tableAdd(std::string key, void *data);
+        int tableExists(std::string key);
+        int tableRemove(std::string key);
 
 
         static void init();
+        static void free();
         // command
         static void dbSelect(Client *client);
     };

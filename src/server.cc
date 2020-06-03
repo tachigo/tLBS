@@ -17,6 +17,8 @@ using namespace tLBS;
 DEFINE_string(pid_file, "/var/run/tLBS-server.pid", "PID进程锁文件");
 DEFINE_bool(daemonize, false, "是否以守护进程方式启动");
 DEFINE_int32(server_hz, 2, "server时间事件每秒执行多少次");
+DEFINE_string(bin_root, "", "可执行文件的根路径");
+
 
 Server *Server::instance = nullptr;
 
@@ -34,10 +36,26 @@ Server::Server() {
     this->archBits = (sizeof(long) == 8) ? 64 : 32;
     this->daemonized = FLAGS_daemonize;
     this->cronHz = FLAGS_server_hz;
+    if (FLAGS_bin_root.size() == 0) {
+        FLAGS_bin_root = getAbsolutePath("./");
+    }
+    this->binRoot = FLAGS_bin_root;
 }
 
 Server::~Server() {
     info("销毁server对象");
+}
+
+void Server::setExecutable(std::string executable) {
+    this->executable = executable;
+}
+
+std::string Server::getExecutable() {
+    return this->executable;
+}
+
+std::string Server::getBinRoot() {
+    return this->binRoot;
 }
 
 pid_t Server::getPid() {

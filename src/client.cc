@@ -120,6 +120,7 @@ Client::Client(Connection *conn, int flags) {
     info("创建") << this->getInfo();
     // 向connection安装client的读句柄
     conn->setReadHandler(connReadHandler);
+//    conn->setWriteHandler(connWriteHandler);
 }
 
 ClientFormat Client::getFormat() {
@@ -157,8 +158,12 @@ Connection* Client::getConnection() {
 }
 
 void Client::writeToConnection() {
+    // 当有响应数据且没有被发送过
     conn->write(this->response.c_str(), this->response.size());
+    // 记录上一次发送的数据量
     this->sent = this->response.size();
+    // 清空响应数据
+    this->response = "";
     conn->setWriteHandler(nullptr);
 }
 
@@ -208,11 +213,7 @@ void Client::readFromConnection() {
     }
 
     // 去掉首尾的\r\n \t
-    size_t n = qb.find_last_not_of("\r \n\t");
-    qb.erase(n + 1, qb.size() - n);
-
-    n = qb.find_first_not_of(" \r\n\t");
-    qb.erase(0, n);
+    qb = trimString(qb.c_str(), " \r\n\t");
     this->query = qb;
 
     info(this->getInfo()) << "从"
@@ -443,7 +444,6 @@ int Client::success(const char *msg) {
     std::string str = msg;
     str += "\r\n";
     this->response = str;
-//    conn->write((void *)data, strlen(data));
     conn->setWriteHandler(connWriteHandler);
     return C_OK;
 }
@@ -468,7 +468,7 @@ int Client::fail(const char *fmt, ...) {
     str += "\r\n";
     this->response = str;
 //    conn->write((void *)data, strlen(data));
-    conn->setWriteHandler(connWriteHandler);
+//    conn->setWriteHandler(connWriteHandler);
     return C_OK;
 }
 
