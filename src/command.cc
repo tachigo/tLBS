@@ -42,7 +42,7 @@ commandFallback Command::getFallback() {
     return this->fallback;
 }
 
-int Command::quit(tLBS::Client *client) {
+int Command::cmdQuit(tLBS::Client *client) {
     Connection *conn = client->getConnection();
     const char *resp = "👋啊朋友再见，啊朋友再见，啊朋友再见吧再见吧~再见吧!👋";
     client->success(resp);
@@ -67,6 +67,7 @@ int Command::call(tLBS::Client *client) {
 
 
 void Command::free() {
+    info("销毁所有command对象");
     // 将所有command命令都销毁
     std::vector<std::string> names;
     for (auto mapIter = commands.begin(); mapIter != commands.end(); mapIter++) {
@@ -80,10 +81,8 @@ void Command::free() {
 }
 
 void Command::init() {
-    registerCommand("quit", quit, 0, "退出连接");
-    registerCommand("format", Client::formatSelect, 1, "返回数据格式");
-    registerCommand("select", Db::dbSelect, 1, "选择数据库");
-    registerCommand("db", Db::db, 0, "查看当前选择的数据库编号");
+    registerCommand("quit", cmdQuit, 0, "退出连接");
+    registerCommand("db", Db::cmdDb, 0, "查看当前选择的数据库编号");
 
     // s2geometry
     registerCommand("s2test", S2Geometry::test, 0, "测试s2");

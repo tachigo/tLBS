@@ -23,6 +23,10 @@ namespace tLBS {
         std::string binRoot; // server进程的根路径
         std::string executable; // 可执行文件
 
+        _Atomic time_t unixTime;
+        long long msTime; // 毫秒
+        long long usTime; // 微秒
+
         void daemonize();
         Server();
     public:
@@ -39,6 +43,9 @@ namespace tLBS {
         int getArchBits();
         int getCronHz();
         bool isDaemonized();
+        time_t getUnixTime();
+        long long getUsTime();
+        void updateCachedTime();
         void init();
         static void shutdown(int sig);
         static int prepareShutdown(int flags);

@@ -19,11 +19,6 @@ namespace tLBS {
 
     class Db;
 
-    typedef enum {
-        CLIENT_FORMAT_LEGACY = 0,
-        CLIENT_FORMAT_JSON
-    } ClientFormat;
-
     class Client {
     private:
         uint64_t id; // 客户端id
@@ -32,7 +27,6 @@ namespace tLBS {
 //        time_t ctime; // 客户端创建时间
         uint64_t flags; // 客户端标记
         Connection *conn; // 一个连接对象
-        ClientFormat format; // 返回格式 legacy 历史格式, json json格式
         static _Atomic uint64_t nextClientId;
         static std::map<uint64_t, Client *> clients;
         std::string query;
@@ -63,9 +57,6 @@ namespace tLBS {
         std::vector<std::string> getArgs();
         std::string arg(int i);
 
-        ClientFormat getFormat();
-        void setFormat(ClientFormat format);
-
         int success();
         int success(const char *msg);
         int success(Json *json);
@@ -84,8 +75,6 @@ namespace tLBS {
 
         static int cron(long long id, void *data);
 
-        // command
-        static int formatSelect(Client *client);
     };
 }
 

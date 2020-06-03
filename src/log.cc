@@ -8,6 +8,7 @@ using namespace tLBS;
 
 void Log::free() {
     info("销毁log对象");
+    warning("再见！~👋");
     google::ShutdownGoogleLogging();
 }
 

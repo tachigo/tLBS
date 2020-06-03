@@ -37,8 +37,8 @@ message("GLOG_INCLUDE_DIRS ${GLOG_INCLUDE_DIRS}")
 message("GLOG_LIBRARIES ${GLOG_LIBRARIES}")
 
 find_package(RapidJSON)
-
 find_package(S2Geometry REQUIRED)
+
 message("S2GEOMETRY_INCLUDE_DIRS ${S2GEOMETRY_INCLUDE_DIRS}")
 message("S2GEOMETRY_LIBRARIES ${S2GEOMETRY_LIBRARIES}")
 
@@ -49,30 +49,22 @@ include_directories (${GFLAGS_INCLUDE_DIRS} ${GLOG_INCLUDE_DIRS} ${S2GEOMETRY_IN
 
 
 set(SRC_SERVER_TMP
-#        src/adlist.cc
-#        src/ae.cc
-#        src/anet.cc
 #        src/childinfo.cc
         src/client.cc
         src/command.cc
         src/common.cc
         src/config.cc
         src/connection.cc
-#        src/persistence.cc
         src/db.cc
-#        src/debug.cc
-#        src/dict.cc
         src/el.cc
 #        src/endianconv.cc
 #        src/geo.cc
         src/json.cc
         src/log.cc
 #        src/localtime.cc
-#        src/networking.cc
         src/net_tcp.cc
         src/object.cc
 #        src/rax.cc
-#        src/sds.cc
 #        src/setproctitle.cc
         src/server.cc
 #        src/siphash.cc
@@ -84,25 +76,12 @@ set(SRC_SERVER_TMP
 #        src/t_polygon.cc
 #        src/t_string.cc
         src/threadpool_c.cc
-#        src/util.cc
-#        src/zmalloc.cc
         )
 set(SRC_SERVER src/server_main.cc ${SRC_SERVER_TMP})
 
 
 
-#link_directories(
-#        ${TLBS_ROOT}/deps/gflags
-#        ${TLBS_ROOT}/deps/glog
-#        ${TLBS_ROOT}/deps/s2geometry
-#)
 add_executable(tLBS-server ${SRC_SERVER})
-#target_include_directories(tLBS-server
-#        PRIVATE gflags
-#        )
-
-
-
 
 target_link_libraries(tLBS-server
         ${S2GEOMETRY_LIBRARIES}

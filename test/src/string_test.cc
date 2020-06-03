@@ -19,4 +19,5 @@ int main() {
     {
             s.erase( 0 , n );
     }
+    return 0;
 }

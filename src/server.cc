@@ -7,6 +7,7 @@
 #include "log.h"
 #include "el.h"
 #include "client.h"
+#include "db.h"
 
 #include <string>
 #include <fstream>
@@ -89,6 +90,7 @@ void Server::daemonize() {
 
 void Server::init() {
     info("server对象初始化");
+    this->updateCachedTime();
     if (this->daemonized) {
         this->daemonize();
         this->createPidFile();
@@ -142,10 +144,26 @@ int Server::getCronHz() {
     return this->cronHz;
 }
 
+time_t Server::getUnixTime() {
+    return this->unixTime;
+}
+
+long long Server::getUsTime() {
+    return this->usTime;
+}
+
+
+void Server::updateCachedTime() {
+    this->usTime = ustime();
+    this->msTime = this->usTime / 1000;
+    this->unixTime = this->msTime / 1000;
+}
+
 
 int Server::cron(long long id, void *data) {
 //    EventLoop *el = EventLoop::getInstance();
     Server *server = getInstance();
+    server->updateCachedTime();
 
     if (server->getShutdownAsap()) {
         // 确认要关闭
@@ -157,7 +175,10 @@ int Server::cron(long long id, void *data) {
             server->setShutdownAsap(0);
         }
     }
+
     Client::cron(id, data);
+
+    Db::cron(id, data);
 
     return 1000 / server->getCronHz();
 }
@@ -168,12 +189,14 @@ bool Server::isDaemonized() {
 
 
 int Server::prepareShutdown(int flags) {
+    UNUSED(flags);
     warning("确认准备关闭server...");
+
     Server *server = getInstance();
     if (server->isDaemonized()) {
         server->deletePidFile();
     }
-    warning("server即将退出，再见！~👋");
+
     return C_OK;
 }
 

@@ -17,7 +17,6 @@ using namespace tLBS;
 // commands
 
 int S2Geometry::test(tLBS::Client *client) {
-
     info("找到我了！");
     return C_OK;
 }
@@ -48,6 +47,7 @@ int S2Geometry::cmdDelPolygon(tLBS::Client *client) {
         if ((shapeId = indexObj->findShapeIdById(id)) > 0) {
             // 数据存在
             indexObj->delPolygon(shapeId);
+            indexObj->flush();
         }
         return client->success(Json::createCmdSuccessStringJsonObj());
     }

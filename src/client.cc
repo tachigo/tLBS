@@ -7,12 +7,12 @@
 #include "log.h"
 #include "command.h"
 #include "db.h"
+#include "server.h"
 #include <cctype>
 
 using namespace tLBS;
 
 DEFINE_int32(max_clients, 10000, "最大的同事产生的客户端连接数");
-DEFINE_string(format, "legacy", "client返回数据格式");
 
 std::map<uint64_t, Client *> Client::clients;
 _Atomic uint64_t Client::nextClientId = 0;
@@ -106,12 +106,6 @@ Client::Client(Connection *conn, int flags) {
     this->conn = conn;
     this->flags |= flags;
     this->id = ++nextClientId;
-    if (strcmp(FLAGS_format.c_str(), "json") == 0) {
-        this->format = ClientFormat::CLIENT_FORMAT_JSON;
-    }
-    else {
-        this->format = ClientFormat::CLIENT_FORMAT_LEGACY;
-    }
     conn->setData(this);
     char buf[100];
     snprintf(buf, sizeof(buf) - 1, "client#%llu[fd:%d]", this->id, this->conn->getFd());
@@ -122,15 +116,6 @@ Client::Client(Connection *conn, int flags) {
     info("创建") << this->getInfo();
     // 向connection安装client的读句柄
     conn->setReadHandler(connReadHandler);
-//    conn->setWriteHandler(connWriteHandler);
-}
-
-ClientFormat Client::getFormat() {
-    return this->format;
-}
-
-void Client::setFormat(tLBS::ClientFormat format) {
-    this->format = format;
 }
 
 void Client::setDb(tLBS::Db *db) {
@@ -255,7 +240,9 @@ int Client::processCommand() {
         conn->write(resp, strlen(resp));
         return C_ERR;
     }
-    long long start = ustime();
+    Server *server = Server::getInstance();
+    server->updateCachedTime();
+    long long start = server->getUsTime();
     int ret = command->call(this);
     if (ret == C_OK) {
         long long duration = ustime() - start;
@@ -409,37 +396,9 @@ std::string Client::arg(int i) {
     return this->args[i];
 }
 
-int Client::formatSelect(tLBS::Client *client) {
-    std::string format = client->arg(1);
-    if (strcmp(format.c_str(), "json") == 0) {
-        client->success();
-        client->setFormat(ClientFormat::CLIENT_FORMAT_JSON);
-        info(client->getInfo()) << "设置client返回数据格式为: json";
-        return C_OK;
-    }
-    else if (strcmp(format.c_str(), "legacy") == 0) {
-        client->success();
-        client->setFormat(ClientFormat::CLIENT_FORMAT_LEGACY);
-        info(client->getInfo()) << "设置client返回数据格式为: legacy";
-        return C_OK;
-    }
-    else {
-        client->success(
-                client->getFormat() == ClientFormat::CLIENT_FORMAT_LEGACY ?
-                "legacy" :
-                R"({"errno": 0, "data": "json"})");
-        return C_OK;
-    }
-}
-
-
 int Client::success() {
-    if (this->format == CLIENT_FORMAT_LEGACY) {
-        return this->success("+OK");
-    }
-    else {
-        return this->success(R"({"errno": 0, "data": "OK"})");
-    }
+    return this->success(R"({"errno": 0, "data": "OK"})");
+
 }
 
 void Client::setSent(int sent) {
@@ -465,12 +424,7 @@ int Client::success(const char *msg) {
 }
 
 int Client::fail(int error, const char *msg) {
-    if (this->format == CLIENT_FORMAT_LEGACY) {
-        return this->fail("-ERR %d: %s", error, msg);
-    }
-    else {
-        return this->fail(R"({"errno": %d, "data": "%s"})", error, msg);
-    }
+    return this->fail(R"({"errno": %d, "data": "%s"})", error, msg);
 }
 
 int Client::fail(tLBS::Json *json) {

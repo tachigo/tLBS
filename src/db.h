@@ -18,15 +18,31 @@ namespace tLBS {
     class Object;
 
     class Db {
+    public:
+        class SaveParam {
+        private:
+            time_t seconds;
+            int changes;
+        public:
+            SaveParam(time_t seconds, int changes);
+            ~SaveParam();
+            time_t getSeconds();
+            int getChanges();
+        };
     private:
         int id;
         std::map<std::string, Object *> table;
         static std::vector<Db *> dbs;
         int dirty;
+        time_t lastSave;
+        std::vector<SaveParam *> saveParams;
+        std::string info;
     public:
         Db(int id);
         ~Db();
         int getId();
+        std::string getInfo();
+        std::string getDataPath();
         Object *lookupKey(std::string key, int flags);
         Object *lookupKeyRead(std::string key);
         Object *lookupKeyWrite(std::string key);
@@ -36,6 +52,16 @@ namespace tLBS {
         bool tableExists(std::string key);
         void tableRemove(std::string key);
 
+        std::string getTmpFile();
+        std::string getDatFile();
+        void save();
+        static void saveAll();
+
+        void resetSaveParams();
+        void appendSaveParam(time_t seconds, int changes);
+        std::vector<SaveParam *> getSaveParams();
+        time_t getLastSave();
+
         void incrDirty(int incr);
         void decrDirty(int decr);
         void resetDirty();
@@ -44,10 +70,10 @@ namespace tLBS {
         static Db* getDb(int id);
         static void init();
         static void free();
-        static void save();
+        static void cron(long long id, void *data);
+
         // command
-        static int dbSelect(Client *client);
-        static int db(Client *client);
+        static int cmdDb(Client *client);
     };
 }
 
