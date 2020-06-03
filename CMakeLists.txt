@@ -38,8 +38,14 @@ message("GLOG_LIBRARIES ${GLOG_LIBRARIES}")
 
 find_package(RapidJSON)
 
-include_directories (${GFLAGS_INCLUDE_DIRS} ${GLOG_INCLUDE_DIRS})
+find_package(S2Geometry REQUIRED)
+message("S2GEOMETRY_INCLUDE_DIRS ${S2GEOMETRY_INCLUDE_DIRS}")
+message("S2GEOMETRY_LIBRARIES ${S2GEOMETRY_LIBRARIES}")
 
+add_definitions(-DS2_USE_GLOG)
+add_definitions(-DS2_USE_GFLAGS)
+
+include_directories (${GFLAGS_INCLUDE_DIRS} ${GLOG_INCLUDE_DIRS} ${S2GEOMETRY_INCLUDE_DIRS})
 
 
 set(SRC_SERVER_TMP
@@ -95,9 +101,12 @@ add_executable(tLBS-server ${SRC_SERVER})
 #        PRIVATE gflags
 #        )
 
-#target_link_libraries(tLBS-server
-#        ${GFLAGS_LIBRARIES} ${GLOG_LIBRARIES}
-#        )
+
+
+
+target_link_libraries(tLBS-server
+        ${S2GEOMETRY_LIBRARIES}
+        )
 
 # 测试
 add_subdirectory(test)

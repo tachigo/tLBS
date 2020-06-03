@@ -120,7 +120,7 @@ void Db::tableAdd(std::string key, tLBS::Object *data) {
     this->table[key] = data;
 }
 
-int Db::tableRemove(std::string key) {
+void Db::tableRemove(std::string key) {
     auto mapIter = this->table.find(key);
     if (mapIter != this->table.end()) {
         this->table.erase(key);

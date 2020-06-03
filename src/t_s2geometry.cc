@@ -157,7 +157,7 @@ int S2Geometry::PolygonIndex::addPolygon(std::string id, std::string data) {
     if (!s2textformat::MakePolygon(data.c_str(), &polygon, debugOverride)) {
         return ERRNO_CMD_S2GEOMETRY_ERR;
     }
-    int shapeId = this->index->Add(absl::make_unique<S2Polygon::Shape>(polygon));
+    int shapeId = this->index->Add(absl::make_unique<S2Polygon::Shape>(polygon.release()));
     this->id2shapeId[id] = shapeId;
     this->shapeId2Data[shapeId] = data;
     return C_OK;

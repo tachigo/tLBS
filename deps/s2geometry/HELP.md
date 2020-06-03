@@ -1,1 +1,1 @@
-cmake -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl ..
+cmake -DWITH_GLOG=ON -DWITH_GFLAGS=ON -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl ..

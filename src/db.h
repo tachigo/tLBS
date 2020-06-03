@@ -34,7 +34,7 @@ namespace tLBS {
         Object *lookupKeyWriteWithFlags(std::string key, int flags);
         void tableAdd(std::string key, Object *data);
         bool tableExists(std::string key);
-        int tableRemove(std::string key);
+        void tableRemove(std::string key);
 
         void incrDirty(int incr);
         void decrDirty(int decr);
