@@ -36,6 +36,8 @@ endif()
 message("GLOG_INCLUDE_DIRS ${GLOG_INCLUDE_DIRS}")
 message("GLOG_LIBRARIES ${GLOG_LIBRARIES}")
 
+find_package(RapidJSON)
+
 include_directories (${GFLAGS_INCLUDE_DIRS} ${GLOG_INCLUDE_DIRS})
 
 
@@ -57,6 +59,7 @@ set(SRC_SERVER_TMP
         src/el.cc
 #        src/endianconv.cc
 #        src/geo.cc
+        src/json.cc
         src/log.cc
 #        src/localtime.cc
 #        src/networking.cc
@@ -92,9 +95,9 @@ add_executable(tLBS-server ${SRC_SERVER})
 #        PRIVATE gflags
 #        )
 
-target_link_libraries(tLBS-server
-        ${GFLAGS_LIBRARIES} ${GLOG_LIBRARIES}
-        )
+#target_link_libraries(tLBS-server
+#        ${GFLAGS_LIBRARIES} ${GLOG_LIBRARIES}
+#        )
 
 # 测试
 add_subdirectory(test)

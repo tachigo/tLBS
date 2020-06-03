@@ -6,6 +6,7 @@
 #include "config.h"
 #include "log.h"
 #include "command.h"
+#include "db.h"
 #include <cctype>
 
 using namespace tLBS;
@@ -117,6 +118,7 @@ Client::Client(Connection *conn, int flags) {
     this->info = buf;
     this->response = "";
     this->sent = 0;
+    this->setDb(Db::getDb(0));
     info("创建") << this->getInfo();
     // 向connection安装client的读句柄
     conn->setReadHandler(connReadHandler);
@@ -129,6 +131,14 @@ ClientFormat Client::getFormat() {
 
 void Client::setFormat(tLBS::ClientFormat format) {
     this->format = format;
+}
+
+void Client::setDb(tLBS::Db *db) {
+    this->db = db;
+}
+
+Db* Client::getDb() {
+    return this->db;
 }
 
 void Client::link(Client *client) {
@@ -216,9 +226,9 @@ void Client::readFromConnection() {
     qb = trimString(qb.c_str(), " \r\n\t");
     this->query = qb;
 
-    info(this->getInfo()) << "从"
-        << conn->getInfo() << "中读取出" << this->query.size()
-        << "个字符: " << this->query;
+//    info(this->getInfo()) << "从"
+//        << conn->getInfo() << "中读取出" << this->query.size()
+//        << "个字符: " << this->query;
     this->args.clear();
     Client::parseCommandLine(this->query.c_str(), &this->args);
 
@@ -440,6 +450,12 @@ int Client::getSent() {
     return this->sent;
 }
 
+int Client::success(tLBS::Json *json) {
+    const char *msg = json->toString().c_str();
+    delete json;
+    return this->success(msg);
+}
+
 int Client::success(const char *msg) {
     std::string str = msg;
     str += "\r\n";
@@ -457,6 +473,12 @@ int Client::fail(int error, const char *msg) {
     }
 }
 
+int Client::fail(tLBS::Json *json) {
+    const char *msg = json->toString().c_str();
+    delete json;
+    return this->fail(msg);
+}
+
 int Client::fail(const char *fmt, ...) {
     va_list ap;
     char msg[1024];
@@ -467,9 +489,8 @@ int Client::fail(const char *fmt, ...) {
     std::string str = msg;
     str += "\r\n";
     this->response = str;
-//    conn->write((void *)data, strlen(data));
-//    conn->setWriteHandler(connWriteHandler);
-    return C_OK;
+    conn->setWriteHandler(connWriteHandler);
+    return C_ERR;
 }
 
 

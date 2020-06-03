@@ -5,6 +5,7 @@
 #include "command.h"
 #include "connection.h"
 #include "client.h"
+#include "db.h"
 #include "log.h"
 #include "t_s2geometry.h"
 
@@ -81,6 +82,14 @@ void Command::free() {
 void Command::init() {
     registerCommand("quit", quit, 0, "退出连接");
     registerCommand("format", Client::formatSelect, 1, "返回数据格式");
+    registerCommand("select", Db::dbSelect, 1, "选择数据库");
+    registerCommand("db", Db::db, 0, "查看当前选择的数据库编号");
 
+    // s2geometry
     registerCommand("s2test", S2Geometry::test, 0, "测试s2");
+    registerCommand("s2polyset", S2Geometry::cmdSetPolygon, 3, "添加一个多边形");
+    registerCommand("s2polyget", S2Geometry::cmdGetPolygon, 2, "获取一个多边形");
+    registerCommand("s2polydel", S2Geometry::cmdDelPolygon, 2, "删除一个多边形");
+
+
 }

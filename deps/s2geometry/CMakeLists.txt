@@ -44,7 +44,7 @@ if (WITH_GLOG)
     if (NOT ${GLOG_FOUND})
         message(FATAL_ERROR "Glog requested but not found")
     endif()
-    add_definitions(-DS2_USE_GLOG)
+#    add_definitions(-DS2_USE_GLOG)
 else()
     # Don't output anything for LOG(INFO).
     add_definitions(-DABSL_MIN_LOG_LEVEL=1)

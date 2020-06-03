@@ -30,4 +30,13 @@ char *trimString(const char *str1, const char *str2);
 #define ERRNO_CMD_SYNTAX_ERR 1
 #define ERROR_CMD_SYNTAX_ERR "命令格式错误"
 
+#define ERRNO_CMD_DB_SELECT_ERR 2
+#define ERROR_CMD_DB_SELECT_ERR "db不存在"
+
+#define ERRNO_CMD_TABLE_TYPE_ERR 3
+#define ERROR_CMD_TABLE_TYPE_ERR "table类型错误"
+
+
+#define ERRNO_CMD_S2GEOMETRY_ERR 4
+
 #endif //TLBS_COMMON_H

@@ -5,8 +5,8 @@
 #ifndef TLBS_CLIENT_H
 #define TLBS_CLIENT_H
 
-#include "db.h"
 #include "connection.h"
+#include "json.h"
 #include <map>
 #include <vector>
 
@@ -17,6 +17,8 @@
 
 namespace tLBS {
 
+    class Db;
+
     typedef enum {
         CLIENT_FORMAT_LEGACY = 0,
         CLIENT_FORMAT_JSON
@@ -26,7 +28,7 @@ namespace tLBS {
     private:
         uint64_t id; // 客户端id
         std::string info;
-//        Db *db; // 客户端连接的库
+        Db *db; // 客户端连接的库
 //        time_t ctime; // 客户端创建时间
         uint64_t flags; // 客户端标记
         Connection *conn; // 一个连接对象
@@ -46,7 +48,8 @@ namespace tLBS {
         static void free(Client *client);
         ~Client();
         uint64_t getId();
-//        Db *getDb();
+        Db *getDb();
+        void setDb(Db *db);
 //        time_t getCreateTime();
         uint64_t getFlags();
         void setFlags(uint64_t flags);
@@ -65,8 +68,10 @@ namespace tLBS {
 
         int success();
         int success(const char *msg);
+        int success(Json *json);
         int fail(int error, const char *msg);
         int fail(const char *fmt, ...);
+        int fail(Json *json);
 
         void readFromConnection();
         void writeToConnection();
