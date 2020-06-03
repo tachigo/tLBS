@@ -31,6 +31,10 @@ std::string Object::getInfo() {
     return this->info;
 }
 
+void Object::setInfo(std::string info) {
+    this->info = info;
+}
+
 unsigned int Object::getType() {
     return this->type;
 }
@@ -77,14 +81,3 @@ Object* Object::createObject(unsigned int type, unsigned int encoding, void *dat
     return new Object(type, encoding, data);
 }
 
-Object* Object::createGeoPolygonObject(void *data) {
-    return createS2GeoPolygonObject(data);
-}
-
-Object* Object::createS2GeoPolygonObject(void *data) {
-    return createObject(
-            ObjectType::OBJ_TYPE_GEO_POLYGON,
-            ObjectEncoding::OBJ_ENCODING_S2GEOMETRY,
-            data
-            );
-}

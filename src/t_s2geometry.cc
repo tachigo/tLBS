@@ -7,7 +7,7 @@
 #include "log.h"
 #include "client.h"
 #include "db.h"
-#include "object.h"
+#include "table.h"
 
 #include <s2/s2text_format.h>
 
@@ -26,13 +26,13 @@ int S2Geometry::cmdDelPolygon(tLBS::Client *client) {
     if (client->getArgs().size() != 3) {
         return client->fail(Json::createCmdErrorJsonObj(ERRNO_CMD_SYNTAX_ERR, ERROR_CMD_SYNTAX_ERR));
     }
-    Object *tableObj;
+    Table *tableObj;
     std::string table = client->arg(1);
     std::string id = client->arg(2);
 
     info("s2polydel: table[") << table << "] "
         << "id[" << id << "] ";
-    tableObj = client->getDb()->lookupKeyRead(table);
+    tableObj = client->getDb()->lookupTableRead(table);
     if (tableObj == nullptr) {
         info("表`") << table << "`不存在";
         return client->success(Json::createCmdSuccessStringJsonObj());
@@ -59,14 +59,14 @@ int S2Geometry::cmdGetPolygon(tLBS::Client *client) {
     if (client->getArgs().size() != 3) {
         return client->fail(Json::createCmdErrorJsonObj(ERRNO_CMD_SYNTAX_ERR, ERROR_CMD_SYNTAX_ERR));
     }
-    Object *tableObj;
+    Table *tableObj;
     std::string table = client->arg(1);
     std::string id = client->arg(2);
 
     info("s2polyget: table[") << table << "] "
           << "id[" << id << "] ";
 
-    tableObj = client->getDb()->lookupKeyRead(table);
+    tableObj = client->getDb()->lookupTableRead(table);
     if (tableObj == nullptr) {
         info("表`") << table << "`不存在";
         return client->success(Json::createCmdSuccessStringJsonObj());
@@ -90,7 +90,7 @@ int S2Geometry::cmdSetPolygon(tLBS::Client *client) {
     if (client->getArgs().size() != 4) {
         return client->fail(Json::createCmdErrorJsonObj(ERRNO_CMD_SYNTAX_ERR, ERROR_CMD_SYNTAX_ERR));
     }
-    Object *tableObj;
+    Table *tableObj;
     std::string table = client->arg(1);
     std::string id = client->arg(2);
     std::string data = client->arg(3);
@@ -98,10 +98,14 @@ int S2Geometry::cmdSetPolygon(tLBS::Client *client) {
         << "id[" << id << "] "
         << "data[" << data << "] ";
 
-    tableObj = client->getDb()->lookupKeyWrite(table);
+    tableObj = client->getDb()->lookupTableWrite(table);
     if (tableObj == nullptr) {
         info("表`") << table << "`不存在";
-        tableObj = Object::createS2GeoPolygonObject(new S2Geometry::PolygonIndex());
+        tableObj = Table::createS2GeoPolygonTable(
+                client->getDb()->getId(),
+                table,
+                new S2Geometry::PolygonIndex()
+                );
         client->getDb()->tableAdd(table, tableObj);
     }
     else {

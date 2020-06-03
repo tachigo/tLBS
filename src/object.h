@@ -35,6 +35,7 @@ namespace tLBS {
         Object(unsigned int type, unsigned int encoding, void *data);
         ~Object();
         std::string getInfo();
+        void setInfo(std::string info);
         void *getData();
         unsigned int getType();
         unsigned int getEncoding();
@@ -49,8 +50,7 @@ namespace tLBS {
         static void free(Object *obj);
 
         static Object *createObject(unsigned int type, unsigned int encoding, void *data);
-        static Object *createS2GeoPolygonObject(void *data);
-        static Object *createGeoPolygonObject(void *data);
+
     };
 }
 

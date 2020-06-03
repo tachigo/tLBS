@@ -117,9 +117,9 @@ void Db::save() {
     if (this->getDirty() > 0) {
         // 有数据发生变化
         info(this->getInfo()) << "有数据变化, 开始保存";
-        for (auto mapIter = this->table.begin(); mapIter != this->table.end(); mapIter++) {
+        for (auto mapIter = this->tables.begin(); mapIter != this->tables.end(); mapIter++) {
             std::string tableName = mapIter->first;
-            Object *obj = mapIter->second;
+            Table *tableObj = mapIter->second;
 
         }
         this->lastSave = time(nullptr);
@@ -168,47 +168,47 @@ int Db::cmdDb(tLBS::Client *client) {
 }
 
 
-Object* Db::lookupKey(std::string key, int flags) {
+Table* Db::lookupTable(std::string key, int flags) {
     UNUSED(flags);
-    auto mapIter = this->table.find(key);
-    if (mapIter != this->table.end()) {
+    auto mapIter = this->tables.find(key);
+    if (mapIter != this->tables.end()) {
         return mapIter->second;
     }
     return nullptr;
 }
 
 bool Db::tableExists(std::string key) {
-    auto mapIter = this->table.find(key);
-    return mapIter != this->table.end();
+    auto mapIter = this->tables.find(key);
+    return mapIter != this->tables.end();
 }
 
-void Db::tableAdd(std::string key, tLBS::Object *data) {
-    this->table[key] = data;
+void Db::tableAdd(std::string key, tLBS::Table *table) {
+    this->tables[key] = table;
 }
 
 void Db::tableRemove(std::string key) {
-    auto mapIter = this->table.find(key);
-    if (mapIter != this->table.end()) {
-        this->table.erase(key);
+    auto mapIter = this->tables.find(key);
+    if (mapIter != this->tables.end()) {
+        this->tables.erase(key);
     }
 }
 
-Object* Db::lookupKeyRead(std::string key) {
-    return this->lookupKeyReadWithFlags(key, DB_FLAGS_LOOKUP_NONE);
+Table* Db::lookupTableRead(std::string key) {
+    return this->lookupTableReadWithFlags(key, DB_FLAGS_LOOKUP_NONE);
 }
 
-Object* Db::lookupKeyWrite(std::string key) {
-    return this->lookupKeyWriteWithFlags(key, DB_FLAGS_LOOKUP_NONE);
+Table* Db::lookupTableWrite(std::string key) {
+    return this->lookupTableWriteWithFlags(key, DB_FLAGS_LOOKUP_NONE);
 }
 
-Object* Db::lookupKeyReadWithFlags(std::string key, int flags) {
+Table* Db::lookupTableReadWithFlags(std::string key, int flags) {
     // 添加读的额外flags
-    return this->lookupKey(key, flags);
+    return this->lookupTable(key, flags);
 }
 
-Object* Db::lookupKeyWriteWithFlags(std::string key, int flags) {
+Table* Db::lookupTableWriteWithFlags(std::string key, int flags) {
     // 添加写的额外flags
-    return this->lookupKey(key, flags);
+    return this->lookupTable(key, flags);
 }
 
 void Db::incrDirty(int incr) {

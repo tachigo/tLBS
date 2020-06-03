@@ -71,6 +71,7 @@ set(SRC_SERVER_TMP
 #        src/sha1.cc
 #        src/sha256.cc
 #        src/syncio.cc
+        src/table.cc
         src/t_s2geometry.cc
 #        src/t_point.cc
 #        src/t_polygon.cc

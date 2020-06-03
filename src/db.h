@@ -15,7 +15,7 @@ namespace tLBS {
 
     class Client;
 
-    class Object;
+    class Table;
 
     class Db {
     public:
@@ -31,7 +31,7 @@ namespace tLBS {
         };
     private:
         int id;
-        std::map<std::string, Object *> table;
+        std::map<std::string, Table *> tables;
         static std::vector<Db *> dbs;
         int dirty;
         time_t lastSave;
@@ -43,12 +43,12 @@ namespace tLBS {
         int getId();
         std::string getInfo();
         std::string getDataPath();
-        Object *lookupKey(std::string key, int flags);
-        Object *lookupKeyRead(std::string key);
-        Object *lookupKeyWrite(std::string key);
-        Object *lookupKeyReadWithFlags(std::string key, int flags);
-        Object *lookupKeyWriteWithFlags(std::string key, int flags);
-        void tableAdd(std::string key, Object *data);
+        Table *lookupTable(std::string key, int flags);
+        Table *lookupTableRead(std::string key);
+        Table *lookupTableWrite(std::string key);
+        Table *lookupTableReadWithFlags(std::string key, int flags);
+        Table *lookupTableWriteWithFlags(std::string key, int flags);
+        void tableAdd(std::string key, Table *table);
         bool tableExists(std::string key);
         void tableRemove(std::string key);
 
