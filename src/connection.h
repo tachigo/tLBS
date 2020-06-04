@@ -75,6 +75,7 @@ namespace tLBS {
         int setReadHandler(ConnectionFallback handler);
         ConnectionFallback getReadHandler();
         int setWriteHandler(ConnectionFallback handler);
+        int setWriteHandler(ConnectionFallback handler, int flags);
         ConnectionFallback getWriteHandler();
 
         int invokeHandler(ConnectionFallback handler);

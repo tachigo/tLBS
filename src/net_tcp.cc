@@ -328,7 +328,12 @@ void NetTcp::acceptCommonHandler(Connection *conn, int flags, char *ip) {
     if (FLAGS_tcp_keepalive > 0) {
         NetTcp::setKeepalive(conn->getFd(), FLAGS_tcp_keepalive);
     }
-    client->success("+OK 你好啊!~👋");
+//    client->success("+OK 你好啊!~👋");
+    // accept这里有往连接写的时候 需要是 EL_BARRIER 这种模式
+    info(conn->getInfo()) << "输出欢迎语";
+    client->setResponse("+OK 你好啊!~👋\r\n");
+    conn->setWriteHandler(Client::connWriteHandler, EL_BARRIER);
+
     Client::link(client);
 }
 

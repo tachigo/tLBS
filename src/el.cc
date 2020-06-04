@@ -80,6 +80,9 @@ EventLoopHandler *EventLoop::getHandler() {
 void EventLoop::start() {
     this->stop = false;
     while (!this->stop) {
+        if (this->beforeSleep != nullptr) {
+            this->beforeSleep();
+        }
         this->processEvents(EL_ALL_EVENT|EL_CALL_AFTER_SLEEP);
     }
 }
@@ -332,4 +335,8 @@ int EventLoop::getMaxFd() {
 void EventLoop::addFiredEvent(int key, int fd, int flags) {
     this->fired[key].fd = fd;
     this->fired[key].flags = flags;
+}
+
+void EventLoop::setBeforeSleep(tLBS::elBeforeSleepFallback beforeSleepFallback) {
+    this->beforeSleep = beforeSleepFallback;
 }

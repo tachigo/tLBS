@@ -51,6 +51,8 @@ namespace tLBS {
         Connection *getConnection();
         std::string getInfo();
 
+        void setResponse(std::string response);
+
         int getSent();
         void setSent(int sent);
 

@@ -152,20 +152,28 @@ ConnectionFallback Connection::getReadHandler() {
     return this->readHandler;
 }
 
-int Connection::setWriteHandler(tLBS::ConnectionFallback handler) {
+int Connection::setWriteHandler(tLBS::ConnectionFallback handler, int flags) {
     EventLoop *el = EventLoop::getInstance();
     if (handler != nullptr && handler == this->getWriteHandler()) {
         error(this->getInfo()) << "重复设置writeHandler";
         return C_OK;
     }
     this->writeHandler = handler;
+    flags |= EL_WRITABLE;
+    if (flags & EL_BARRIER) {
+        this->flags |= CONN_FLAG_WRITE_BARRIER;
+    }
     if (!this->writeHandler) {
-        el->delFileEvent(this->getFd(), EL_WRITABLE);
+        el->delFileEvent(this->getFd(), flags);
     }
     else {
-        el->addFileEvent(this->getFd(), EL_WRITABLE, eventHandler, this);
+        el->addFileEvent(this->getFd(), flags, eventHandler, this);
     }
     return C_OK;
+}
+
+int Connection::setWriteHandler(tLBS::ConnectionFallback handler) {
+    return setWriteHandler(handler, EL_NONE);
 }
 
 ConnectionFallback Connection::getWriteHandler() {

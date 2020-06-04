@@ -80,6 +80,9 @@ std::string Client::getInfo() {
     return this->info;
 }
 
+void Client::setResponse(std::string response) {
+    this->response = response;
+}
 
 Client* Client::getClient(uint64_t clientId) {
     return clients[clientId];
@@ -222,19 +225,18 @@ void Client::readFromConnection() {
     }
 
     // 去掉首尾的\r\n \t
-    qb = trimString(qb.c_str(), " \r\n\t");
+//    qb = trimString(qb.c_str(), " \r\n\t");
     this->query = qb;
 
-//    info(this->getInfo()) << "从"
-//        << conn->getInfo() << "中读取出" << this->query.size()
-//        << "个字符: " << this->query;
+    info(this->getInfo()) << "从"
+        << conn->getInfo() << "中读取出" << this->query.size()
+        << "个字符: " << this->query;
     this->args.clear();
     Client::parseCommandLine(this->query.c_str(), &this->args);
 
-//    for (int i = 0; i < (int)this->args.size(); i++) {
-//        info("argv#") << (i + 1);
-//        dumpString(this->args[i].c_str());
-//    }
+    for (int i = 0; i < (int)this->args.size(); i++) {
+        info("argv#") << (i + 1) << ": " << this->args[i].c_str();
+    }
     if (this->args.size() > 0) {
         if (processCommandAndReset() == C_OK) {
             long long duration = ustime() - start;
@@ -250,6 +252,7 @@ int Client::processCommand() {
     Command *command = Command::findCommand(this->args[0]);
     if (command == nullptr) {
         // 没有找到命令
+        warning("未知的命令: ") << this->args[0];
         return this->fail("未知的命令!");
     }
     Server *server = Server::getInstance();

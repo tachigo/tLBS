@@ -70,6 +70,7 @@ int main(int argc, char *argv[]) {
             fatal("将监听接受tcp连接时的处理句柄注册到事件循环中");
         }
     }
+    el->setBeforeSleep(Server::beforeSleep);
     el->start();
     return C_OK;
 }

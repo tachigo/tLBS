@@ -50,6 +50,7 @@ namespace tLBS {
         static void shutdown(int sig);
         static int prepareShutdown(int flags);
         static int cron(long long id, void *data);
+        static void beforeSleep();
         static void free();
     };
 }

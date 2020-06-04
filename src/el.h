@@ -65,6 +65,7 @@ namespace tLBS {
 
     typedef void elFileFallback (int fd, int flags, void *data);
     typedef int elTimeFallback (long long id, void *data);
+    typedef void elBeforeSleepFallback ();
 
     class FiredEvent {
     public:
@@ -115,6 +116,7 @@ namespace tLBS {
         FiredEvent *fired;
         TimeEvent *teHead; // 定时任务事件链表头结点
         long long teNextId; // 定时任务事件ID计数器
+        elBeforeSleepFallback *beforeSleep;
 
         EventLoopHandler *handler;
         TimeEvent *searchEarliestTimeEvent(); // 搜索最早的定时任务事件
@@ -139,6 +141,8 @@ namespace tLBS {
         void delFileEvent(int fd, int flags);
         FileEvent *getEvent(int j);
         void addFiredEvent(int key, int fd, int flags);
+
+        void setBeforeSleep(elBeforeSleepFallback beforeSleepFallback);
     };
 }
 

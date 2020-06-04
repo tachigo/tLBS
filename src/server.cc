@@ -203,3 +203,7 @@ int Server::prepareShutdown(int flags) {
 void Server::free() {
     delete instance;
 }
+
+void Server::beforeSleep() {
+
+}
