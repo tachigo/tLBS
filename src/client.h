@@ -33,8 +33,8 @@ namespace tLBS {
         std::vector<std::string> args;
         std::string response;
         int sent; // 发送数据的数量
-        static void parseCommandLine(const char *line, std::vector<std::string> *argv);
-        int processCommand();
+        bool http;
+        void parseQueryBuff(const char *line, std::vector<std::string> *argv);
     public:
         Client(Connection *conn, int flags);
         static Client *getClient(uint64_t clientId);
@@ -50,7 +50,8 @@ namespace tLBS {
         void pendingClose();
         Connection *getConnection();
         std::string getInfo();
-
+        void setHttp(bool http);
+        bool isHttp();
         void setResponse(std::string response);
 
         int getSent();
@@ -68,7 +69,6 @@ namespace tLBS {
 
         void readFromConnection();
         void writeToConnection();
-        int processCommandAndReset();
 
         static std::map<uint64_t, Client *> getClients();
         static void adjustMaxClients();

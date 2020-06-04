@@ -7,7 +7,7 @@
 #include "log.h"
 #include "command.h"
 #include "db.h"
-#include "server.h"
+#include "http.h"
 #include <cctype>
 
 using namespace tLBS;
@@ -80,6 +80,14 @@ std::string Client::getInfo() {
     return this->info;
 }
 
+void Client::setHttp(bool http) {
+    this->http = http;
+}
+
+bool Client::isHttp() {
+    return this->http;
+}
+
 void Client::setResponse(std::string response) {
     this->response = response;
 }
@@ -116,6 +124,7 @@ Client::Client(Connection *conn, int flags) {
     this->info = buf;
     this->response = "";
     this->sent = 0;
+    this->http = false;
     this->setDb(Db::getDb(0));
     info("创建") << this->getInfo();
     // 向connection安装client的读句柄
@@ -231,49 +240,41 @@ void Client::readFromConnection() {
     info(this->getInfo()) << "从"
         << conn->getInfo() << "中读取出" << this->query.size()
         << "个字符: " << this->query;
+    std::vector<std::string> theArgs;
+    theArgs.clear();
     this->args.clear();
-    Client::parseCommandLine(this->query.c_str(), &this->args);
+    parseQueryBuff(this->query.c_str(), &theArgs);
+    // 检查是否是http协议
+    if (Http::parseIsHttpRequest(&theArgs)) {
+        // 如果是http协议
+        this->setHttp(true);
+        info(this->getInfo()) << "是http请求";
+    }
+    else {
+        info(this->getInfo()) << "不是http请求";
+    }
+    this->args = theArgs;
+
 
     for (int i = 0; i < (int)this->args.size(); i++) {
-        info("argv#") << (i + 1) << ": " << this->args[i].c_str();
+        info("argv#") << i << ": " << this->args[i].c_str();
     }
     if (this->args.size() > 0) {
-        if (processCommandAndReset() == C_OK) {
-            long long duration = ustime() - start;
-            char msg[128];
-            sprintf(msg, "命令[%s]外部执行时间: %0.5f 毫秒", this->args[0].c_str(), (double)duration / (double)1000);
-            info(this->getInfo()) << msg;
+        if (!this->isHttp()) {
+            if (Command::processCommandAndReset(this) == C_OK) {
+                long long duration = ustime() - start;
+                char msg[128];
+                sprintf(msg, "命令[%s]外部执行时间: %0.5f 毫秒", this->args[0].c_str(), (double)duration / (double)1000);
+                info(this->getInfo()) << msg;
+            }
+        }
+        else {
+            // 走http去处理
         }
     }
-}
-
-int Client::processCommand() {
-    info(this->getInfo()) << "执行命令: " << this->args[0];
-    Command *command = Command::findCommand(this->args[0]);
-    if (command == nullptr) {
-        // 没有找到命令
-        warning("未知的命令: ") << this->args[0];
-        return this->fail("未知的命令!");
+    else {
+        error(this->getInfo()) << "没有参数";
     }
-    Server *server = Server::getInstance();
-    server->updateCachedTime();
-    long long start = server->getUsTime();
-    int ret = command->call(this);
-    if (ret == C_OK) {
-        long long duration = ustime() - start;
-        char msg[128];
-        sprintf(msg, "命令[%s]内部执行时间: %0.5f 毫秒", this->args[0].c_str(), (double)duration/(double)1000);
-        info(this->getInfo()) << msg;
-    }
-    return ret;
-}
-
-int Client::processCommandAndReset() {
-    if (processCommand() == C_OK) {
-        // reset client
-        return C_OK;
-    }
-    return C_ERR;
 }
 
 void Client::connReadHandler(Connection *data) {
@@ -289,7 +290,7 @@ void Client::connWriteHandler(Connection *data) {
 }
 
 
-void Client::parseCommandLine(const char *line, std::vector<std::string> *argv) {
+void Client::parseQueryBuff(const char *line, std::vector<std::string> *argv) {
     const char *p = line;
     std::string current;
     while (true) {

@@ -22,7 +22,7 @@ namespace tLBS {
         commandFallback fallback;
         int arty; // 参数个数
         std::string description; // 描述
-        static void registerCommand(const char *name, commandFallback fallback, int arty, const char *description);
+        static void registerCommand(const char *name, commandFallback fallback, const char *params, const char *description);
     public:
         Command(const char *name, commandFallback fallback, int arty, const char *description);
         ~Command();
@@ -33,6 +33,11 @@ namespace tLBS {
         static void free();
         static Command *findCommand(std::string name);
         int call(Client *client);
+
+
+        static int processCommand(Client *client);
+        static int processCommandAndReset(Client *);
+
     };
 }
 

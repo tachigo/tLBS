@@ -8,8 +8,10 @@
 #include "db.h"
 #include "log.h"
 #include "t_s2geometry.h"
+#include "server.h"
 
 #include <string>
+#include <regex>
 
 using namespace tLBS;
 
@@ -26,7 +28,18 @@ Command::~Command() {
     info("销毁command#") << this->name;
 }
 
-void Command::registerCommand(const char *name, tLBS::commandFallback fallback, int arty, const char *description) {
+void Command::registerCommand(const char *name, tLBS::commandFallback fallback, const char *params, const char *description) {
+    int arty = 0;
+    if (params != nullptr) {
+        std::string paramsMetadata = params;
+        std::regex reg(",");
+        std::vector<std::string> v(
+                std::sregex_token_iterator(
+                        paramsMetadata.begin(), paramsMetadata.end(), reg, -1
+                ),
+                std::sregex_token_iterator());
+        arty = v.size();
+    }
     commands[name] = new Command(name, fallback, arty, description);
 }
 
@@ -42,6 +55,34 @@ commandFallback Command::getFallback() {
     return this->fallback;
 }
 
+int Command::processCommand(Client *client) {
+    info(client->getInfo()) << "执行命令: " << client->arg(0);
+    Command *command = Command::findCommand(client->arg(0));
+    if (command == nullptr) {
+        // 没有找到命令
+        warning("未知的命令: ") << client->arg(0);
+        return client->fail("未知的命令!");
+    }
+    Server *server = Server::getInstance();
+    server->updateCachedTime();
+    long long start = server->getUsTime();
+    int ret = command->call(client);
+    if (ret == C_OK) {
+        long long duration = ustime() - start;
+        char msg[128];
+        sprintf(msg, "命令[%s]内部执行时间: %0.5f 毫秒", client->arg(0).c_str(), (double)duration/(double)1000);
+        info(client->getInfo()) << msg;
+    }
+    return ret;
+}
+
+int Command::processCommandAndReset(Client *client) {
+    if (processCommand(client) == C_OK) {
+        // reset client
+        return C_OK;
+    }
+    return C_ERR;
+}
 
 
 Command* Command::findCommand(std::string name) {
@@ -73,14 +114,14 @@ void Command::free() {
 }
 
 void Command::init() {
-    registerCommand("quit", Client::cmdQuit, 0, "退出连接");
-    registerCommand("db", Db::cmdDb, 0, "查看当前选择的数据库编号");
+    registerCommand("quit", Client::cmdQuit, nullptr, "退出连接");
+    registerCommand("db", Db::cmdDb, nullptr, "查看当前选择的数据库编号");
 
     // s2geometry
-    registerCommand("s2test", S2Geometry::test, 0, "测试s2");
-    registerCommand("s2polyset", S2Geometry::cmdSetPolygon, 3, "添加一个多边形");
-    registerCommand("s2polyget", S2Geometry::cmdGetPolygon, 2, "获取一个多边形");
-    registerCommand("s2polydel", S2Geometry::cmdDelPolygon, 2, "删除一个多边形");
+    registerCommand("s2test", S2Geometry::test, nullptr, "测试s2");
+    registerCommand("s2polyset", S2Geometry::cmdSetPolygon, "table,id,data", "添加一个多边形");
+    registerCommand("s2polyget", S2Geometry::cmdGetPolygon, "table,id", "获取一个多边形");
+    registerCommand("s2polydel", S2Geometry::cmdDelPolygon, "table,id", "删除一个多边形");
 
 
 }

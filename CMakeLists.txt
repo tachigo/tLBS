@@ -59,6 +59,7 @@ set(SRC_SERVER_TMP
         src/el.cc
 #        src/endianconv.cc
 #        src/geo.cc
+        src/http.cc
         src/json.cc
         src/log.cc
 #        src/localtime.cc
