@@ -10,6 +10,8 @@
 #include "table.h"
 
 #include <s2/s2text_format.h>
+#include <fstream>
+#include <regex>
 
 using namespace tLBS;
 
@@ -103,9 +105,7 @@ int S2Geometry::cmdSetPolygon(tLBS::Client *client) {
         info("表`") << table << "`不存在";
         tableObj = Table::createS2GeoPolygonTable(
                 client->getDb()->getId(),
-                table,
-                new S2Geometry::PolygonIndex()
-                );
+                table);
         client->getDb()->tableAdd(table, tableObj);
     }
     else {
@@ -141,7 +141,103 @@ err:
     return C_ERR;
 }
 
+int S2Geometry::PolygonIndex::dump(std::string dataRootPath, std::string table, int shards) {
+    std::ofstream ofs[shards];
+    for (int i = 0; i < shards; i++) {
+        std::string tmpFile = dataRootPath + this->getTmpFile(table, i);
+        ofs[i].open(tmpFile, std::ios::out | std::ios::trunc);
+    }
 
+    for (auto mapIter = this->id2shapeId.begin(); mapIter != this->id2shapeId.end(); mapIter++) {
+        std::string id = mapIter->first;
+        int shapeId = mapIter->second;
+        std::string data = this->shapeId2Data.find(shapeId)->second;
+        int shard = shapeId % shards;
+        ofs[shard] << id << "+" << data << std::endl;
+    }
+
+    for (int i = 0; i < shards; i++) {
+        ofs[i].close();
+        std::string tmpFile = dataRootPath + this->getTmpFile(table, i);
+        std::string datFile = dataRootPath + this->getDatFile(table, i);
+        if (rename(tmpFile.c_str(), datFile.c_str()) == -1) {
+            error("将临时文件") << tmpFile << "移动到最终文件" << datFile << "失败!";
+            unlink(tmpFile.c_str());
+            goto err;
+        }
+    }
+    return C_OK;
+
+err:
+    for (int i = 0; i < shards; i++) {
+        std::string tmpFile = dataRootPath + this->getTmpFile(table, i);
+        ofs[i].close();
+        unlink(tmpFile.c_str());
+    }
+    return C_ERR;
+}
+
+int S2Geometry::PolygonIndex::load(std::string dataRootPath, std::string table, int shards) {
+    std::ifstream ifs;
+    for (int i = 0; i < shards; i++) {
+        std::string datFile = dataRootPath + this->getDatFile(table, i);
+        ifs.open(datFile, std::ios::in);
+        if (!ifs) {
+            if (errno == ENOENT) {
+                // 文件不存在
+                error("无法打开磁盘数据文件" + datFile)
+                        << ": " << strerror(errno) << "(" << errno << ")";
+            }
+            else {
+                fatal("无法打开磁盘数据文件" + datFile)
+                        << ": " << strerror(errno) << "(" << errno << ")";
+            }
+        }
+        else {
+            std::string line;
+            while (getline(ifs, line)) {
+                std::regex reg("\\+");
+                std::vector<std::string> v(
+                        std::sregex_token_iterator(
+                                line.begin(), line.end(), reg, -1
+                        ),
+                        std::sregex_token_iterator());
+                std::string id = v[0];
+                std::string data = v[1];
+                if (PolygonIndex::addPolygon(id, data) != C_OK) {
+                    fatal("加载数据失败: ") << line;
+                }
+            }
+            this->flush();
+            ifs.close();
+        }
+    }
+    return C_OK;
+}
+
+std::string S2Geometry::PolygonIndex::getTmpFile(std::string table, int shard) {
+    char tmpFile[1024];
+    snprintf(tmpFile, sizeof(tmpFile), "s2polygon<%s>-%0.2d-%d.tmp", table.c_str(), shard, ::getpid());
+    return tmpFile;
+}
+
+std::string S2Geometry::PolygonIndex::getDatFile(std::string table, int shard) {
+    char datFile[1024];
+    snprintf(datFile, sizeof(datFile),"s2polygon<%s>-%0.2d.dat", table.c_str(), shard);
+    return datFile;
+}
+
+
+int S2Geometry::PolygonIndex::dumper(std::string dataRootPath, std::string table, int shards, void *ptr) {
+    auto data = (PolygonIndex *)ptr;
+    return data->dump(dataRootPath, table, shards);
+}
+
+
+int S2Geometry::PolygonIndex::loader(std::string dataRootPath, std::string table, int shards, void *ptr) {
+    auto data = (PolygonIndex *)ptr;
+    return data->load(dataRootPath, table, shards);
+}
 
 
 

@@ -37,6 +37,8 @@ namespace tLBS {
         time_t lastSave;
         std::vector<SaveParam *> saveParams;
         std::string info;
+        bool saving;
+        bool loading;
     public:
         Db(int id);
         ~Db();
@@ -54,9 +56,15 @@ namespace tLBS {
 
         std::string getTmpFile();
         std::string getDatFile();
+        void load();
         void save();
         static void saveAll();
+        static void loadAll();
 
+        void setSaving(bool saving);
+        bool isSaving();
+        void setLoading(bool loading);
+        bool isLoading();
         void resetSaveParams();
         void appendSaveParam(time_t seconds, int changes);
         std::vector<SaveParam *> getSaveParams();

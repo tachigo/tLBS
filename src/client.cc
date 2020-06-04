@@ -153,6 +153,7 @@ Connection* Client::getConnection() {
 }
 
 void Client::writeToConnection() {
+//    info("Client::writeToConnection(): ") << this->response;
     // 当有响应数据且没有被发送过
     conn->write(this->response.c_str(), this->response.size());
     // 记录上一次发送的数据量
@@ -173,6 +174,7 @@ void Client::readFromConnection() {
     while (true) {
         // 每次读出一部分
         char buf[segLen];
+        memset(buf, 0, segLen);
         int nRead = conn->read(buf, sizeof(char) * segLen);
 //        info("读出") << nRead << "个字符: " << buf;
         if (nRead == -1) {
@@ -208,7 +210,7 @@ void Client::readFromConnection() {
     }
 
     // 去掉首尾的\r\n \t
-    qb = trimString(qb.c_str(), " \r\n\t");
+//    qb = trimString(qb.c_str(), " \r\n\t");
     this->query = qb;
 
 //    info(this->getInfo()) << "从"
@@ -232,13 +234,11 @@ void Client::readFromConnection() {
 }
 
 int Client::processCommand() {
-    info(this->getInfo()) << "执行命令: " << this->args[0];
+//    info(this->getInfo()) << "执行命令: " << this->args[0];
     Command *command = Command::findCommand(this->args[0]);
     if (command == nullptr) {
         // 没有找到命令
-        const char *resp = "未知的命令!!\r\n";
-        conn->write(resp, strlen(resp));
-        return C_ERR;
+        return this->fail("未知的命令!");
     }
     Server *server = Server::getInstance();
     server->updateCachedTime();
@@ -411,6 +411,7 @@ int Client::getSent() {
 
 int Client::success(tLBS::Json *json) {
     const char *msg = json->toString().c_str();
+//    info(msg);
     delete json;
     return this->success(msg);
 }

@@ -10,11 +10,10 @@
 #include "object.h"
 #include "json.h"
 #include "server.h"
+#include "table.h"
 
 #include <sys/stat.h>
-#include <rapidjson/document.h>
-#include <rapidjson/writer.h>
-#include <rapidjson/stringbuffer.h>
+#include <fstream>
 
 using namespace tLBS;
 
@@ -31,6 +30,8 @@ Db::Db(int id) {
     snprintf(buf, sizeof(buf), "db#%0.2d", id);
     this->info = buf;
     this->lastSave = time(nullptr);
+    this->saving = false;
+    this->loading = false;
     info("创建") << this->getInfo();
 }
 
@@ -49,6 +50,23 @@ int Db::SaveParam::getChanges() {
 
 Db::~Db() {
     info("销毁") << this->getInfo();
+}
+
+
+void Db::setSaving(bool saving) {
+    this->saving = saving;
+}
+
+bool Db::isSaving() {
+    return this->saving;
+}
+
+void Db::setLoading(bool loading) {
+    this->loading = loading;
+}
+
+bool Db::isLoading() {
+    return this->loading;
 }
 
 void Db::appendSaveParam(time_t seconds, int changes) {
@@ -72,7 +90,7 @@ std::string Db::getInfo() {
 }
 
 std::string Db::getDataPath() {
-    return FLAGS_db_root + this->getInfo();
+    return FLAGS_db_root + this->getInfo() + "/";
 }
 
 void Db::init() {
@@ -97,6 +115,8 @@ void Db::init() {
             }
         }
     }
+    // 加载数据
+    loadAll();
 }
 
 void Db::free() {
@@ -112,27 +132,17 @@ time_t Db::getLastSave() {
     return this->lastSave;
 }
 
-void Db::save() {
-    warning("准备保存") << this->getInfo() << "数据到磁盘";
-    if (this->getDirty() > 0) {
-        // 有数据发生变化
-        info(this->getInfo()) << "有数据变化, 开始保存";
-        for (auto mapIter = this->tables.begin(); mapIter != this->tables.end(); mapIter++) {
-            std::string tableName = mapIter->first;
-            Table *tableObj = mapIter->second;
-
-        }
-        this->lastSave = time(nullptr);
-    }
-    else {
-        info(this->getInfo()) << "无数据变化, 保存结束";
-    }
-}
-
 void Db::saveAll() {
     warning("保存所有db数据到磁盘");
     for (int i = 0; i < FLAGS_db_num; i++) {
         dbs[i]->save();
+    }
+}
+
+void Db::loadAll() {
+    warning("从磁盘加载所有db数据");
+    for (int i = 0; i < FLAGS_db_num; i++) {
+        dbs[i]->load();
     }
 }
 
@@ -230,7 +240,7 @@ int Db::getDirty() {
 
 std::string Db::getTmpFile() {
     char tmpFile[256];
-    snprintf(tmpFile, sizeof(tmpFile), "tmp-%d-%d.dat", this->getId(), ::getpid());
+    snprintf(tmpFile, sizeof(tmpFile), "db#%0.2d-%d.tmp", this->getId(), ::getpid());
     return tmpFile;
 }
 
@@ -241,6 +251,86 @@ std::string Db::getDatFile() {
 }
 
 
+void Db::load() {
+    warning("准备从磁盘加载") << this->getInfo() << "数据";
+    if (this->isLoading()) {
+        info(this->getInfo()) << "正在加载中，加载结束";
+        return;
+    }
+    this->setLoading(true);
+    std::string datFile = FLAGS_db_root + this->getDatFile();
+    std::ifstream ifs(datFile);
+    if (!ifs) {
+        if (errno == ENOENT) {
+            // 文件不存在
+            error("无法打开" + this->getInfo() + "磁盘数据文件" + datFile)
+                    << ": " << strerror(errno) << "(" << errno << ")";
+        }
+        else {
+            fatal("无法打开" + this->getInfo() + "磁盘数据文件" + datFile)
+                    << ": " << strerror(errno) << "(" << errno << ")";
+        }
+    }
+    else {
+        std::string line;
+        while (std::getline(ifs, line)) {
+            Table *table = Table::parseMetadata(line);
+            this->tableAdd(table->getName(), table);
+            table->callLoaderHandler(this->getDataPath());
+        }
+        ifs.close();
+    }
+    this->setSaving(false);
+    info(this->getInfo()) << "加载结束";
+}
+
+void Db::save() {
+    warning("准备保存") << this->getInfo() << "数据到磁盘";
+    if (this->isSaving()) {
+        info(this->getInfo()) << "正在保存中，保存结束";
+        return;
+    }
+    this->setSaving(true);
+    if (this->getDirty() > 0) {
+        // 有数据发生变化
+        int oldDirty = this->getDirty();
+        info(this->getInfo()) << "有数据变化, 开始保存";
+        // 先保存db的table的metadata在db_root目录下 再保存各个table里面的数据
+        std::string tmpFile = FLAGS_db_root + this->getTmpFile();
+        std::string datFile = FLAGS_db_root + this->getDatFile();
+        std::ofstream ofs;
+        ofs.open(tmpFile, std::ios::out | std::ios::trunc);
+        for (auto mapIter = this->tables.begin(); mapIter != this->tables.end(); mapIter++) {
+            std::string tableName = mapIter->first;
+            Table *tableObj = mapIter->second;
+            ofs << tableObj->getMetadata() << std::endl;
+        }
+        ofs.close();
+        if (rename(tmpFile.c_str(), datFile.c_str()) == -1) {
+            error("将临时文件") << tmpFile << "移动到最终文件" << datFile << "失败!";
+            unlink(tmpFile.c_str());
+            goto end;
+        }
+        for (auto mapIter = this->tables.begin(); mapIter != this->tables.end(); mapIter++) {
+            std::string tableName = mapIter->first;
+            Table *tableObj = mapIter->second;
+            if (tableObj->callDumperHandler(this->getDataPath()) != C_OK) {
+                // 保存失败了
+                goto end;
+            }
+        }
+        this->lastSave = time(nullptr);
+        this->decrDirty(oldDirty);
+        goto end;
+    }
+    else {
+        info(this->getInfo()) << "无数据变化, 保存结束";
+    }
+end:
+    this->setSaving(false);
+    info(this->getInfo()) << "保存结束";
+}
+
 void Db::cron(long long id, void *data) {
     Server *server = Server::getInstance();
     UNUSED(id);
@@ -250,12 +340,13 @@ void Db::cron(long long id, void *data) {
         Db *db = dbs[i];
         std::vector<SaveParam *> dbSaveParams = db->getSaveParams();
         for (int j = 0; j < dbSaveParams.size(); j++) {
-            SaveParam *sp = dbSaveParams[i];
+            SaveParam *sp = dbSaveParams[j];
             if (db->getDirty() >= sp->getChanges() &&
                 server->getUnixTime() - db->getLastSave() > sp->getSeconds() ) {
-                warning(sp->getChanges()) << " changes in " << sp->getSeconds() << " seconds."
-                    << db->getInfo() << " going AsyncSaving...";
-                // 异步保存数据
+                warning(db->getInfo()) << " " << sp->getSeconds() << "秒内有"
+                    << sp->getChanges() << "数据变化，即将开始保存数据...";
+                // 异步保存数据 todo
+                db->save();
                 break;
             }
         }

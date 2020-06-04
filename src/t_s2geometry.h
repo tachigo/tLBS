@@ -32,6 +32,16 @@ namespace tLBS {
             std::string findDataByShapeId(int shapeId);
             std::string findDataById(std::string id);
             void flush();
+
+            std::string getTmpFile(std::string table, int shard);
+            std::string getDatFile(std::string table, int shard);
+            int dump(std::string dataRootPath, std::string table, int shards);
+            int load(std::string dataRootPath, std::string table, int shards);
+            // dumper handler
+            static int dumper(std::string dataRootPath, std::string table, int shards, void *ptr);
+            // loader handler
+            static int loader(std::string dataRootPath, std::string table, int shards, void *ptr);
+            // mover
         };
 
         // command
