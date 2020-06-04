@@ -134,7 +134,7 @@ int Connection::invokeHandler(ConnectionFallback handler) {
 
 int Connection::setReadHandler(ConnectionFallback handler) {
     EventLoop *el = EventLoop::getInstance();
-    if (handler == this->getReadHandler()) {
+    if (handler != nullptr && handler == this->getReadHandler()) {
         error(this->getInfo()) << "重复设置readHandler";
         return C_OK;
     }
@@ -154,7 +154,7 @@ ConnectionFallback Connection::getReadHandler() {
 
 int Connection::setWriteHandler(tLBS::ConnectionFallback handler) {
     EventLoop *el = EventLoop::getInstance();
-    if (handler == this->getWriteHandler()) {
+    if (handler != nullptr && handler == this->getWriteHandler()) {
         error(this->getInfo()) << "重复设置writeHandler";
         return C_OK;
     }

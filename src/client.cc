@@ -99,6 +99,7 @@ void Client::setFlags(uint64_t flags) {
 
 void Client::pendingClose() {
     this->flags |= CLIENT_FLAGS_PENDING_CLOSE;
+    conn->setReadHandler(nullptr);
 }
 
 Client::Client(Connection *conn, int flags) {
@@ -155,11 +156,13 @@ Connection* Client::getConnection() {
 void Client::writeToConnection() {
 //    info("Client::writeToConnection(): ") << this->response;
     // 当有响应数据且没有被发送过
-    conn->write(this->response.c_str(), this->response.size());
-    // 记录上一次发送的数据量
-    this->sent = this->response.size();
-    // 清空响应数据
-    this->response = "";
+    if (this->response.size() > 0 && this->sent == 0) {
+        conn->write(this->response.c_str(), this->response.size());
+        // 记录上一次发送的数据量
+        this->sent = this->response.size();
+        // 清空响应数据
+        this->response = "";
+    }
     conn->setWriteHandler(nullptr);
 }
 
@@ -183,34 +186,43 @@ void Client::readFromConnection() {
             }
             else if (conn->getLastErrno() != 0) {
                 error("读取数据") << conn->getInfo() << "错误: " << strerror(conn->getLastErrno());
+                this->pendingClose();
                 return;
             }
             else {
                 break;
             }
         }
-        else if (strlen(buf) > 0) {
-//            dumpString(buf);
-            buf[segLen] = '\0'; // 确保最后一个字符是\0
-//            dumpString(buf);
-            // 有新的内容 追加进去
-            totalRead += nRead;
-            qb += buf;
-//            info("汇总字符数: ") << qb.size();
-//            info("汇总字符串: ") << qb;
+        else {
             if (nRead == 0) {
-                break;
+                if (strlen(buf) > 0) {
+                    buf[segLen] = '\0'; // 确保最后一个字符是\0
+                    // 有新的内容 追加进去
+                    totalRead += nRead;
+                    qb += buf;
+                }
+                else {
+                    info("客户端关闭连接");
+                    this->pendingClose();
+                    return;
+                }
+            }
+            else if (strlen(buf) > 0) {
+                buf[segLen] = '\0'; // 确保最后一个字符是\0
+                // 有新的内容 追加进去
+                totalRead += nRead;
+                qb += buf;
             }
         }
     }
     if (totalRead == 0) {
         warning(conn->getInfo()) << "读取数据长度为0, " << this->getInfo() << "准备关闭";
-        conn->close();
+        this->pendingClose();
         return;
     }
 
     // 去掉首尾的\r\n \t
-//    qb = trimString(qb.c_str(), " \r\n\t");
+    qb = trimString(qb.c_str(), " \r\n\t");
     this->query = qb;
 
 //    info(this->getInfo()) << "从"
@@ -234,7 +246,7 @@ void Client::readFromConnection() {
 }
 
 int Client::processCommand() {
-//    info(this->getInfo()) << "执行命令: " << this->args[0];
+    info(this->getInfo()) << "执行命令: " << this->args[0];
     Command *command = Command::findCommand(this->args[0]);
     if (command == nullptr) {
         // 没有找到命令
@@ -469,4 +481,14 @@ int Client::cron(long long id, void *data) {
         free(freeClients[i]);
     }
     return C_OK;
+}
+
+
+int Client::cmdQuit(tLBS::Client *client) {
+    const char *resp = "👋啊朋友再见，啊朋友再见，啊朋友再见吧再见吧~再见吧!👋";
+    client->success(resp);
+    uint64_t clientFlags = client->getFlags();
+    clientFlags |= CLIENT_FLAGS_CLOSE_AFTER_REPLY;
+    client->setFlags(clientFlags);
+    return C_ERR;
 }

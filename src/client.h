@@ -75,6 +75,10 @@ namespace tLBS {
 
         static int cron(long long id, void *data);
 
+
+        // cmd
+        static int cmdQuit(Client *client);
+
     };
 }
 

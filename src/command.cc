@@ -42,15 +42,7 @@ commandFallback Command::getFallback() {
     return this->fallback;
 }
 
-int Command::cmdQuit(tLBS::Client *client) {
-    Connection *conn = client->getConnection();
-    const char *resp = "👋啊朋友再见，啊朋友再见，啊朋友再见吧再见吧~再见吧!👋";
-    client->success(resp);
-    uint64_t clientFlags = client->getFlags();
-    clientFlags |= CLIENT_FLAGS_CLOSE_AFTER_REPLY;
-    client->setFlags(clientFlags);
-    return C_ERR;
-}
+
 
 Command* Command::findCommand(std::string name) {
     auto mapIter = commands.find(name);
@@ -81,7 +73,7 @@ void Command::free() {
 }
 
 void Command::init() {
-    registerCommand("quit", cmdQuit, 0, "退出连接");
+    registerCommand("quit", Client::cmdQuit, 0, "退出连接");
     registerCommand("db", Db::cmdDb, 0, "查看当前选择的数据库编号");
 
     // s2geometry

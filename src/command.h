@@ -23,7 +23,6 @@ namespace tLBS {
         int arty; // 参数个数
         std::string description; // 描述
         static void registerCommand(const char *name, commandFallback fallback, int arty, const char *description);
-        static int cmdQuit(Client *client);
     public:
         Command(const char *name, commandFallback fallback, int arty, const char *description);
         ~Command();
