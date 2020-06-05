@@ -17,7 +17,7 @@ using namespace tLBS;
 
 std::map<std::string, Command *> Command::commands;
 
-Command::Command(const char *name, commandFallback fallback, int arty, const char *description) {
+Command::Command(const char *name, execCmdFallback fallback, int arty, const char *description) {
     this->name = name;
     this->fallback = fallback;
     this->arty = arty;
@@ -28,7 +28,7 @@ Command::~Command() {
     info("销毁command#") << this->name;
 }
 
-void Command::registerCommand(const char *name, tLBS::commandFallback fallback, const char *params, const char *description) {
+void Command::registerCommand(const char *name, tLBS::execCmdFallback fallback, const char *params, const char *description) {
     int arty = 0;
     if (params != nullptr) {
         std::string paramsMetadata = params;
@@ -51,7 +51,7 @@ int Command::getArty() {
     return this->arty;
 }
 
-commandFallback Command::getFallback() {
+execCmdFallback Command::getFallback() {
     return this->fallback;
 }
 
@@ -76,10 +76,136 @@ int Command::processCommand(Client *client) {
     return ret;
 }
 
+std::vector<std::string> Command::parseQueryBuff(const char *line) {
+    std::vector<std::string> argv;
+    const char *p = line;
+    std::string current;
+    while (true) {
+        while ((*p && isspace(*p)) || *p < 0) {
+            // 如果是空格或者不正确的ascii码，指针向前进1
+            p++;
+        }
+        if (*p) {
+            // 有非空格字符
+            bool inQuotes = false;
+            bool inSingleQuotes = false;
+            bool done = false;
+            while (!done) {
+                if (inQuotes) {
+                    // 双引号中
+                    if (*p == '\\' && *(p+1) == 'x' && isHexDigit(*(p+2)) && isHexDigit(*(p+3))) {
+                        unsigned char byte;
+                        byte = (hexDigit2int(*(p+2))*16)+
+                               hexDigit2int(*(p+3));
+                        current += (char *)&byte;
+//                        info("8进制数: ") << current;
+                        p += 3;
+                    }
+                    else if (*p == '\\' && *(p+1)) {
+                        char c;
+                        p++;
+                        switch(*p) {
+                            case 'n': c = '\n'; break;
+                            case 'r': c = '\r'; break;
+                            case 't': c = '\t'; break;
+                            case 'b': c = '\b'; break;
+                            case 'a': c = '\a'; break;
+                            default: c = *p; break;
+                        }
+                        current += &c;
+//                        info("转义字符: ") << *p;
+                    }
+                    else if (*p == '"') {
+                        if (*(p+1) && !isspace(*(p+1))) {
+                            goto end;
+                        }
+                        done = true;
+//                        info("双引号结束: ") << *p;
+                    }
+                    else if (!*p) {
+                        goto end;
+                    }
+                    else {
+                        current += *p;
+//                        info("默认情况: ") << *p;
+                    }
+                }
+                else if (inSingleQuotes) {
+                    // 单引号中
+                    if (*p == '\\' && *(p+1) == '\'') {
+                        p++;
+                        current += "'";
+//                        info("正常情况: ") << *p;
+                    } else if (*p == '\'') {
+                        if (*(p+1) && !isspace(*(p+1))) {
+                            goto end;
+                        }
+                        done = true;
+//                        info("单引号结束: ") << current;
+                    } else if (!*p) {
+                        /* unterminated quotes */
+                        goto end;
+                    } else {
+                        current += *p;
+//                        info("正常情况: ") << *p;
+                    }
+                }
+                else {
+                    switch(*p) {
+                        case ' ':
+                        case '\n':
+                        case '\r':
+                        case '\t':
+                        case '\0':
+                            done = true;
+//                            info("结束字符: ") << current;
+                            break;
+                        case '"':
+                            inQuotes = true;
+//                            info("进入双引号: ") << current;
+                            break;
+                        case '\'':
+                            inSingleQuotes = true;
+//                            info("进入单引号: ") << current;
+                            break;
+                        default:
+                            current += *p;
+//                            info("默认情况: ") << *p;
+                            break;
+                    }
+
+                }
+                if (*p) {
+                    p++;
+                }
+            }
+            argv.push_back(current);
+//            info("argv: ") << current;
+            current = "";
+        }
+        else {
+            goto end;
+        }
+    }
+end:
+    return argv;
+}
+
 int Command::processCommandAndReset(Client *client) {
-    if (processCommand(client) == C_OK) {
-        // reset client
-        return C_OK;
+    // 解析参数
+    client->setArgs(parseQueryBuff(client->getQuery()));
+    if (client->getArgs().size() > 0) {
+        long long start = ustime();
+        if (processCommand(client) == C_OK) {
+            long long duration = ustime() - start;
+            char msg[1024];
+            sprintf(msg, "命令[%s]外部执行时间: %0.5f 毫秒", client->arg(0).c_str(), (double)duration / (double)1000);
+            info(client->getInfo()) << msg;
+            return C_OK;
+        }
+    }
+    else {
+        error(client->getInfo()) << "没有参数";
     }
     return C_ERR;
 }
@@ -114,14 +240,14 @@ void Command::free() {
 }
 
 void Command::init() {
-    registerCommand("quit", Client::cmdQuit, nullptr, "退出连接");
-    registerCommand("db", Db::cmdDb, nullptr, "查看当前选择的数据库编号");
+    registerCommand("quit", Client::execQuit, nullptr, "退出连接");
+    registerCommand("db", Db::execDb, nullptr, "查看当前选择的数据库编号");
 
     // s2geometry
-    registerCommand("s2test", S2Geometry::test, nullptr, "测试s2");
-    registerCommand("s2polyset", S2Geometry::cmdSetPolygon, "table,id,data", "添加一个多边形");
-    registerCommand("s2polyget", S2Geometry::cmdGetPolygon, "table,id", "获取一个多边形");
-    registerCommand("s2polydel", S2Geometry::cmdDelPolygon, "table,id", "删除一个多边形");
+    registerCommand("s2test", S2Geometry::execTest, nullptr, "测试s2");
+    registerCommand("s2polyset", S2Geometry::execSetPolygon, "table,id,data", "添加一个多边形");
+    registerCommand("s2polyget", S2Geometry::execGetPolygon, "table,id", "获取一个多边形");
+    registerCommand("s2polydel", S2Geometry::execDelPolygon, "table,id", "删除一个多边形");
 
 
 }

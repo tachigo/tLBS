@@ -29,12 +29,12 @@ namespace tLBS {
         Connection *conn; // 一个连接对象
         static _Atomic uint64_t nextClientId;
         static std::map<uint64_t, Client *> clients;
-        std::string query;
+        const char *query;
         std::vector<std::string> args;
         std::string response;
         int sent; // 发送数据的数量
         bool http;
-        void parseQueryBuff(const char *line, std::vector<std::string> *argv);
+
     public:
         Client(Connection *conn, int flags);
         static Client *getClient(uint64_t clientId);
@@ -54,10 +54,13 @@ namespace tLBS {
         bool isHttp();
         void setResponse(std::string response);
 
+        const char *getQuery();
+
         int getSent();
         void setSent(int sent);
 
         std::vector<std::string> getArgs();
+        void setArgs(std::vector<std::string> args);
         std::string arg(int i);
 
         int success();
@@ -79,7 +82,7 @@ namespace tLBS {
 
 
         // cmd
-        static int cmdQuit(Client *client);
+        static int execQuit(Client *client);
 
     };
 }

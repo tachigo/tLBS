@@ -10,6 +10,7 @@
 #include "client.h"
 #include "threadpool_c.h"
 #include "command.h"
+#include "http.h"
 #include "db.h"
 
 using namespace tLBS;
@@ -34,6 +35,8 @@ int main(int argc, char *argv[]) {
     server->setExecutable(getAbsolutePath(argv[0]));
     Command::init();
     atexit(Command::free);
+    Http::init();
+    atexit(Http::free);
     warning("👋👋👋👋👋👋👋👋 Hello! tLBS-SERVER~ 👋👋👋👋👋👋👋👋");
     warning("executable: ") << server->getExecutable();
     warning("pid: ") << server->getPid();

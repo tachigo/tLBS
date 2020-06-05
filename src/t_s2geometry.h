@@ -45,16 +45,16 @@ namespace tLBS {
         };
 
         // command
-        static int test(Client *client);
+        static int execTest(Client *client);
 
         // s2polyset table id data
-        static int cmdSetPolygon(Client *client);
+        static int execSetPolygon(Client *client);
 
         // s2polyget table id
-        static int cmdGetPolygon(Client *client);
+        static int execGetPolygon(Client *client);
 
         // s2polydel table id
-        static int cmdDelPolygon(Client *client);
+        static int execDelPolygon(Client *client);
     };
 }
 

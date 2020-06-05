@@ -27,16 +27,24 @@ char *trimString(const char *str1, const char *str2);
 
 
 // 定义错误码
-#define ERRNO_CMD_SYNTAX_ERR 1
-#define ERROR_CMD_SYNTAX_ERR "命令格式错误"
+#define ERRNO_EXEC_SYNTAX_ERR 1
+#define ERROR_EXEC_SYNTAX_ERR "命令格式错误"
 
-#define ERRNO_CMD_DB_SELECT_ERR 2
-#define ERROR_CMD_DB_SELECT_ERR "db不存在"
+#define ERRNO_EXEC_DB_SELECT_ERR 2
+#define ERROR_EXEC_DB_SELECT_ERR "db不存在"
 
-#define ERRNO_CMD_TABLE_TYPE_ERR 3
-#define ERROR_CMD_TABLE_TYPE_ERR "table类型错误"
+#define ERRNO_EXEC_TABLE_TYPE_ERR 3
+#define ERROR_EXEC_TABLE_TYPE_ERR "table类型错误"
 
 
-#define ERRNO_CMD_S2GEOMETRY_ERR 4
+#define ERRNO_EXEC_S2GEOMETRY_ERR 4
+
+#define ERRNO_EXEC_PARAMS_NEED 5
+
+#define ERRNO_EXEC_CMD_UNKNOWN 6
+#define ERROR_EXEC_CMD_UNKNOWN "未知的命令"
+
+#define ERRNO_EXEC_HTTP_UNKNOWN 7
+#define ERROR_EXEC_HTTP_UNKNOWN "未知的HTTP请求"
 
 #endif //TLBS_COMMON_H

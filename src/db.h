@@ -81,7 +81,7 @@ namespace tLBS {
         static void cron(long long id, void *data);
 
         // command
-        static int cmdDb(Client *client);
+        static int execDb(Client *client);
     };
 }
 

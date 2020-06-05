@@ -12,21 +12,22 @@ namespace tLBS {
     class Json {
     private:
         rapidjson::Document* doc;
+        std::string str;
     public:
-        Json(std::string tpl);
+        Json(const char *tpl);
         ~Json();
-        rapidjson::Value *get(std::string key);
+        rapidjson::Value *get(const char *key);
         std::string toString();
 
-        static Json *createCmdSuccessNumberJsonObj();
-        static Json *createCmdSuccessStringJsonObj();
-        static Json *createCmdSuccessBooleanJsonObj();
-        static Json *createCmdSuccessArrayJsonObj();
-        static Json *createCmdSuccessObjectJsonObj();
+        static Json *createSuccessNumberJsonObj();
+        static Json *createSuccessStringJsonObj();
+        static Json *createSuccessBooleanJsonObj();
+        static Json *createSuccessArrayJsonObj();
+        static Json *createSuccessObjectJsonObj();
 
-        static Json *createCmdErrorJsonObj();
-        static Json *createCmdErrorJsonObj(int errorNo, const char *errorMsg);
-        static Json *createCmdSuccessStringJsonObj(std::string data);
+        static Json *createErrorJsonObj();
+        static Json *createErrorJsonObj(int errorNo, const char *errorMsg);
+        static Json *createSuccessStringJsonObj(const char *data);
     };
 }
 

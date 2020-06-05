@@ -12,22 +12,23 @@
 namespace tLBS {
     class Client;
 
-    typedef int (*commandFallback)(Client *client);
+    typedef int (*execCmdFallback)(Client *client);
 
     class Command {
     private:
         static std::map<std::string, Command *> commands;
 
         std::string name; // 名称
-        commandFallback fallback;
+        execCmdFallback fallback;
         int arty; // 参数个数
         std::string description; // 描述
-        static void registerCommand(const char *name, commandFallback fallback, const char *params, const char *description);
+        static std::vector<std::string> parseQueryBuff(const char *line);
+        static void registerCommand(const char *name, execCmdFallback fallback, const char *params, const char *description);
     public:
-        Command(const char *name, commandFallback fallback, int arty, const char *description);
+        Command(const char *name, execCmdFallback fallback, int arty, const char *description);
         ~Command();
         std::string getName();
-        commandFallback getFallback();
+        execCmdFallback getFallback();
         int getArty();
         static void init();
         static void free();

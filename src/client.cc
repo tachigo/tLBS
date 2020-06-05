@@ -8,7 +8,6 @@
 #include "command.h"
 #include "db.h"
 #include "http.h"
-#include <cctype>
 
 using namespace tLBS;
 
@@ -165,6 +164,10 @@ Connection* Client::getConnection() {
     return this->conn;
 }
 
+const char *Client::getQuery() {
+    return this->query;
+}
+
 void Client::writeToConnection() {
 //    info("Client::writeToConnection(): ") << this->response;
     // 当有响应数据且没有被发送过
@@ -182,7 +185,7 @@ void Client::readFromConnection() {
 //    info(this->getInfo()) << "::readFromConnection()";
     this->response = "";
     this->sent = 0;
-    long long start = ustime();
+
     int segLen = (1024); // 32M
     int totalRead = 0;
     std::string qb;
@@ -235,45 +238,45 @@ void Client::readFromConnection() {
 
     // 去掉首尾的\r\n \t
 //    qb = trimString(qb.c_str(), " \r\n\t");
-    this->query = qb;
+    this->query = qb.c_str();
 
-    info(this->getInfo()) << "从"
-        << conn->getInfo() << "中读取出" << this->query.size()
-        << "个字符: " << this->query;
-    std::vector<std::string> theArgs;
-    theArgs.clear();
-    this->args.clear();
-    parseQueryBuff(this->query.c_str(), &theArgs);
-    // 检查是否是http协议
-    if (Http::parseIsHttpRequest(&theArgs)) {
+//    info(this->getInfo()) << "从"
+//        << conn->getInfo() << "中读取出" << strlen(this->query)
+//        << "个字符: " << this->query;
+
+    if (Http::clientIsHttp(this)) {
         // 如果是http协议
         this->setHttp(true);
         info(this->getInfo()) << "是http请求";
     }
     else {
+        this->setHttp(false);
         info(this->getInfo()) << "不是http请求";
     }
-    this->args = theArgs;
+//    std::vector<std::string> theArgs;
+//    theArgs.clear();
+//    this->args.clear();
+//    parseQueryBuff(this->query.c_str(), &theArgs);
+//    // 检查是否是http协议
+//    if (Http::parseIsHttpRequest(&theArgs)) {
+//        // 如果是http协议
+//        this->setHttp(true);
+//        info(this->getInfo()) << "是http请求";
+//    }
+//    else {
+//        info(this->getInfo()) << "不是http请求";
+//    }
+//    this->args = theArgs;
 
+//    for (int i = 0; i < (int)this->args.size(); i++) {
+//        info("argv#") << i << ": " << this->args[i].c_str();
+//    }
 
-    for (int i = 0; i < (int)this->args.size(); i++) {
-        info("argv#") << i << ": " << this->args[i].c_str();
-    }
-    if (this->args.size() > 0) {
-        if (!this->isHttp()) {
-            if (Command::processCommandAndReset(this) == C_OK) {
-                long long duration = ustime() - start;
-                char msg[128];
-                sprintf(msg, "命令[%s]外部执行时间: %0.5f 毫秒", this->args[0].c_str(), (double)duration / (double)1000);
-                info(this->getInfo()) << msg;
-            }
-        }
-        else {
-            // 走http去处理
-        }
+    if (!this->isHttp()) {
+        Command::processCommandAndReset(this);
     }
     else {
-        error(this->getInfo()) << "没有参数";
+        Http::processHttpAndReset(this);
     }
 }
 
@@ -290,119 +293,12 @@ void Client::connWriteHandler(Connection *data) {
 }
 
 
-void Client::parseQueryBuff(const char *line, std::vector<std::string> *argv) {
-    const char *p = line;
-    std::string current;
-    while (true) {
-        while ((*p && isspace(*p)) || *p < 0) {
-            // 如果是空格或者不正确的ascii码，指针向前进1
-            p++;
-        }
-        if (*p) {
-            // 有非空格字符
-            bool inQuotes = false;
-            bool inSingleQuotes = false;
-            bool done = false;
-            while (!done) {
-                if (inQuotes) {
-                    // 双引号中
-                    if (*p == '\\' && *(p+1) == 'x' && isHexDigit(*(p+2)) && isHexDigit(*(p+3))) {
-                        unsigned char byte;
-                        byte = (hexDigit2int(*(p+2))*16)+
-                               hexDigit2int(*(p+3));
-                        current += (char *)&byte;
-//                        info("8进制数: ") << current;
-                        p += 3;
-                    }
-                    else if (*p == '\\' && *(p+1)) {
-                        char c;
-                        p++;
-                        switch(*p) {
-                            case 'n': c = '\n'; break;
-                            case 'r': c = '\r'; break;
-                            case 't': c = '\t'; break;
-                            case 'b': c = '\b'; break;
-                            case 'a': c = '\a'; break;
-                            default: c = *p; break;
-                        }
-                        current += &c;
-//                        info("转义字符: ") << *p;
-                    }
-                    else if (*p == '"') {
-                        if (*(p+1) && !isspace(*(p+1))) {
-                            return;
-                        }
-                        done = true;
-//                        info("双引号结束: ") << *p;
-                    }
-                    else if (!*p) {
-                        return;
-                    }
-                    else {
-                        current += *p;
-//                        info("默认情况: ") << *p;
-                    }
-                }
-                else if (inSingleQuotes) {
-                    if (*p == '\\' && *(p+1) == '\'') {
-                        p++;
-                        current += "'";
-//                        info("正常情况: ") << *p;
-                    } else if (*p == '\'') {
-                        if (*(p+1) && !isspace(*(p+1))) {
-                            return;
-                        }
-                        done = true;
-//                        info("单引号结束: ") << current;
-                    } else if (!*p) {
-                        /* unterminated quotes */
-                        return;
-                    } else {
-                        current += *p;
-//                        info("正常情况: ") << *p;
-                    }
-                }
-                else {
-                    switch(*p) {
-                        case ' ':
-                        case '\n':
-                        case '\r':
-                        case '\t':
-                        case '\0':
-                            done = true;
-//                            info("结束字符: ") << current;
-                            break;
-                        case '"':
-                            inQuotes = true;
-//                            info("进入双引号: ") << current;
-                            break;
-                        case '\'':
-                            inSingleQuotes = true;
-//                            info("进入单引号: ") << current;
-                            break;
-                        default:
-                            current += *p;
-//                            info("默认情况: ") << *p;
-                            break;
-                    }
-
-                }
-                if (*p) {
-                    p++;
-                }
-            }
-            argv->push_back(current);
-//            info("argv: ") << current;
-            current = "";
-        }
-        else {
-            return;
-        }
-    }
-}
-
 std::vector<std::string> Client::getArgs() {
     return this->args;
+}
+
+void Client::setArgs(std::vector<std::string> args) {
+    this->args = args;
 }
 
 std::string Client::arg(int i) {
@@ -426,17 +322,27 @@ int Client::getSent() {
 }
 
 int Client::success(tLBS::Json *json) {
-    const char *msg = json->toString().c_str();
-//    info(msg);
+    int ret = this->success(json->toString().c_str());
     delete json;
-    return this->success(msg);
+    return ret;
 }
 
 int Client::success(const char *msg) {
     std::string str = msg;
-    str += "\r\n";
-    this->response = str;
-    conn->setWriteHandler(connWriteHandler);
+    if (this->isHttp()) {
+        std::string responseHeader = "HTTP/1.0 200 OK\r\nConnection: close\r\nContent-Type: application/json;charset=utf-8\r\nContent-Length: ";
+        responseHeader += std::to_string(str.size());
+        responseHeader += "\r\n\r\n";
+        conn->write(responseHeader.c_str(), responseHeader.size());
+        conn->write(str.c_str(), str.size());
+        conn->close();
+        this->pendingClose();
+    }
+    else {
+        str += "\r\n";
+        this->response = str;
+        conn->setWriteHandler(connWriteHandler);
+    }
     return C_OK;
 }
 
@@ -445,9 +351,9 @@ int Client::fail(int error, const char *msg) {
 }
 
 int Client::fail(tLBS::Json *json) {
-    const char *msg = json->toString().c_str();
+    int ret = this->fail(json->toString().c_str());
     delete json;
-    return this->fail(msg);
+    return ret;
 }
 
 int Client::fail(const char *fmt, ...) {
@@ -458,9 +364,20 @@ int Client::fail(const char *fmt, ...) {
     va_end(ap);
 
     std::string str = msg;
-    str += "\r\n";
-    this->response = str;
-    conn->setWriteHandler(connWriteHandler);
+    if (this->isHttp()) {
+        std::string responseHeader = "HTTP/1.0 200 OK\r\nConnection: close\r\nContent-Type: application/json;charset=utf-8\r\nContent-Length: ";
+        responseHeader += std::to_string(str.size());
+        responseHeader += "\r\n\r\n";
+        conn->write(responseHeader.c_str(), responseHeader.size());
+        conn->write(str.c_str(), str.size());
+        conn->close();
+        this->pendingClose();
+    }
+    else {
+        str += "\r\n";
+        this->response = str;
+        conn->setWriteHandler(connWriteHandler);
+    }
     return C_ERR;
 }
 
@@ -476,7 +393,7 @@ int Client::cron(long long id, void *data) {
         }
         else if (flags & CLIENT_FLAGS_CLOSE_AFTER_REPLY) {
             if (client->getSent() > 0) {
-//                info(client->getInfo()) << "被设置为响应后关闭";
+                info(client->getInfo()) << "被设置为响应后关闭";
                 freeClients.push_back(client);
             }
         }
@@ -488,7 +405,7 @@ int Client::cron(long long id, void *data) {
 }
 
 
-int Client::cmdQuit(tLBS::Client *client) {
+int Client::execQuit(tLBS::Client *client) {
     const char *resp = "👋啊朋友再见，啊朋友再见，啊朋友再见吧再见吧~再见吧!👋";
     client->success(resp);
     uint64_t clientFlags = client->getFlags();

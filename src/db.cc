@@ -156,7 +156,7 @@ Db* Db::getDb(int id) {
 }
 
 
-int Db::cmdDb(tLBS::Client *client) {
+int Db::execDb(tLBS::Client *client) {
     if (client->getArgs().size() == 2) {
         std::string arg = client->arg(1);
         int dbId = atoi(arg.c_str());
@@ -166,11 +166,11 @@ int Db::cmdDb(tLBS::Client *client) {
             client->success();
         }
         else {
-            client->fail(Json::createCmdErrorJsonObj(ERRNO_CMD_DB_SELECT_ERR, ERROR_CMD_DB_SELECT_ERR));
+            client->fail(Json::createErrorJsonObj(ERRNO_EXEC_DB_SELECT_ERR, ERROR_EXEC_DB_SELECT_ERR));
         }
     }
     else {
-        Json* json = Json::createCmdSuccessNumberJsonObj();
+        Json* json = Json::createSuccessNumberJsonObj();
         json->get("data")->SetInt(client->getDb()->getId());
         client->success(json);
     }

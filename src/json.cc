@@ -3,64 +3,69 @@
 //
 
 #include "json.h"
+#include "log.h"
+
 #include <rapidjson/writer.h>
 #include <rapidjson/stringbuffer.h>
 
 using namespace tLBS;
 
-Json::Json(std::string tpl) {
+Json::Json(const char *tpl) {
     this->doc = new rapidjson::Document();
-    this->doc->Parse(tpl.c_str());
+    this->doc->Parse(tpl);
 }
 
 Json::~Json() {
     delete this->doc;
 }
 
-rapidjson::Value* Json::get(std::string key) {
-    return &(*this->doc)[key.c_str()];
+rapidjson::Value* Json::get(const char *key) {
+    return &(*this->doc)[key];
 }
 
 std::string Json::toString() {
-    rapidjson::StringBuffer buf;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(buf);
-    this->doc->Accept(writer);
-    return buf.GetString();
+    if (this->str.size() == 0) {
+        rapidjson::StringBuffer buf;
+        rapidjson::Writer<rapidjson::StringBuffer> writer(buf);
+        this->doc->Accept(writer);
+        this->str = std::string(buf.GetString());
+    }
+    return this->str;
 }
 
-Json* Json::createCmdSuccessNumberJsonObj() {
+Json* Json::createSuccessNumberJsonObj() {
     return new Json(R"({"errno": 0, "data": 0})");
 }
 
-Json* Json::createCmdSuccessStringJsonObj() {
+Json* Json::createSuccessStringJsonObj() {
     return new Json(R"({"errno": 0, "data": ""})");
 }
 
-Json* Json::createCmdSuccessBooleanJsonObj() {
+Json* Json::createSuccessBooleanJsonObj() {
     return new Json(R"({"errno": 0, "data": false})");
 }
 
-Json* Json::createCmdSuccessArrayJsonObj() {
+Json* Json::createSuccessArrayJsonObj() {
     return new Json(R"({"errno": 0, "data": []})");
 }
 
-Json* Json::createCmdSuccessObjectJsonObj() {
+Json* Json::createSuccessObjectJsonObj() {
     return new Json(R"({"errno": 0, "data": {}})");
 }
 
-Json* Json::createCmdErrorJsonObj() {
+Json* Json::createErrorJsonObj() {
     return new Json(R"({"errno": 0, "data": ""})");
 }
 
-Json* Json::createCmdErrorJsonObj(int errorNo, const char *errorMsg) {
-    Json *json = createCmdErrorJsonObj();
+Json* Json::createErrorJsonObj(int errorNo, const char *errorMsg) {
+    Json *json = createErrorJsonObj();
     json->get("errno")->SetInt(errorNo);
     json->get("data")->SetString(rapidjson::GenericStringRef<char>(errorMsg));
     return json;
 }
 
-Json *Json::createCmdSuccessStringJsonObj(std::string data) {
-    Json *json = createCmdSuccessStringJsonObj();
-    json->get("data")->SetString(rapidjson::GenericStringRef<char>(data.c_str()));
+Json *Json::createSuccessStringJsonObj(const char *data) {
+    Json *json = createSuccessStringJsonObj();
+    json->get("data")->SetString(rapidjson::GenericStringRef<char>(data));
     return json;
 }
