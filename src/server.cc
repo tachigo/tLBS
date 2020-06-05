@@ -15,7 +15,7 @@
 
 using namespace tLBS;
 
-DEFINE_string(pid_file, "/var/run/tLBS-server.pid", "PID进程锁文件");
+DEFINE_string(pid_file, "tLBS-server.pid", "PID进程锁文件");
 DEFINE_bool(daemonize, false, "是否以守护进程方式启动");
 DEFINE_int32(server_hz, 2, "server时间事件每秒执行多少次");
 DEFINE_string(bin_root, "", "可执行文件的根路径");
@@ -31,7 +31,6 @@ Server * Server::getInstance() {
 }
 
 Server::Server() {
-    info("创建server对象");
     this->pid = ::getpid();
     this->shutdownAsap = 0;
     this->archBits = (sizeof(long) == 8) ? 64 : 32;
@@ -41,10 +40,19 @@ Server::Server() {
         FLAGS_bin_root = getAbsolutePath("./");
     }
     this->binRoot = FLAGS_bin_root;
+    this->pidFile = getAbsolutePath("../run/") + FLAGS_pid_file;
+    this->isParentProcess = true;
 }
 
 Server::~Server() {
-    info("销毁server对象");
+    if (!this->isParentProcess || !FLAGS_daemonize) {
+        info("销毁server对象");
+    }
+}
+
+
+bool Server::getIsParentProcess() {
+    return this->isParentProcess;
 }
 
 void Server::setExecutable(std::string executable) {
@@ -76,22 +84,23 @@ int Server::getArchBits() {
 }
 
 void Server::daemonize() {
-    info("将进程变成守护进程");
     if (fork() != 0) {
         // 父
-        info("父进程#") << this->pid << " exit!";
         exit(0);
     }
     // 子 脱离会话
+    this->isParentProcess = false;
     setsid();
     this->pid = ::getpid();
+    info("将进程变成守护进程");
     warning("守护进程#") << this->pid;
 }
 
 void Server::init() {
-    info("server对象初始化");
     this->updateCachedTime();
     if (this->daemonized) {
+        FLAGS_alsologtostderr = false;
+        FLAGS_colorlogtostderr = false;
         this->daemonize();
         this->createPidFile();
     }
@@ -107,9 +116,13 @@ void Server::init() {
     sigaction(SIGINT, &act, nullptr);
 }
 
+std::string Server::getPidFile() {
+    return this->pidFile;
+}
+
 void Server::createPidFile() {
-    info("创建PID进程锁文件: ") << FLAGS_pid_file;
-    std::string pid_file = FLAGS_pid_file;
+    info("创建PID进程锁文件: ") << this->getPidFile();
+    std::string pid_file = this->getPidFile();
     std::ofstream ofs;
     ofs.open(pid_file, std::ios::out);
     ofs << this->pid << std::endl;
@@ -117,9 +130,9 @@ void Server::createPidFile() {
 }
 
 void Server::deletePidFile() {
-    info("删除PID进程锁文件: ") << FLAGS_pid_file;
-    std::string pid_file = FLAGS_pid_file;
-    remove(pid_file.c_str());
+    info("删除PID进程锁文件: ") << this->getPidFile();
+    std::string pid_file = this->getPidFile();
+    unlink(pid_file.c_str());
 }
 
 void Server::shutdown(int sig) {

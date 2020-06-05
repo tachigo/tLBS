@@ -3,12 +3,17 @@
 //
 
 #include "log.h"
+#include "config.h"
+#include "server.h"
 
 using namespace tLBS;
 
 void Log::free() {
-    info("销毁log对象");
-    warning("再见！~👋");
+    Server *server = Server::getInstance();
+    if (!server->getIsParentProcess() || !FLAGS_daemonize) {
+        info("销毁log对象");
+        warning("再见！~👋");
+    }
     google::ShutdownGoogleLogging();
 }
 
@@ -20,5 +25,5 @@ void Log::init(const char *programName) {
     FLAGS_colorlogtostderr = true;
     FLAGS_stop_logging_if_full_disk = true;
     FLAGS_max_log_size = 100; // 100M
-    info("初始化log对象");
+//    info("初始化log对象");
 }

@@ -22,10 +22,12 @@ namespace tLBS {
         bool daemonized; // 是否守护进程化
         std::string binRoot; // server进程的根路径
         std::string executable; // 可执行文件
+        std::string pidFile; // pid锁文件
 
         _Atomic time_t unixTime;
         long long msTime; // 毫秒
         long long usTime; // 微秒
+        bool isParentProcess; // 是否是父进程
 
         void daemonize();
         Server();
@@ -52,6 +54,8 @@ namespace tLBS {
         static int cron(long long id, void *data);
         static void beforeSleep();
         static void free();
+        std::string getPidFile();
+        bool getIsParentProcess();
     };
 }
 

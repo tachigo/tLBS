@@ -330,19 +330,22 @@ int Client::success(tLBS::Json *json) {
 int Client::success(const char *msg) {
     std::string str = msg;
     if (this->isHttp()) {
-        std::string responseHeader = "HTTP/1.0 200 OK\r\nConnection: close\r\nContent-Type: application/json;charset=utf-8\r\nContent-Length: ";
+        std::string responseHeader = "HTTP/1.0 200 OK\r\nConnection: keep-alive\r\nContent-Type: application/json;charset=utf-8\r\nContent-Length: ";
         responseHeader += std::to_string(str.size());
         responseHeader += "\r\n\r\n";
-        conn->write(responseHeader.c_str(), responseHeader.size());
-        conn->write(str.c_str(), str.size());
-        conn->close();
-        this->pendingClose();
+        str = responseHeader + str;
     }
     else {
         str += "\r\n";
         this->response = str;
         conn->setWriteHandler(connWriteHandler);
     }
+    this->response = str;
+
+    if (this->isHttp()) {
+        this->flags |= CLIENT_FLAGS_CLOSE_AFTER_REPLY;
+    }
+    conn->setWriteHandler(connWriteHandler);
     return C_OK;
 }
 
@@ -365,19 +368,22 @@ int Client::fail(const char *fmt, ...) {
 
     std::string str = msg;
     if (this->isHttp()) {
-        std::string responseHeader = "HTTP/1.0 200 OK\r\nConnection: close\r\nContent-Type: application/json;charset=utf-8\r\nContent-Length: ";
+        std::string responseHeader = "HTTP/1.0 200 OK\r\nConnection: keep-alive\r\nContent-Type: application/json;charset=utf-8\r\nContent-Length: ";
         responseHeader += std::to_string(str.size());
         responseHeader += "\r\n\r\n";
-        conn->write(responseHeader.c_str(), responseHeader.size());
-        conn->write(str.c_str(), str.size());
-        conn->close();
-        this->pendingClose();
+        str = responseHeader + str;
     }
     else {
         str += "\r\n";
         this->response = str;
         conn->setWriteHandler(connWriteHandler);
     }
+    this->response = str;
+
+    if (this->isHttp()) {
+        this->flags |= CLIENT_FLAGS_CLOSE_AFTER_REPLY;
+    }
+    conn->setWriteHandler(connWriteHandler);
     return C_ERR;
 }
 
