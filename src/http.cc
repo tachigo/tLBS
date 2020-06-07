@@ -356,16 +356,21 @@ int Http::processHttpAndReset(tLBS::Client *client) {
             warning("未知的HTTP请求: ") << client->arg(0);
             return client->fail(Json::createErrorJsonObj(ERRNO_EXEC_HTTP_UNKNOWN, ERROR_EXEC_HTTP_UNKNOWN));
         }
-        if (http->isNeedSpecifiedDb()) {
-            auto mapIter = params.find("db");
-            if (mapIter == params.end()) {
+        auto mapIter = params.find("db");
+        if (mapIter == params.end()) {
+            if (http->isNeedSpecifiedDb()) {
                 error(client->getInfo()) << " "
                     << http->getName() << " 中必须在querystring中指定db参数";
                 return client->fail(Json::createErrorJsonObj(ERRNO_EXEC_PARAMS_NEED, "必须在querystring中指定db参数"));
             }
             else {
-                client->setDb(Db::getDb(atoi(mapIter->second.c_str())));
+                // 默认0 但是其实在创建client的时候就指定了默认0
+                client->setDb(Db::getDb(0));
             }
+        }
+        else {
+            // 只要有db参数就设置db
+            client->setDb(Db::getDb(atoi(mapIter->second.c_str())));
         }
         // 找到exec 按照params的顺序来设置client的args
         std::vector<std::string> paramsMetadata = http->getParams();
@@ -434,6 +439,6 @@ void Http::free() {
 
 
 void Http::init() {
-
-    registerHttp("GET /s2polyget", S2Geometry::execGetPolygon, "table,id", "获取一个多边形", true);
+    registerHttp("GET /db", Db::execDb, nullptr, "查看当前选择的数据库编号", false);
+    registerHttp("GET /s2polyget", S2Geometry::execGetPolygon, "table,id", "获取一个多边形", false);
 }

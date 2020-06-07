@@ -8,10 +8,12 @@
 #include "command.h"
 #include "db.h"
 #include "http.h"
+#include "threadpool_c.h"
 
 using namespace tLBS;
 
 DEFINE_int32(max_clients, 10000, "最大的同事产生的客户端连接数");
+DEFINE_bool(threads_client, true, "是否使用线程处理客户端");
 
 std::map<uint64_t, Client *> Client::clients;
 _Atomic uint64_t Client::nextClientId = 0;
@@ -164,6 +166,10 @@ Connection* Client::getConnection() {
     return this->conn;
 }
 
+void Client::setQuery(const char *query) {
+    this->query = query;
+}
+
 const char *Client::getQuery() {
     return this->query;
 }
@@ -217,9 +223,7 @@ void Client::readFromConnection() {
                     qb += buf;
                 }
                 else {
-                    info("客户端关闭连接");
-                    this->pendingClose();
-                    return;
+                    break;
                 }
             }
             else if (strlen(buf) > 0) {
@@ -238,52 +242,89 @@ void Client::readFromConnection() {
 
     // 去掉首尾的\r\n \t
 //    qb = trimString(qb.c_str(), " \r\n\t");
-    this->query = qb.c_str();
+    this->setQuery(qb.c_str());
+//    this->query = qb.c_str();
 
 //    info(this->getInfo()) << "从"
 //        << conn->getInfo() << "中读取出" << strlen(this->query)
 //        << "个字符: " << this->query;
 
-    if (Http::clientIsHttp(this)) {
-        // 如果是http协议
-        this->setHttp(true);
-        info(this->getInfo()) << "是http请求";
+    if (FLAGS_threads_client) {
+        // 使用线程处理
+        ThreadPool::getPool("client")
+            ->enqueueTask(Client::threadProcess, (void *)new ThreadArg(this, qb), "client::threadProcess");
     }
     else {
-        this->setHttp(false);
-        info(this->getInfo()) << "不是http请求";
-    }
-//    std::vector<std::string> theArgs;
-//    theArgs.clear();
-//    this->args.clear();
-//    parseQueryBuff(this->query.c_str(), &theArgs);
-//    // 检查是否是http协议
-//    if (Http::parseIsHttpRequest(&theArgs)) {
-//        // 如果是http协议
-//        this->setHttp(true);
-//        info(this->getInfo()) << "是http请求";
-//    }
-//    else {
-//        info(this->getInfo()) << "不是http请求";
-//    }
-//    this->args = theArgs;
+        if (Http::clientIsHttp(this)) {
+            // 如果是http协议
+            this->setHttp(true);
+            info(this->getInfo()) << "是http请求";
+        }
+        else {
+            this->setHttp(false);
+            info(this->getInfo()) << "不是http请求";
+        }
 
 //    for (int i = 0; i < (int)this->args.size(); i++) {
 //        info("argv#") << i << ": " << this->args[i].c_str();
 //    }
 
-    if (!this->isHttp()) {
-        Command::processCommandAndReset(this);
+        if (!this->isHttp()) {
+            Command::processCommandAndReset(this);
+        }
+        else {
+            Http::processHttpAndReset(this);
+        }
+    }
+}
+
+Client::ThreadArg::ThreadArg(tLBS::Client *client, std::string query) {
+    this->client = client;
+    this->query = query;
+}
+
+Client * Client::ThreadArg::getClient() {
+    return this->client;
+}
+
+std::string Client::ThreadArg::getQuery() {
+    return this->query;
+}
+
+void * Client::threadProcess(void *arg) {
+    auto threadArg = (ThreadArg *)arg;
+    Client *client = threadArg->getClient();
+    char *query = (char *)malloc(threadArg->getQuery().size() * sizeof(char));
+    threadArg->getQuery().copy(query, threadArg->getQuery().size(), 0);
+    client->setQuery(query);
+//    auto client = (Client *)arg;
+    if (Http::clientIsHttp(client)) {
+        // 如果是http协议
+        client->setHttp(true);
+        info(client->getInfo()) << "是http请求";
     }
     else {
-        Http::processHttpAndReset(this);
+        client->setHttp(false);
+        info(client->getInfo()) << "不是http请求";
     }
+
+//    for (int i = 0; i < (int)client->getArgs().size(); i++) {
+//        info("argv#") << i << ": " << client->arg(i);
+//    }
+
+    if (!client->isHttp()) {
+        Command::processCommandAndReset(client);
+    }
+    else {
+        Http::processHttpAndReset(client);
+    }
+    return (void *)0;
 }
 
 void Client::connReadHandler(Connection *data) {
     auto *conn = (Connection *)data;
     auto *client = (Client *)conn->getData();
-    client->readFromConnection();
+     client->readFromConnection();
 }
 
 void Client::connWriteHandler(Connection *data) {
@@ -334,17 +375,19 @@ int Client::success(const char *msg) {
         responseHeader += std::to_string(str.size());
         responseHeader += "\r\n\r\n";
         str = responseHeader + str;
+//        conn->write(str.c_str(), str.size());
+//        conn->close();
+//        return C_OK;
     }
     else {
         str += "\r\n";
         this->response = str;
-        conn->setWriteHandler(connWriteHandler);
     }
     this->response = str;
 
-    if (this->isHttp()) {
-        this->flags |= CLIENT_FLAGS_CLOSE_AFTER_REPLY;
-    }
+//    if (this->isHttp()) {
+//        this->flags |= CLIENT_FLAGS_CLOSE_AFTER_REPLY;
+//    }
     conn->setWriteHandler(connWriteHandler);
     return C_OK;
 }
@@ -372,17 +415,19 @@ int Client::fail(const char *fmt, ...) {
         responseHeader += std::to_string(str.size());
         responseHeader += "\r\n\r\n";
         str = responseHeader + str;
+//        conn->write(str.c_str(), str.size());
+//        conn->close();
+//        return C_ERR;
     }
     else {
         str += "\r\n";
         this->response = str;
-        conn->setWriteHandler(connWriteHandler);
     }
     this->response = str;
 
-    if (this->isHttp()) {
-        this->flags |= CLIENT_FLAGS_CLOSE_AFTER_REPLY;
-    }
+//    if (this->isHttp()) {
+//        this->flags |= CLIENT_FLAGS_CLOSE_AFTER_REPLY;
+//    }
     conn->setWriteHandler(connWriteHandler);
     return C_ERR;
 }

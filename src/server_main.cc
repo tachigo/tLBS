@@ -29,6 +29,11 @@ int main(int argc, char *argv[]) {
     Log::init(argv[0]); // 初始化日志
     atexit(Log::free);
 
+    // 初始化线程池
+    // 1.初始化client的线程池
+    ThreadPool::createPool("client", 100);
+    atexit(ThreadPool::free);
+
     Server *server = Server::getInstance();
     atexit(Server::free);
     server->init(); // 初始化服务器
@@ -41,13 +46,6 @@ int main(int argc, char *argv[]) {
     warning("executable: ") << server->getExecutable();
     warning("pid: ") << server->getPid();
     warning("arch bits: ") << server->getArchBits();
-    // 初始化线程池
-    // 1.初始化主要的线程池
-//    ThreadPool::createPool("main", 10, 100, 5);
-//    atexit(ThreadPool::destroyPools);
-//    for (j = 0; j < 100; j++) {
-//        ThreadPool::getPool("main")->enqueueTask(testThread, nullptr);
-//    }
     // 初始化db
     Db::init();
     atexit(Db::free);
@@ -73,6 +71,7 @@ int main(int argc, char *argv[]) {
             fatal("将监听接受tcp连接时的处理句柄注册到事件循环中");
         }
     }
+
     el->setBeforeSleep(Server::beforeSleep);
     el->start();
     return C_OK;

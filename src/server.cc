@@ -17,7 +17,7 @@ using namespace tLBS;
 
 DEFINE_string(pid_file, "tLBS-server.pid", "PID进程锁文件");
 DEFINE_bool(daemonize, false, "是否以守护进程方式启动");
-DEFINE_int32(server_hz, 2, "server时间事件每秒执行多少次");
+DEFINE_int32(server_hz, 10, "server时间事件每秒执行多少次");
 DEFINE_string(bin_root, "", "可执行文件的根路径");
 
 

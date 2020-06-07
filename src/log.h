@@ -8,8 +8,8 @@
 #include <glog/logging.h>
 
 #define info(x) LOG(INFO) << x
-#define error(x) LOG(ERROR) << x
 #define warning(x) LOG(WARNING) << x
+#define error(x) LOG(ERROR) << x
 #define fatal(x) LOG(FATAL) << x
 
 namespace tLBS {

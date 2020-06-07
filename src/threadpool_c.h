@@ -15,8 +15,10 @@ namespace tLBS {
     // 线程池任务
     class ThreadPoolTask {
     public:
+        const char *name;
         void *arg; // 参数
         void *(* fn)(void *arg); // 方法
+        ThreadPoolTask *next;
     };
 
     // 线程池
@@ -26,52 +28,28 @@ namespace tLBS {
         std::string group; // 线程池所属的组
         pthread_mutex_t mutexLock; // 互斥量
         pthread_mutex_t counterLock; // 计数器互斥量
-        pthread_cond_t queueNotFull; // 任务队列非满
-        pthread_cond_t queueNotEmpty; // 任务队列非空
+        pthread_cond_t queueCond;
         bool shutdown; // 线程池是否是关闭状态
+        std::string info;
 
         pthread_t *execThreads; // 存放执行线程的id的数组
-        int minThreadNum; // 最小线程数
-        int maxThreadNum; // 最大线程数
-        int busyThreadNum; // 忙线程数
-        int liveThreadNum; // 存活的线程数
-        pthread_t adminThread; // 管程id
+        int threadNum; // 线程数
 
-        ThreadPoolTask *taskQueue; // 任务队列，这里应该是一个循环队列
-        int maxTaskNum; // 最大任务数
-        int queueSize; // 队列大小
-        int queueFront; // 队列头指针
-        int queueRear; // 队列尾指针
-        ThreadPool(std::string group, int minThreadNum, int maxThreadNum, int maxTaskNum);
+        ThreadPoolTask *taskHead; // 任务队列，这里应该是一个循环队列
+        int queueSize;
+        ThreadPool(std::string group, int threadNum);
     public:
         static ThreadPool *getPool(std::string group);
-        static ThreadPool *createPool(std::string group, int minThreadNum, int maxThreadNum, int maxTaskNum);
-        static void destroyPools();
+        static ThreadPool *createPool(std::string group, int threadNum);
+        static void free();
         ~ThreadPool();
-        void lockMutex();
-        void unlockMutex();
-
-        void lockCounter();
-        void unlockCounter();
-
-        void incrBusyThreadNum(int incr);
-        void decrBusyThreadNum(int decr);
-        int getBusyThreadNum();
-
-        int getMinThreadNum();
-        int getLiveThreadNum();
-
-        bool isShutdown();
-        int getQueueSize();
-        void incrQueueSize(int incr);
-        void decrQueueSize(int decr);
-        int enqueueTask(void *(*fn)(void *arg), void *arg);
-        int dequeueTask(ThreadPoolTask *task);
+        int enqueueTask(void *(*fn)(void *arg), void *arg, const char *name);
+        ThreadPoolTask *dequeueTask();
 
         std::string getGroup();
+        std::string getInfo();
 
         static void *execute(void *threadPool);
-        static void *admin(void *threadPool);
     };
 }
 

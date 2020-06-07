@@ -54,6 +54,7 @@ namespace tLBS {
         bool isHttp();
         void setResponse(std::string response);
 
+        void setQuery(const char *query);
         const char *getQuery();
 
         int getSent();
@@ -80,6 +81,18 @@ namespace tLBS {
 
         static int cron(long long id, void *data);
 
+
+        class ThreadArg {
+        private:
+            Client *client;
+            std::string query;
+        public:
+            ThreadArg(Client *client, std::string query);
+            ~ThreadArg();
+            Client *getClient();
+            std::string getQuery();
+        };
+        static void *threadProcess(void *arg);
 
         // cmd
         static int execQuit(Client *client);
