@@ -23,14 +23,14 @@ namespace tLBS {
         fd_set _writeFds;
 
     public:
-        EventLoopSelect();
+        explicit EventLoopSelect(EventLoop *el);
         ~EventLoopSelect();
 
         int resize(int setSize);
 
-        int addEvent(int fd, int flags);
+        int addEvent(EventLoop *el, int fd, int flags);
 
-        int delEvent(int fd, int flags);
+        int delEvent(EventLoop *el, int fd, int flags);
 
 
         int poll(EventLoop *el, struct timeval *tvp);

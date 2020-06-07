@@ -46,8 +46,8 @@
 //    #define EventLoopHandler EventLoopEvport
 #else
     #ifdef HAVE_EPOLL
-//        #include "el_epoll.h"
-//        #define EventLoopHandler EventLoopEpoll
+        #include "el_epoll.h"
+        #define EventLoopHandler EventLoopEPoll
     #else
         #ifdef HAVE_KQUEUE
 //            #include "el_kqueue.h"

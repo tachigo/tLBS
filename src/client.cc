@@ -12,7 +12,7 @@
 
 using namespace tLBS;
 
-DEFINE_int32(max_clients, 10000, "最大的同事产生的客户端连接数");
+DEFINE_int32(max_clients, 10000, "最大的同时产生的客户端连接数");
 DEFINE_bool(threads_client, true, "是否使用线程处理客户端");
 
 std::map<uint64_t, Client *> Client::clients;

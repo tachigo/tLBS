@@ -13,7 +13,7 @@ using namespace tLBS;
 //    #include "el_evport.cc"
 #else
     #ifdef HAVE_EPOLL
-//        #include "el_epoll.cc"
+        #include "el_epoll.cc"
     #else
         #ifdef HAVE_KQUEUE
 //            #include "el_kqueue.cc"
@@ -52,7 +52,7 @@ EventLoop::EventLoop(int setSize) {
         this->events[j].flags = EL_NONE;
         this->fired[j] = FiredEvent();
     }
-    this->handler = new EventLoopHandler();
+    this->handler = new EventLoopHandler(this);
 }
 
 FileEvent* EventLoop::getEvent(int j) {
@@ -291,7 +291,7 @@ void EventLoop::delFileEvent(int fd, int flags) {
     if (flags & EL_WRITABLE) {
         flags |= EL_BARRIER;
     }
-    this->getHandler()->delEvent(fd, flags);
+    this->getHandler()->delEvent(this, fd, flags);
     fe->flags = fe->flags & (~flags);
     if (fd == this->maxFd && fe->flags == EL_NONE) {
         int j;
@@ -310,7 +310,7 @@ int EventLoop::addFileEvent(int fd, int flags, elFileFallback proc, void *data) 
         return EL_ERR;
     }
     FileEvent *fe = &this->events[fd];
-    if (this->getHandler()->addEvent(fd, flags) == -1) {
+    if (this->getHandler()->addEvent(this, fd, flags) == -1) {
         return EL_ERR;
     }
     fe->flags |= flags;

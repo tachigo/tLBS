@@ -24,10 +24,10 @@ void *testThread(void *arg) {
 
 int main(int argc, char *argv[]) {
     int j;
-    Config::init(&argc, &argv); // 根据命令行参数初始化配置
-    atexit(Config::free);
     Log::init(argv[0]); // 初始化日志
     atexit(Log::free);
+    Config::init(&argc, &argv); // 根据命令行参数初始化配置
+    atexit(Config::free);
 
     // 初始化线程池
     // 1.初始化client的线程池

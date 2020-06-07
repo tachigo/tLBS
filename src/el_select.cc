@@ -7,7 +7,7 @@
 using namespace tLBS;
 
 
-EventLoopSelect::EventLoopSelect() {
+EventLoopSelect::EventLoopSelect(EventLoop *el) {
     this->readFds = *((fd_set *) malloc(sizeof(fd_set)));
     this->writeFds = *((fd_set *) malloc(sizeof(fd_set)));
     FD_ZERO(&this->readFds);
@@ -26,7 +26,8 @@ int EventLoopSelect::resize(int setSize) {
     return 0;
 }
 
-int EventLoopSelect::addEvent(int fd, int flags) {
+int EventLoopSelect::addEvent(EventLoop *el, int fd, int flags) {
+    UNUSED(el);
     if (flags & EL_READABLE) {
         FD_SET(fd, &this->readFds);
     }
@@ -36,7 +37,8 @@ int EventLoopSelect::addEvent(int fd, int flags) {
     return 0;
 }
 
-int EventLoopSelect::delEvent(int fd, int flags)  {
+int EventLoopSelect::delEvent(EventLoop *el, int fd, int flags)  {
+    UNUSED(el);
     if (flags & EL_READABLE) {
         FD_CLR(fd, &this->readFds);
     }
