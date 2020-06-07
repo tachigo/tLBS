@@ -29,11 +29,6 @@ int main(int argc, char *argv[]) {
     Config::init(&argc, &argv); // 根据命令行参数初始化配置
     atexit(Config::free);
 
-    // 初始化线程池
-    // 1.初始化client的线程池
-    ThreadPool::createPool("client", 100);
-    atexit(ThreadPool::free);
-
     Server *server = Server::getInstance();
     atexit(Server::free);
     server->init(); // 初始化服务器
@@ -42,10 +37,17 @@ int main(int argc, char *argv[]) {
     atexit(Command::free);
     Http::init();
     atexit(Http::free);
+    // 初始化线程池
+    // 1.初始化client的线程池
+    ThreadPool::createPool("client", 100);
+    atexit(ThreadPool::free);
     warning("👋👋👋👋👋👋👋👋 Hello! tLBS-SERVER~ 👋👋👋👋👋👋👋👋");
     warning("executable: ") << server->getExecutable();
     warning("pid: ") << server->getPid();
     warning("arch bits: ") << server->getArchBits();
+    if (FLAGS_config_file.size() > 0) {
+        warning("config file: ") << FLAGS_config_file;
+    }
     // 初始化db
     Db::init();
     atexit(Db::free);

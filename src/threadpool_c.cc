@@ -70,7 +70,7 @@ ThreadPool::ThreadPool(std::string group, int threadNum) {
     char buf[100];
     snprintf(buf, sizeof(buf) - 1, "threadpool[%s](%d)", this->group.c_str(), this->threadNum);
     this->info = buf;
-    info("创建") << this->getInfo();
+    warning("创建") << this->getInfo();
 }
 
 
