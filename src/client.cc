@@ -114,8 +114,9 @@ void Client::pendingClose() {
 }
 
 
-bool Client::isPendingWrite() {
-    return this->response.size() > 0 && this->sent == 0;
+bool Client::isPendingClose() {
+    return this->flags & CLIENT_FLAGS_PENDING_CLOSE;
+//    return this->response.size() > 0 && this->sent == 0;
 }
 
 Client::Client(Connection *conn, int flags) {
@@ -151,7 +152,7 @@ void Client::link(Client *client) {
 Client::~Client() {
     if (this->conn != nullptr) {
         this->conn->close();
-        Connection::free(this->conn);
+        delete this->conn;
     }
 //    info("销毁") << this->getInfo();
 }
@@ -160,11 +161,11 @@ Connection* Client::getConnection() {
     return this->conn;
 }
 
-void Client::setQuery(const char *query) {
+void Client::setQuery(std::string query) {
     this->query = query;
 }
 
-const char *Client::getQuery() {
+std::string Client::getQuery() {
     return this->query;
 }
 
@@ -178,7 +179,7 @@ void Client::writeToConnection() {
         // 清空响应数据
         this->response = "";
     }
-    conn->setWriteHandler(nullptr);
+//    conn->setWriteHandler(nullptr);
 }
 
 void Client::readFromConnection() {
@@ -190,23 +191,14 @@ void Client::readFromConnection() {
     int totalRead = 0;
     std::string qb;
     char buf[segLen];
-//    memset(buf, 0, segLen);
-//    int nRead = conn->read(buf, segLen);
-//    buf[segLen] = '\0'; // 确保最后一个字符是\0
-//    // 有新的内容 追加进去
-//    totalRead += strlen(buf);
-//    qb += std::string(buf);
-//    /*
     while (true) {
         // 每次读出一部分
         memset(buf, 0, segLen);
         int nRead = conn->read(buf, segLen);
-//        info(this->getInfo()) << "读取输入中...";
-//        info(this->getInfo()) << "读出" << nRead << "个字符: " << buf;
         if (nRead == -1) {
             if (conn->getLastErrno() > 0) {
 //                info(this->getInfo()) << "已读取(" << totalRead << "): " << qb;
-//                error(this->getInfo()) << "读取数据错误: " << strerror(conn->getLastErrno()) << "(" << conn->getLastErrno() << ")";
+                error(this->getInfo()) << "读取数据错误: " << strerror(conn->getLastErrno()) << "(" << conn->getLastErrno() << ")";
                 this->pendingClose();
                 return;
             }
@@ -217,9 +209,6 @@ void Client::readFromConnection() {
         }
         else {
             if (nRead == 0) {
-//                error(conn->getInfo()) << "客户端关闭连接";
-//                this->pendingClose();
-//                return;
                 if (strlen(buf) > 0) {
                     info(this->getInfo()) << "被关闭？但是还是有数据: " << buf;
                     buf[segLen] = '\0'; // 确保最后一个字符是\0
@@ -229,7 +218,7 @@ void Client::readFromConnection() {
                     break;
                 }
                 else {
-//                    info(this->getInfo()) << "客户端关闭连接,准备关闭";
+                    info(this->getInfo()) << "客户端关闭连接,准备关闭";
                     this->pendingClose();
                     return;
                 }
@@ -248,13 +237,11 @@ void Client::readFromConnection() {
         this->pendingClose();
         return;
     } else {
-//        warning(this->getInfo()) << "读取数据长度为: " << totalRead;
+        warning(this->getInfo()) << "读取数据长度为: " << totalRead;
     }
 
     // 去掉首尾的\r\n \t
-//    qb = trimString(qb.c_str(), " \r\n\t");
-    this->setQuery(qb.c_str());
-//    this->query = qb.c_str();
+    this->setQuery(qb);
 
 //    info(this->getInfo()) << "从"
 //        << conn->getInfo() << "中读取出" << strlen(this->query)
@@ -268,15 +255,7 @@ void Client::readFromConnection() {
             ->enqueueTask(Client::threadProcess, (void *)new ThreadArg(this, qb), taskName);
     }
     else {
-        if (Http::clientIsHttp(this)) {
-            // 如果是http协议
-            this->setHttp(true);
-//            info(this->getInfo()) << "是http请求";
-        }
-        else {
-            this->setHttp(false);
-//            info(this->getInfo()) << "不是http请求";
-        }
+        this->setHttp(Http::clientIsHttp(this));
 
 //    for (int i = 0; i < (int)this->args.size(); i++) {
 //        info("argv#") << i << ": " << this->args[i].c_str();
@@ -307,19 +286,11 @@ std::string Client::ThreadArg::getQuery() {
 void * Client::threadProcess(void *arg) {
     auto threadArg = (ThreadArg *)arg;
     Client *client = threadArg->getClient();
-    char *query = (char *)malloc(threadArg->getQuery().size() * sizeof(char));
-    threadArg->getQuery().copy(query, threadArg->getQuery().size(), 0);
-    client->setQuery(query);
+//    char *query = (char *)malloc(threadArg->getQuery().size() * sizeof(char));
+//    threadArg->getQuery().copy(query, threadArg->getQuery().size(), 0);
+//    client->setQuery(query);
 //    auto client = (Client *)arg;
-    if (Http::clientIsHttp(client)) {
-        // 如果是http协议
-        client->setHttp(true);
-//        info(client->getInfo()) << "是http请求";
-    }
-    else {
-        client->setHttp(false);
-//        info(client->getInfo()) << "不是http请求";
-    }
+    client->setHttp(Http::clientIsHttp(client));
 
 //    for (int i = 0; i < (int)client->getArgs().size(); i++) {
 //        info("argv#") << i << ": " << client->arg(i);
@@ -334,18 +305,24 @@ void * Client::threadProcess(void *arg) {
     return (void *)0;
 }
 
-void Client::connReadHandler(Connection *data) {
-    auto *conn = (Connection *)data;
+void Client::connReadHandler(Connection *conn) {
+    conn->setReadHandler(nullptr);
     auto *client = (Client *)conn->getData();
-     client->readFromConnection();
+    client->readFromConnection();
+
 }
 
-void Client::connWriteHandler(Connection *data) {
-    auto *conn = (Connection *)data;
+void Client::connWriteHandler(Connection *conn) {
+    conn->setWriteHandler(nullptr);
     auto *client = (Client *)conn->getData();
     client->writeToConnection();
-}
+    conn->setReadHandler(connReadHandler);
+//    if (client->isPendingClose()) {
+//        clients.erase(client->getId());
+//        delete client;
+//    }
 
+}
 
 std::vector<std::string> Client::getArgs() {
     return this->args;
@@ -397,14 +374,10 @@ int Client::success(const char *msg) {
     this->response = str;
     this->sent = 0;
 
-//    conn->setWriteHandler(connWriteHandler);
-
-    conn->write(str.c_str(), str.size());
-    this->sent = this->response.size();
-    this->response = "";
     if (this->isHttp()) {
         this->pendingClose();
     }
+    this->conn->setWriteHandler(connWriteHandler);
     return C_OK;
 }
 
@@ -439,19 +412,17 @@ int Client::fail(const char *fmt, ...) {
     }
     this->response = str;
     this->sent = 0;
-
-//    conn->setWriteHandler(connWriteHandler);
-    conn->write(str.c_str(), str.size());
-    this->sent = this->response.size();
-    this->response = "";
     if (this->isHttp()) {
         this->pendingClose();
     }
+    this->conn->setWriteHandler(connWriteHandler);
     return C_ERR;
 }
 
 
 int Client::cron(long long id, void *data) {
+    UNUSED(id);
+    UNUSED(data);
     // 断开一些client
     std::vector<Client *> freeClients;
     if (clients.size() > 0) {
@@ -463,7 +434,6 @@ int Client::cron(long long id, void *data) {
             }
             else if (flags & CLIENT_FLAGS_CLOSE_AFTER_REPLY) {
                 if (client->getSent() > 0) {
-//                    info(client->getInfo()) << "被设置为响应后关闭";
                     freeClients.push_back(client);
                 }
             }
@@ -478,20 +448,21 @@ int Client::cron(long long id, void *data) {
         }
         info("销毁") << freeClients.size() << "个client后, clients(" << oldSize << ")池大小: " << clients.size();
         if (clients.size() > 0) {
+            /*
             for (auto mapIter = clients.begin(); mapIter != clients.end(); mapIter++) {
                 Client *client = mapIter->second;
-
                 EventLoop *el = EventLoop::getInstance();
-//                bool registered = el->fdRegistered(client->getConnection()->getFd());
-//                bool readable = el->fdReadable(client->getConnection()->getFd());
-//                bool writable = el->fdWritable(client->getConnection()->getFd());
-//                info(client->getInfo()) << "flags=" << client->getFlags() << std::endl
-//                    << "是否注册el: " << (registered ? "是" : "否") << std::endl
-//                    << "是否el可读: " << (readable ? "是" : "否") << std::endl
-//                    << "是否el可写: " << (writable ? "是" : "否")
-//                    ;
+                bool registered = el->fdRegistered(client->getConnection()->getFd());
+                bool readable = el->fdReadable(client->getConnection()->getFd());
+                bool writable = el->fdWritable(client->getConnection()->getFd());
+                info(client->getInfo()) << "flags=" << client->getFlags() << std::endl
+                    << "是否注册el: " << (registered ? "是" : "否") << std::endl
+                    << "是否el可读: " << (readable ? "是" : "否") << std::endl
+                    << "是否el可写: " << (writable ? "是" : "否")
+                    ;
             }
-            info(EventLoop::getInstance()->getMaxFd());
+            */
+//            info(EventLoop::getInstance()->getMaxFd());
         }
     }
 //    info("client线程池队列长度: ") << ThreadPool::getPool("client")->getQueueSize();

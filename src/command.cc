@@ -193,7 +193,7 @@ end:
 
 int Command::processCommandAndReset(Client *client) {
     // 解析参数
-    client->setArgs(parseQueryBuff(client->getQuery()));
+    client->setArgs(parseQueryBuff(client->getQuery().c_str()));
     if (client->getArgs().size() > 0) {
         long long start = ustime();
         if (processCommand(client) == C_OK) {

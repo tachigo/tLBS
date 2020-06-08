@@ -214,36 +214,20 @@ int EventLoop::processEvents(int flags) {
             int fd = this->fired[j].fd;
             int firedFlags = this->fired[j].flags;
             FileEvent *fe = &this->events[fd];
-            int fired = 0;
+//            int fired = 0;
 
-            // 正常情况下 先执行读，再执行写
-            // 但是 invert 为真的情况下 则需要反过来
-            int invert = fe->flags & EL_BARRIER;
-            if (!invert && fe->flags & firedFlags & EL_READABLE) {
-                // 处理事件
-//                info("处理socket读fd#") << fd;
+            if (fe->rFallback && fe->flags & firedFlags & EL_READABLE) {
+                info("处理读fd#") << fd;
                 fe->rFallback(fd, firedFlags, fe->data);
-                fired++;
                 fe = &this->events[fd];
+//                fired++;
             }
 
-            if (fe->flags & firedFlags & EL_WRITABLE) {
-                if (!fired || fe->rFallback != fe->wFallback) {
-//                    info("处理socket写fd#") << fd;
-                    fe->wFallback(fd, firedFlags, fe->data);
-                    fired++;
-                }
+            if (fe->wFallback && fe->flags & firedFlags & EL_WRITABLE) {
+                info("处理写fd#") << fd;
+                fe->wFallback(fd, firedFlags, fe->data);
             }
 
-            if (invert) {
-                fe = &this->events[fd];
-                if ((fe->flags & firedFlags & EL_READABLE) &&
-                        (!fired || fe->wFallback != fe->rFallback)) {
-//                    info("处理socket读fd#") << fd;
-                    fe->rFallback(fd, firedFlags, fe->data);
-                    fired++;
-                }
-            }
             processed++;
         }
     }

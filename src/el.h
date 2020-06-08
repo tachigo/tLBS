@@ -76,6 +76,7 @@ namespace tLBS {
     class FileEvent {
     public:
         int flags;
+//        elFileFallback *elFallback;
         elFileFallback *rFallback; // 读回调
         elFileFallback *wFallback; // 写回调
         void *data; // 数据

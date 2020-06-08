@@ -24,7 +24,6 @@ Connection::Connection(int fd) {
     char buf[100];
     snprintf(buf, sizeof(buf) - 1, "connection#%llu[fd:%d]", this->id, this->fd);
     this->info = buf;
-    this->connectHandler = nullptr;
     this->readHandler = nullptr;
     this->writeHandler = nullptr;
 //    info("创建") << this->getInfo();
@@ -69,19 +68,8 @@ void Connection::close() {
         el->delFileEvent(this->fd, EL_READABLE);
         el->delFileEvent(this->fd, EL_WRITABLE);
         ::close(this->fd);
-//        if (errno > 0) {
-//            error(this->getInfo()) << "关闭出错: " << strerror(errno);
-//        }
-//        auto *client = (Client *)this->data;
-//        if (client != nullptr) {
-//            client->pendingClose();
-//        }
         this->fd = -1;
     }
-}
-
-void Connection::scheduleClose() {
-    this->flags |= CONN_FLAG_CLOSE_SCHEDULED;
 }
 
 int Connection::write(const void *data, size_t dataLen) {
@@ -108,10 +96,6 @@ int Connection::getLastErrno() {
     return this->lastErrno;
 }
 
-void Connection::free(Connection *conn) {
-    delete conn;
-}
-
 Connection::~Connection() {
 //    info("销毁") << this->getInfo();
 }
@@ -133,10 +117,30 @@ int Connection::invokeHandler(ConnectionFallback handler) {
     return 1;
 }
 
+int Connection::setWriteHandler(ConnectionFallback handler) {
+    EventLoop *el = EventLoop::getInstance();
+    if (handler == this->getWriteHandler()) {
+        error(this->getInfo()) << "重复设置write handler";
+        return C_OK;
+    }
+    this->writeHandler = handler;
+    if (!this->writeHandler) {
+        el->delFileEvent(this->getFd(), EL_WRITABLE);
+    }
+    else {
+        el->addFileEvent(this->getFd(), EL_WRITABLE, eventHandler, this);
+    }
+    return C_OK;
+}
+
+ConnectionFallback Connection::getWriteHandler() {
+    return this->writeHandler;
+}
+
 int Connection::setReadHandler(ConnectionFallback handler) {
     EventLoop *el = EventLoop::getInstance();
     if (handler == this->getReadHandler()) {
-        error(this->getInfo()) << "重复设置readHandler";
+        error(this->getInfo()) << "重复设置read handler";
         return C_OK;
     }
     this->readHandler = handler;
@@ -144,8 +148,6 @@ int Connection::setReadHandler(ConnectionFallback handler) {
         el->delFileEvent(this->getFd(), EL_READABLE);
     }
     else {
-//        auto client = (Client *) this->data;
-//        info(client->getInfo()) << "添加EventLoopFileEventHandler";
         el->addFileEvent(this->getFd(), EL_READABLE, eventHandler, this);
     }
     return C_OK;
@@ -155,42 +157,6 @@ ConnectionFallback Connection::getReadHandler() {
     return this->readHandler;
 }
 
-int Connection::setWriteHandler(tLBS::ConnectionFallback handler, int flags) {
-    EventLoop *el = EventLoop::getInstance();
-    if (handler == this->getWriteHandler()) {
-        error(this->getInfo()) << "重复设置writeHandler";
-        return C_OK;
-    }
-    this->writeHandler = handler;
-    flags |= EL_WRITABLE;
-    if (flags & EL_BARRIER) {
-        this->flags |= CONN_FLAG_WRITE_BARRIER;
-    }
-    if (!this->writeHandler) {
-        el->delFileEvent(this->getFd(), flags);
-    }
-    else {
-        el->addFileEvent(this->getFd(), flags, eventHandler, this);
-    }
-    return C_OK;
-}
-
-int Connection::setWriteHandler(tLBS::ConnectionFallback handler) {
-    return setWriteHandler(handler, EL_NONE);
-}
-
-ConnectionFallback Connection::getWriteHandler() {
-    return this->writeHandler;
-}
-
-int Connection::setConnectHandler(tLBS::ConnectionFallback handler) {
-
-    return C_OK;
-}
-
-ConnectionFallback Connection::getConnectHandler() {
-    return this->connectHandler;
-}
 
 int Connection::getFlags() {
     return this->flags;
@@ -216,11 +182,11 @@ void Connection::eventHandler(int fd, int flags, void *data) {
 //        conn->setConnectHandler(nullptr);
 //    }
 
-    int invert = conn->getFlags() & CONN_FLAG_WRITE_BARRIER;
+//    int invert = conn->getFlags() & CONN_FLAG_WRITE_BARRIER;
     int callRead = (flags & EL_READABLE) && conn->getReadHandler();
     int callWrite = (flags & EL_WRITABLE) && conn->getWriteHandler();
 
-    if (!invert && callRead) {
+    if (callRead) {
         if (!conn->invokeHandler(conn->getReadHandler())) {
             warning("connection对象调用读句柄失败");
             return;
@@ -232,17 +198,19 @@ void Connection::eventHandler(int fd, int flags, void *data) {
             return;
         }
     }
-    if (invert && callRead) {
-        if (!conn->invokeHandler(conn->getReadHandler())) {
-            warning("connection对象调用读句柄失败");
-            return;
-        }
-    }
 
-    if (conn->getFlags() & CONN_FLAG_CLOSE_SCHEDULED) {
-        if (!conn->getRefs()) {
-            conn->close();
-            delete conn;
-        }
-    }
+//    if (invert && callRead) {
+//        if (!conn->invokeHandler(conn->getReadHandler())) {
+//            warning("connection对象调用读句柄失败");
+//            return;
+//        }
+//    }
+
+
+//    if (conn->getFlags() & CONN_FLAG_CLOSE_SCHEDULED) {
+//        if (!conn->getRefs()) {
+//            conn->close();
+//            delete conn;
+//        }
+//    }
 }

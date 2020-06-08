@@ -29,7 +29,7 @@ namespace tLBS {
         Connection *conn; // 一个连接对象
         static _Atomic uint64_t nextClientId;
         static std::map<uint64_t, Client *> clients;
-        const char *query;
+        std::string query;
         std::vector<std::string> args;
         std::string response;
         int sent; // 发送数据的数量
@@ -47,15 +47,15 @@ namespace tLBS {
         uint64_t getFlags();
         void setFlags(uint64_t flags);
         void pendingClose();
-        bool isPendingWrite();
+        bool isPendingClose();
         Connection *getConnection();
         std::string getInfo();
         void setHttp(bool http);
         bool isHttp();
         void setResponse(std::string response);
 
-        void setQuery(const char *query);
-        const char *getQuery();
+        void setQuery(std::string query);
+        std::string getQuery();
 
         int getSent();
         void setSent(int sent);
@@ -76,8 +76,8 @@ namespace tLBS {
 
         static std::map<uint64_t, Client *> getClients();
         static void adjustMaxClients();
-        static void connReadHandler(Connection *data);
-        static void connWriteHandler(Connection *data);
+        static void connReadHandler(Connection *conn);
+        static void connWriteHandler(Connection *conn);
 
         static int cron(long long id, void *data);
         static void beforeEventLoopSleep();

@@ -13,14 +13,16 @@
 #include "http.h"
 #include "db.h"
 
+#include <csignal>
+
 using namespace tLBS;
 
 
-void *testThread(void *arg) {
-    static int index = 0;
-    info("线程执行 [") << "[" << pthread_self() << "]#" << ++index;
-    return (void *)0;
-}
+//void *testThread(void *arg) {
+//    static int index = 0;
+//    info("线程执行 [") << "[" << pthread_self() << "]#" << ++index;
+//    return (void *)0;
+//}
 
 
 void beforeEventLoopSleep() {
@@ -52,6 +54,10 @@ int main(int argc, char *argv[]) {
         warning("config file: ") << FLAGS_config_file;
     }
     // 初始化线程池
+    sigset_t signal_mask;
+    sigemptyset (&signal_mask);
+    sigaddset(&signal_mask, SIGPIPE);
+    int rc = pthread_sigmask(SIG_BLOCK, &signal_mask, nullptr);
     // 1.初始化client的线程池
     ThreadPool::createPool("client", 100);
     atexit(ThreadPool::free);

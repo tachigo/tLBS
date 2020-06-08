@@ -155,17 +155,7 @@ int Http::parseQueryBuff(const char *line, std::string *method, std::string *pat
         }
         p++;
     }
-    // 打印出调试信息
-//    auto mapIter = gets.find("db");
-//    if (mapIter == gets.end()) {
-//        error("querystring中没有db这个参数: ") << line;
-//        return C_ERR;
-//    }
-//    else {
-//        *db = mapIter->second;
-//    }
     for (auto mapIter = gets.begin(); mapIter != gets.end(); mapIter++) {
-//        info(mapIter->first) << ": " << mapIter->second;
         (*params)[mapIter->first] = mapIter->second;
     }
     (*params)["data"] = body;
@@ -174,10 +164,11 @@ int Http::parseQueryBuff(const char *line, std::string *method, std::string *pat
 
 
 bool Http::clientIsHttp(tLBS::Client *client) {
-    if (strlen(client->getQuery()) == 0) {
+    if (client->getQuery().size() == 0) {
         return false;
     }
-    const char *p = client->getQuery();
+    char *p = (char *)malloc(client->getQuery().size() * sizeof(char));
+    client->getQuery().copy(p, client->getQuery().size(), 0);
     bool isHttp = false;
     std::string method;
     std::string path;
@@ -341,7 +332,7 @@ int Http::processHttpAndReset(tLBS::Client *client) {
     std::string method = "", path = "";
     std::map<std::string, std::string> params;
     params.clear();
-    if (parseQueryBuff(client->getQuery(), &method, &path, &params) == C_OK) {
+    if (parseQueryBuff(client->getQuery().c_str(), &method, &path, &params) == C_OK) {
 //        info(client->getInfo()) << " HTTP method: " << method;
 //        info(client->getInfo()) << " HTTP path: " << path;
 //        for (auto mapIter = params.begin(); mapIter != params.end(); mapIter++) {

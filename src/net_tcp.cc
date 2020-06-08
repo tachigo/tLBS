@@ -38,12 +38,12 @@ NetTcp::NetTcp() {
 }
 
 int NetTcp::v4server(char *bindAddr) {
-    info("绑定IPv4的一个网络监听");
+//    info("绑定IPv4的一个网络监听");
     return this->server(bindAddr, AF_INET);
 }
 
 int NetTcp::v6server(char *bindAddr) {
-    info("绑定IPv6的一个网络监听");
+//    info("绑定IPv6的一个网络监听");
     return this->server(bindAddr, AF_INET6);
 }
 
@@ -150,6 +150,7 @@ int NetTcp::bindAndListen() {
             this->tcpFd[this->tcpFdCount] = this->v6server(this->bindAddr[j]);
             if (this->tcpFd[this->tcpFdCount] != NET_ERR) {
                 NetTcp::setNonBlock(this->tcpFd[this->tcpFdCount]);
+                warning("创建IPv6 fd#") << this->tcpFd[this->tcpFdCount];
                 this->tcpFdCount++;
             }
             else if (errno == EAFNOSUPPORT) {
@@ -160,6 +161,7 @@ int NetTcp::bindAndListen() {
                 this->tcpFd[this->tcpFdCount] = this->v4server(this->bindAddr[j]);
                 if (this->tcpFd[this->tcpFdCount] != NET_ERR) {
                     NetTcp::setNonBlock(this->tcpFd[this->tcpFdCount]);
+                    warning("创建IPv4 fd#") << this->tcpFd[this->tcpFdCount];
                     this->tcpFdCount++;
                 }
                 else if (errno == EAFNOSUPPORT) {
@@ -173,9 +175,15 @@ int NetTcp::bindAndListen() {
         }
         else if (strchr(this->bindAddr[j], ':')) {
             this->tcpFd[this->tcpFdCount] = this->v6server(this->bindAddr[j]);
+            if (this->tcpFd[this->tcpFdCount] != NET_ERR) {
+                warning("创建IPv6 fd#") << this->tcpFd[this->tcpFdCount];
+            }
         }
         else {
             this->tcpFd[this->tcpFdCount] = this->v4server(this->bindAddr[j]);
+            if (this->tcpFd[this->tcpFdCount] != NET_ERR) {
+                warning("创建IPv4 fd#") << this->tcpFd[this->tcpFdCount];
+            }
         }
         if (this->tcpFd[this->tcpFdCount] == NET_ERR) {
             warning("无法创建监听TCP套接字的服务器 ")
@@ -237,7 +245,7 @@ int NetTcp::getTcpFdCount() {
 
 int NetTcp::setNoDelay(int fd, int val) {
     if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val)) == -1) {
-        error("setsockopt TCP_NODELAY: ") << strerror(errno);
+        error("fd#") << fd << " setsockopt TCP_NODELAY: " << strerror(errno);
         return NET_ERR;
     }
     return NET_OK;
@@ -247,7 +255,7 @@ int NetTcp::setKeepalive(int fd, int interval) {
     int val = 1;
 
     if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val)) == -1) {
-        error("setsockopt SO_KEEPALIVE: ") << strerror(errno);
+        error("fd#") << fd << " setsockopt SO_KEEPALIVE: " << strerror(errno);
         return NET_ERR;
     }
 
@@ -367,10 +375,10 @@ void NetTcp::acceptCommonHandler(Connection *conn, int flags, const char *ip) {
     auto *client = new Client(conn, flags);
 
     NetTcp::setNonBlock(conn->getFd());
-//    NetTcp::setNoDelay(conn->getFd(), 1);
-//    if (FLAGS_tcp_keepalive > 0) {
-//        NetTcp::setKeepalive(conn->getFd(), FLAGS_tcp_keepalive);
-//    }
+    NetTcp::setNoDelay(conn->getFd(), 1);
+    if (FLAGS_tcp_keepalive > 0) {
+        NetTcp::setKeepalive(conn->getFd(), FLAGS_tcp_keepalive);
+    }
     // 向connection安装client的读句柄
 //    info(client->getInfo()) << " accepted";
     conn->setReadHandler(Client::connReadHandler);
@@ -402,6 +410,7 @@ void NetTcp::acceptHandler(int fd, int flags, void *data) {
         }
         // 这里可以使用多线程方式来处理
 //        warning("接受的连接fd#") << connFd << " " << connIp << ":" << connPort;
+//        warning("fd#") << fd << " accept创建一个connFd#" << connFd;
         // 创建一个连接对象
         acceptCommonHandler(new Connection(connFd), 0, connIp);
     }
