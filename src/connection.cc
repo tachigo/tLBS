@@ -27,7 +27,7 @@ Connection::Connection(int fd) {
     this->connectHandler = nullptr;
     this->readHandler = nullptr;
     this->writeHandler = nullptr;
-    info("创建") << this->getInfo();
+//    info("创建") << this->getInfo();
 }
 
 void Connection::setData(void *data) {
@@ -68,10 +68,14 @@ void Connection::close() {
         el->delFileEvent(this->fd, EL_READABLE);
         el->delFileEvent(this->fd, EL_WRITABLE);
         ::close(this->fd);
+//        if (errno > 0) {
+//            error(this->getInfo()) << "关闭出错: " << strerror(errno);
+//        }
         auto *client = (Client *)this->data;
         if (client != nullptr) {
             client->pendingClose();
         }
+        this->fd = -1;
     }
 }
 
@@ -108,11 +112,7 @@ void Connection::free(Connection *conn) {
 }
 
 Connection::~Connection() {
-    if (this->data != nullptr) {
-        auto *client = (Client *)this->data;
-        Client::free(client);
-    }
-    info("销毁") << this->getInfo();
+//    info("销毁") << this->getInfo();
 }
 
 ConnectionState Connection::getState() {
@@ -143,6 +143,8 @@ int Connection::setReadHandler(ConnectionFallback handler) {
         el->delFileEvent(this->getFd(), EL_READABLE);
     }
     else {
+//        auto client = (Client *) this->data;
+//        info(client->getInfo()) << "添加EventLoopFileEventHandler";
         el->addFileEvent(this->getFd(), EL_READABLE, eventHandler, this);
     }
     return C_OK;

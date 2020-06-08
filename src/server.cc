@@ -214,6 +214,6 @@ void Server::free() {
     delete instance;
 }
 
-void Server::beforeSleep() {
+void Server::beforeEventLoopSleep() {
 
 }

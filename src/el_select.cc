@@ -72,6 +72,10 @@ int EventLoopSelect::poll(EventLoop *el, struct timeval *tvp)  {
             numEvents++;
         }
     }
+    else {
+//        sleep(1);
+//        info(el->getMaxFd());
+    }
 
     return numEvents;
 }

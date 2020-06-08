@@ -69,6 +69,7 @@ set(SRC_SERVER_TMP
         src/json.cc
         src/log.cc
 #        src/localtime.cc
+        src/mfw_busi.cc
         src/net_tcp.cc
         src/object.cc
 #        src/rax.cc

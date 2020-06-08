@@ -39,7 +39,6 @@ namespace tLBS {
         Client(Connection *conn, int flags);
         static Client *getClient(uint64_t clientId);
         static void link(Client *client);
-        static void free(Client *client);
         ~Client();
         uint64_t getId();
         Db *getDb();
@@ -48,6 +47,7 @@ namespace tLBS {
         uint64_t getFlags();
         void setFlags(uint64_t flags);
         void pendingClose();
+        bool isPendingWrite();
         Connection *getConnection();
         std::string getInfo();
         void setHttp(bool http);
@@ -80,6 +80,7 @@ namespace tLBS {
         static void connWriteHandler(Connection *data);
 
         static int cron(long long id, void *data);
+        static void beforeEventLoopSleep();
 
 
         class ThreadArg {

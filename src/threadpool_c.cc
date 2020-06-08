@@ -88,6 +88,10 @@ std::string ThreadPool::getInfo() {
     return this->info;
 }
 
+int ThreadPool::getQueueSize() {
+    return this->queueSize;
+}
+
 int ThreadPool::enqueueTask(void *(*fn)(void *), void *arg, const char *name) {
     // 锁住线程池
     pthread_mutex_lock(&this->mutexLock);
@@ -116,7 +120,7 @@ int ThreadPool::enqueueTask(void *(*fn)(void *), void *arg, const char *name) {
 
 
     this->queueSize += 1;
-    info(this->getInfo()) << "任务队列长度: " << this->queueSize;
+//    info(this->getInfo()) << "任务队列长度: " << this->queueSize;
 
     // 发出队列不空条件通知
     pthread_cond_signal(&this->queueCond);
@@ -138,12 +142,12 @@ ThreadPoolTask *ThreadPool::dequeueTask() {
         pthread_mutex_unlock(&this->mutexLock);
         return nullptr;
     }
-    info(this->getInfo()) << "队列长度: " << this->queueSize;
+//    info(this->getInfo()) << "队列长度: " << this->queueSize;
 
     ThreadPoolTask *task = this->taskHead;
     this->taskHead = this->taskHead->next;
     this->queueSize -= 1;
-    info(this->getInfo()) << "队列长度: " << this->queueSize;
+//    info(this->getInfo()) << "队列长度: " << this->queueSize;
     // 解锁线程池
     pthread_mutex_unlock(&this->mutexLock);
     return task;
@@ -157,7 +161,7 @@ void * ThreadPool::execute(void *threadPool) {
 
         if ((task = pool->dequeueTask()) != nullptr) {
             // 执行任务
-            info(pool->getInfo()) << "#" << pthread_self() << "执行" << task->name;
+//            info(pool->getInfo()) << "#" << pthread_self() << "执行" << task->name;
             (*(task->fn))(task->arg);
 
             delete task;

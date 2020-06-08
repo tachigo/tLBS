@@ -37,6 +37,7 @@ EventLoop * EventLoop::getInstance() {
 }
 
 EventLoop::EventLoop(int setSize) {
+    info("创建EventLoop, setSize=") << setSize;
     this->setSize = setSize;
     this->lastTime = time(nullptr);
     this->stop = false;
@@ -201,6 +202,10 @@ int EventLoop::processEvents(int flags) {
 //        info("tvp->tv_sec: ") << tvp->tv_sec;
 //        info("tvp->tv_usec: ") << tvp->tv_usec;
         numEvents = this->getHandler()->poll(this, tvp);
+//        if (numEvents > 0) {
+//            info("poll: ") << numEvents;
+//        }
+
         // 上一步如果阻塞进入sleep，需要做一些清理工作
         if (flags & EL_CALL_AFTER_SLEEP) {
             // todo
@@ -216,7 +221,7 @@ int EventLoop::processEvents(int flags) {
             int invert = fe->flags & EL_BARRIER;
             if (!invert && fe->flags & firedFlags & EL_READABLE) {
                 // 处理事件
-                info("处理socket读fd#") << fd;
+//                info("处理socket读fd#") << fd;
                 fe->rFallback(fd, firedFlags, fe->data);
                 fired++;
                 fe = &this->events[fd];
@@ -224,7 +229,7 @@ int EventLoop::processEvents(int flags) {
 
             if (fe->flags & firedFlags & EL_WRITABLE) {
                 if (!fired || fe->rFallback != fe->wFallback) {
-                    info("处理socket写fd#") << fd;
+//                    info("处理socket写fd#") << fd;
                     fe->wFallback(fd, firedFlags, fe->data);
                     fired++;
                 }
@@ -234,7 +239,7 @@ int EventLoop::processEvents(int flags) {
                 fe = &this->events[fd];
                 if ((fe->flags & firedFlags & EL_READABLE) &&
                         (!fired || fe->wFallback != fe->rFallback)) {
-                    info("处理socket读fd#") << fd;
+//                    info("处理socket读fd#") << fd;
                     fe->rFallback(fd, firedFlags, fe->data);
                     fired++;
                 }
@@ -306,6 +311,7 @@ void EventLoop::delFileEvent(int fd, int flags) {
 
 int EventLoop::addFileEvent(int fd, int flags, elFileFallback proc, void *data) {
     if (fd >= this->setSize) {
+        error("EventLoop::addFileEvent 失败: fd[") << fd << "] >= setSize[" << this->setSize << "]";
         errno = ERANGE;
         return EL_ERR;
     }

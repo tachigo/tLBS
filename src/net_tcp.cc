@@ -150,7 +150,6 @@ int NetTcp::bindAndListen() {
             this->tcpFd[this->tcpFdCount] = this->v6server(this->bindAddr[j]);
             if (this->tcpFd[this->tcpFdCount] != NET_ERR) {
                 NetTcp::setNonBlock(this->tcpFd[this->tcpFdCount]);
-//                NetTcp::setBlock(this->tcpFd[this->tcpFdCount]);
                 this->tcpFdCount++;
             }
             else if (errno == EAFNOSUPPORT) {
@@ -161,7 +160,6 @@ int NetTcp::bindAndListen() {
                 this->tcpFd[this->tcpFdCount] = this->v4server(this->bindAddr[j]);
                 if (this->tcpFd[this->tcpFdCount] != NET_ERR) {
                     NetTcp::setNonBlock(this->tcpFd[this->tcpFdCount]);
-//                    NetTcp::setBlock(this->tcpFd[this->tcpFdCount]);
                     this->tcpFdCount++;
                 }
                 else if (errno == EAFNOSUPPORT) {
@@ -190,7 +188,6 @@ int NetTcp::bindAndListen() {
             return C_ERR;
         }
         NetTcp::setNonBlock(this->tcpFd[this->tcpFdCount]);
-//        NetTcp::setBlock(this->tcpFd[this->tcpFdCount]);
         this->tcpFdCount++;
     }
     return C_OK;
@@ -374,8 +371,10 @@ void NetTcp::acceptCommonHandler(Connection *conn, int flags, const char *ip) {
     if (FLAGS_tcp_keepalive > 0) {
         NetTcp::setKeepalive(conn->getFd(), FLAGS_tcp_keepalive);
     }
+    // 向connection安装client的读句柄
+//    info(client->getInfo()) << " accepted";
+    conn->setReadHandler(Client::connReadHandler);
     // 要支持http协议，这个地方的输出还是算了吧~
-//    client->success("+OK 你好啊!~👋");
     // accept这里有往连接写的时候 需要是 EL_BARRIER 这种模式
 //    info(conn->getInfo()) << "输出欢迎语!";
 //    client->setResponse("+OK 你好啊!~👋\r\n");
@@ -393,11 +392,13 @@ void NetTcp::acceptHandler(int fd, int flags, void *data) {
     int connPort, connFd;
     while (maxAcceptsPerCall--) {
         // 接收一个套接字
+//        info("try accept fd[") << fd << "]";
         connFd = NetTcp::accept(fd, connIp, sizeof(connIp), &connPort);
         if (connFd == NET_ERR) {
             if (errno != EWOULDBLOCK) {
                 error("接受客户端连接失败");
             }
+//            error(strerror(errno)) << "(" << errno << ")";
             return;
         }
         // 这里可以使用多线程方式来处理

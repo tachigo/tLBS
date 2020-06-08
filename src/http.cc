@@ -314,7 +314,7 @@ bool Http::isNeedSpecifiedDb() {
 }
 
 int Http::processHttp(tLBS::Client *client) {
-    info(client->getInfo()) << "执行HTTP请求: " << client->arg(0);
+//    info(client->getInfo()) << "执行HTTP请求: " << client->arg(0);
     Http *http = Http::findHttp(client->arg(0));
     if (http == nullptr) {
         // 没有找到命令
@@ -326,11 +326,12 @@ int Http::processHttp(tLBS::Client *client) {
     long long start = server->getUsTime();
     int ret = http->call(client);
     if (ret == C_OK) {
-        long long duration = ustime() - start;
-        char msg[128];
-        sprintf(msg, "HTTP请求[%s]内部执行时间: %0.5f 毫秒", client->arg(0).c_str(), (double)duration/(double)1000);
-        info(client->getInfo()) << msg;
+//        long long duration = ustime() - start;
+//        char msg[128];
+//        sprintf(msg, "HTTP请求[%s]内部执行时间: %0.5f 毫秒", client->arg(0).c_str(), (double)duration/(double)1000);
+//        info(client->getInfo()) << msg;
     }
+
     return ret;
 }
 
@@ -341,11 +342,11 @@ int Http::processHttpAndReset(tLBS::Client *client) {
     std::map<std::string, std::string> params;
     params.clear();
     if (parseQueryBuff(client->getQuery(), &method, &path, &params) == C_OK) {
-        info(client->getInfo()) << " HTTP method: " << method;
-        info(client->getInfo()) << " HTTP path: " << path;
-        for (auto mapIter = params.begin(); mapIter != params.end(); mapIter++) {
-            info(client->getInfo()) << " HTTP GET(" + mapIter->first + "): " << mapIter->second;
-        }
+//        info(client->getInfo()) << " HTTP method: " << method;
+//        info(client->getInfo()) << " HTTP path: " << path;
+//        for (auto mapIter = params.begin(); mapIter != params.end(); mapIter++) {
+//            info(client->getInfo()) << " HTTP GET(" + mapIter->first + "): " << mapIter->second;
+//        }
         std::vector<std::string> args;
         args.clear();
         std::string name = method + " " + path;
@@ -391,10 +392,10 @@ int Http::processHttpAndReset(tLBS::Client *client) {
             long long start = ustime();
             if (processHttp(client) == C_OK) {
                 // reset client
-                long long duration = ustime() - start;
-                char msg[1024];
-                sprintf(msg, "HTTP请求[%s]外部执行时间: %0.5f 毫秒", client->arg(0).c_str(), (double)duration / (double)1000);
-                info(client->getInfo()) << msg;
+//                long long duration = ustime() - start;
+//                char msg[1024];
+//                sprintf(msg, "HTTP请求[%s]外部执行时间: %0.5f 毫秒", client->arg(0).c_str(), (double)duration / (double)1000);
+//                info(client->getInfo()) << msg;
                 return C_OK;
             }
         }

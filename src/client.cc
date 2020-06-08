@@ -19,7 +19,6 @@ std::map<uint64_t, Client *> Client::clients;
 _Atomic uint64_t Client::nextClientId = 0;
 
 void Client::adjustMaxClients() {
-    info("适配最大可打开文件数的限制");
     rlim_t maxFileNum = FLAGS_max_clients + MIN_REVERSED_FDS;
     struct rlimit limit;
     if (getrlimit(RLIMIT_NOFILE, &limit) == -1) {
@@ -71,6 +70,7 @@ void Client::adjustMaxClients() {
             }
         }
     }
+    info("适配最大可打开文件数的限制: ") << FLAGS_max_clients;
 }
 
 std::map<uint64_t, Client *> Client::getClients() {
@@ -114,6 +114,11 @@ void Client::pendingClose() {
     conn->setReadHandler(nullptr);
 }
 
+
+bool Client::isPendingWrite() {
+    return this->response.size() > 0 && this->sent == 0;
+}
+
 Client::Client(Connection *conn, int flags) {
     this->flags = 0;
     this->conn = conn;
@@ -127,9 +132,7 @@ Client::Client(Connection *conn, int flags) {
     this->sent = 0;
     this->http = false;
     this->setDb(Db::getDb(0));
-    info("创建") << this->getInfo();
-    // 向connection安装client的读句柄
-    conn->setReadHandler(connReadHandler);
+//    info("创建") << this->getInfo() << "flags=" << this->flags;
 }
 
 void Client::setDb(tLBS::Db *db) {
@@ -142,16 +145,7 @@ Db* Client::getDb() {
 
 void Client::link(Client *client) {
     clients[client->getId()] = client;
-    info("client池大小: ") << clients.size();
-}
-
-void Client::free(Client *client) {
-    auto mapIter = Client::clients.find(client->getId());
-    if (mapIter != Client::clients.end()) {
-        Client::clients.erase(client->getId());
-        delete client;
-    }
-    info("client池大小: ") << clients.size();
+//    info("client池大小: ") << clients.size();
 }
 
 Client::~Client() {
@@ -159,7 +153,7 @@ Client::~Client() {
         this->conn->close();
         Connection::free(this->conn);
     }
-    info("销毁") << this->getInfo();
+//    info("销毁") << this->getInfo();
 }
 
 Connection* Client::getConnection() {
@@ -195,49 +189,58 @@ void Client::readFromConnection() {
     int segLen = (1024); // 32M
     int totalRead = 0;
     std::string qb;
+    char buf[segLen];
     while (true) {
         // 每次读出一部分
-        char buf[segLen];
         memset(buf, 0, segLen);
-        int nRead = conn->read(buf, sizeof(char) * segLen);
-//        info("读出") << nRead << "个字符: " << buf;
+        int nRead = conn->read(buf, segLen);
+//        info(this->getInfo()) << "读取输入中...";
+//        info(this->getInfo()) << "读出" << nRead << "个字符: " << buf;
         if (nRead == -1) {
-            if (conn->getState() == ConnectionState::CONN_STATE_CONNECTED) {
-                return;
-            }
-            else if (conn->getLastErrno() != 0) {
-                error("读取数据") << conn->getInfo() << "错误: " << strerror(conn->getLastErrno());
+            if (conn->getLastErrno() > 0) {
+                info(this->getInfo()) << "已读取(" << totalRead << "): " << qb;
+                error(this->getInfo()) << "读取数据错误: " << strerror(conn->getLastErrno()) << "(" << conn->getLastErrno() << ")";
                 this->pendingClose();
                 return;
             }
             else {
+//                error(this->getInfo()) << "读取数据错误: " << strerror(conn->getLastErrno()) << "(" << conn->getLastErrno() << ")";
                 break;
             }
         }
         else {
             if (nRead == 0) {
+//                error(conn->getInfo()) << "客户端关闭连接";
+//                this->pendingClose();
+//                return;
                 if (strlen(buf) > 0) {
+                    info(this->getInfo()) << "被关闭？但是还是有数据: " << buf;
                     buf[segLen] = '\0'; // 确保最后一个字符是\0
                     // 有新的内容 追加进去
-                    totalRead += nRead;
+                    totalRead += strlen(buf);
                     qb += buf;
+                    break;
                 }
                 else {
-                    break;
+                    info(this->getInfo()) << "客户端关闭连接,准备关闭";
+                    this->pendingClose();
+                    return;
                 }
             }
             else if (strlen(buf) > 0) {
                 buf[segLen] = '\0'; // 确保最后一个字符是\0
                 // 有新的内容 追加进去
-                totalRead += nRead;
-                qb += buf;
+                totalRead += strlen(buf);
+                qb += std::string(buf);
             }
         }
     }
     if (totalRead == 0) {
-        warning(conn->getInfo()) << "读取数据长度为0, " << this->getInfo() << "准备关闭";
+        warning(this->getInfo()) << "读取数据长度为0, " << this->getInfo() << "准备关闭";
         this->pendingClose();
         return;
+    } else {
+//        warning(this->getInfo()) << "读取数据长度为: " << totalRead;
     }
 
     // 去掉首尾的\r\n \t
@@ -301,11 +304,11 @@ void * Client::threadProcess(void *arg) {
     if (Http::clientIsHttp(client)) {
         // 如果是http协议
         client->setHttp(true);
-        info(client->getInfo()) << "是http请求";
+//        info(client->getInfo()) << "是http请求";
     }
     else {
         client->setHttp(false);
-        info(client->getInfo()) << "不是http请求";
+//        info(client->getInfo()) << "不是http请求";
     }
 
 //    for (int i = 0; i < (int)client->getArgs().size(); i++) {
@@ -370,25 +373,28 @@ int Client::success(tLBS::Json *json) {
 
 int Client::success(const char *msg) {
     std::string str = msg;
+//    info(this->getInfo()) << "成功: " << str;
     if (this->isHttp()) {
-        std::string responseHeader = "HTTP/1.0 200 OK\r\nConnection: keep-alive\r\nContent-Type: application/json;charset=utf-8\r\nContent-Length: ";
+        std::string responseHeader = "HTTP/1.0 200 OK\r\nConnection: close\r\nContent-Type: application/json;charset=utf-8\r\nContent-Length: ";
         responseHeader += std::to_string(str.size());
         responseHeader += "\r\n\r\n";
         str = responseHeader + str;
-//        conn->write(str.c_str(), str.size());
-//        conn->close();
-//        return C_OK;
     }
     else {
         str += "\r\n";
         this->response = str;
     }
     this->response = str;
+    this->sent = 0;
 
-//    if (this->isHttp()) {
-//        this->flags |= CLIENT_FLAGS_CLOSE_AFTER_REPLY;
-//    }
-    conn->setWriteHandler(connWriteHandler);
+//    conn->setWriteHandler(connWriteHandler);
+
+    conn->write(str.c_str(), str.size());
+    this->sent = this->response.size();
+    this->response = "";
+    if (this->isHttp()) {
+        this->pendingClose();
+    }
     return C_OK;
 }
 
@@ -410,25 +416,27 @@ int Client::fail(const char *fmt, ...) {
     va_end(ap);
 
     std::string str = msg;
+//    info(this->getInfo()) << "失败" << pthread_self();
     if (this->isHttp()) {
-        std::string responseHeader = "HTTP/1.0 200 OK\r\nConnection: keep-alive\r\nContent-Type: application/json;charset=utf-8\r\nContent-Length: ";
+        std::string responseHeader = "HTTP/1.0 200 OK\r\nConnection: close\r\nContent-Type: application/json;charset=utf-8\r\nContent-Length: ";
         responseHeader += std::to_string(str.size());
         responseHeader += "\r\n\r\n";
         str = responseHeader + str;
-//        conn->write(str.c_str(), str.size());
-//        conn->close();
-//        return C_ERR;
     }
     else {
         str += "\r\n";
         this->response = str;
     }
     this->response = str;
+    this->sent = 0;
 
-//    if (this->isHttp()) {
-//        this->flags |= CLIENT_FLAGS_CLOSE_AFTER_REPLY;
-//    }
-    conn->setWriteHandler(connWriteHandler);
+//    conn->setWriteHandler(connWriteHandler);
+    conn->write(str.c_str(), str.size());
+    this->sent = this->response.size();
+    this->response = "";
+    if (this->isHttp()) {
+        this->pendingClose();
+    }
     return C_ERR;
 }
 
@@ -436,23 +444,43 @@ int Client::fail(const char *fmt, ...) {
 int Client::cron(long long id, void *data) {
     // 断开一些client
     std::vector<Client *> freeClients;
-    for (auto mapIter = clients.begin(); mapIter != clients.end(); mapIter++) {
-        Client *client = mapIter->second;
-        int flags = client->getFlags();
-        if (flags & CLIENT_FLAGS_PENDING_CLOSE) {
-            freeClients.push_back(client);
-        }
-        else if (flags & CLIENT_FLAGS_CLOSE_AFTER_REPLY) {
-            if (client->getSent() > 0) {
-                info(client->getInfo()) << "被设置为响应后关闭";
+    if (clients.size() > 0) {
+        for (auto mapIter = clients.begin(); mapIter != clients.end(); mapIter++) {
+            Client *client = mapIter->second;
+            int flags = client->getFlags();
+            if (flags & CLIENT_FLAGS_PENDING_CLOSE) {
                 freeClients.push_back(client);
+            }
+            else if (flags & CLIENT_FLAGS_CLOSE_AFTER_REPLY) {
+                if (client->getSent() > 0) {
+                    info(client->getInfo()) << "被设置为响应后关闭";
+                    freeClients.push_back(client);
+                }
             }
         }
     }
-    for (int i = 0; i < freeClients.size(); i++) {
-        free(freeClients[i]);
+    if (freeClients.size() > 0) {
+        int oldSize = clients.size();
+        for (int i = 0; i < freeClients.size(); i++) {
+            Client *client = freeClients[i];
+            clients.erase(client->getId());
+            delete client;
+        }
+        info("销毁") << freeClients.size() << "个client后, clients(" << oldSize << ")池大小: " << clients.size();
+        if (clients.size() > 0) {
+            for (auto mapIter = clients.begin(); mapIter != clients.end(); mapIter++) {
+                Client *client = mapIter->second;
+                info(client->getInfo()) << "flags=" << client->getFlags();
+            }
+        }
     }
+//    info("client线程池队列长度: ") << ThreadPool::getPool("client")->getQueueSize();
     return C_OK;
+}
+
+
+void Client::beforeEventLoopSleep() {
+
 }
 
 

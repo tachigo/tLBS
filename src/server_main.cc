@@ -22,6 +22,12 @@ void *testThread(void *arg) {
     return (void *)0;
 }
 
+
+void beforeEventLoopSleep() {
+    Server::beforeEventLoopSleep();
+
+}
+
 int main(int argc, char *argv[]) {
     int j;
     Log::init(argv[0]); // 初始化日志
@@ -37,10 +43,7 @@ int main(int argc, char *argv[]) {
     atexit(Command::free);
     Http::init();
     atexit(Http::free);
-    // 初始化线程池
-    // 1.初始化client的线程池
-    ThreadPool::createPool("client", 100);
-    atexit(ThreadPool::free);
+
     warning("👋👋👋👋👋👋👋👋 Hello! tLBS-SERVER~ 👋👋👋👋👋👋👋👋");
     warning("executable: ") << server->getExecutable();
     warning("pid: ") << server->getPid();
@@ -48,6 +51,10 @@ int main(int argc, char *argv[]) {
     if (FLAGS_config_file.size() > 0) {
         warning("config file: ") << FLAGS_config_file;
     }
+    // 初始化线程池
+    // 1.初始化client的线程池
+    ThreadPool::createPool("client", 100);
+    atexit(ThreadPool::free);
     // 初始化db
     Db::init();
     atexit(Db::free);
@@ -74,7 +81,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    el->setBeforeSleep(Server::beforeSleep);
+    el->setBeforeSleep(beforeEventLoopSleep);
     el->start();
     return C_OK;
 }

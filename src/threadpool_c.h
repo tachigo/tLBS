@@ -48,6 +48,7 @@ namespace tLBS {
 
         std::string getGroup();
         std::string getInfo();
+        int getQueueSize();
 
         static void *execute(void *threadPool);
     };
