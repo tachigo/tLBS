@@ -19,6 +19,18 @@ EventLoopSelect::~EventLoopSelect() {
     free(&this->writeFds);
 }
 
+bool EventLoopSelect::fdRegistered(int fd) {
+    return fdReadable(fd) || fdWritable(fd);
+}
+
+bool EventLoopSelect::fdReadable(int fd) {
+    return FD_ISSET(fd, &this->readFds);
+}
+
+bool EventLoopSelect::fdWritable(int fd) {
+    return FD_ISSET(fd, &this->writeFds);
+}
+
 int EventLoopSelect::resize(int setSize) {
     if (setSize >= FD_SETSIZE) {
         return -1;

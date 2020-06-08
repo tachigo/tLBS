@@ -19,7 +19,7 @@
 using namespace tLBS;
 
 DEFINE_string(tcp_port, "8899", "tcp端口号");
-DEFINE_int32(tcp_backlog, 511, "tcp建立连接的队列长度");
+DEFINE_int32(tcp_backlog, 100, "tcp建立连接的队列长度");
 DEFINE_int32(tcp_keepalive, 300, "连接保持存活时长");
 
 NetTcp *NetTcp::instance = nullptr;
@@ -367,10 +367,10 @@ void NetTcp::acceptCommonHandler(Connection *conn, int flags, const char *ip) {
     auto *client = new Client(conn, flags);
 
     NetTcp::setNonBlock(conn->getFd());
-    NetTcp::setNoDelay(conn->getFd(), 1);
-    if (FLAGS_tcp_keepalive > 0) {
-        NetTcp::setKeepalive(conn->getFd(), FLAGS_tcp_keepalive);
-    }
+//    NetTcp::setNoDelay(conn->getFd(), 1);
+//    if (FLAGS_tcp_keepalive > 0) {
+//        NetTcp::setKeepalive(conn->getFd(), FLAGS_tcp_keepalive);
+//    }
     // 向connection安装client的读句柄
 //    info(client->getInfo()) << " accepted";
     conn->setReadHandler(Client::connReadHandler);
@@ -379,7 +379,6 @@ void NetTcp::acceptCommonHandler(Connection *conn, int flags, const char *ip) {
 //    info(conn->getInfo()) << "输出欢迎语!";
 //    client->setResponse("+OK 你好啊!~👋\r\n");
 //    conn->setWriteHandler(Client::connWriteHandler, EL_BARRIER);
-
     Client::link(client);
 }
 
@@ -444,4 +443,40 @@ void NetTcp::free() {
 
 NetTcp::~NetTcp() {
     info("销毁tcp网络对象");
+}
+
+int NetTcp::peerToString(int fd, char *ip, size_t ip_len, int *port) {
+    struct sockaddr_storage sa;
+    socklen_t salen = sizeof(sa);
+
+    if (getpeername(fd,(struct sockaddr*)&sa,&salen) == -1) goto error;
+    if (ip_len == 0) goto error;
+
+    if (sa.ss_family == AF_INET) {
+        struct sockaddr_in *s = (struct sockaddr_in *)&sa;
+        if (ip) inet_ntop(AF_INET,(void*)&(s->sin_addr),ip,ip_len);
+        if (port) *port = ntohs(s->sin_port);
+    } else if (sa.ss_family == AF_INET6) {
+        struct sockaddr_in6 *s = (struct sockaddr_in6 *)&sa;
+        if (ip) inet_ntop(AF_INET6,(void*)&(s->sin6_addr),ip,ip_len);
+        if (port) *port = ntohs(s->sin6_port);
+    } else if (sa.ss_family == AF_UNIX) {
+        if (ip) strncpy(ip,"/unixsocket",ip_len);
+        if (port) *port = 0;
+    } else {
+        goto error;
+    }
+    return 0;
+
+error:
+    if (ip) {
+        if (ip_len >= 2) {
+            ip[0] = '?';
+            ip[1] = '\0';
+        } else if (ip_len == 1) {
+            ip[0] = '\0';
+        }
+    }
+    if (port) *port = 0;
+    return -1;
 }

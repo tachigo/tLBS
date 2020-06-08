@@ -346,3 +346,16 @@ void EventLoop::addFiredEvent(int key, int fd, int flags) {
 void EventLoop::setBeforeSleep(tLBS::elBeforeSleepFallback beforeSleepFallback) {
     this->beforeSleep = beforeSleepFallback;
 }
+
+
+bool EventLoop::fdRegistered(int fd) {
+    return this->getHandler()->fdRegistered(fd);
+}
+
+bool EventLoop::fdReadable(int fd) {
+    return this->getHandler()->fdReadable(fd);
+}
+
+bool EventLoop::fdWritable(int fd) {
+    return this->getHandler()->fdWritable(fd);
+}

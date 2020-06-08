@@ -62,6 +62,7 @@ std::string Connection::getInfo() {
     return this->info;
 }
 
+// 只能通过关闭client来关闭connection
 void Connection::close() {
     if (this->fd != -1) {
         EventLoop *el = EventLoop::getInstance();
@@ -71,10 +72,10 @@ void Connection::close() {
 //        if (errno > 0) {
 //            error(this->getInfo()) << "关闭出错: " << strerror(errno);
 //        }
-        auto *client = (Client *)this->data;
-        if (client != nullptr) {
-            client->pendingClose();
-        }
+//        auto *client = (Client *)this->data;
+//        if (client != nullptr) {
+//            client->pendingClose();
+//        }
         this->fd = -1;
     }
 }
@@ -134,7 +135,7 @@ int Connection::invokeHandler(ConnectionFallback handler) {
 
 int Connection::setReadHandler(ConnectionFallback handler) {
     EventLoop *el = EventLoop::getInstance();
-    if (handler != nullptr && handler == this->getReadHandler()) {
+    if (handler == this->getReadHandler()) {
         error(this->getInfo()) << "重复设置readHandler";
         return C_OK;
     }
@@ -156,7 +157,7 @@ ConnectionFallback Connection::getReadHandler() {
 
 int Connection::setWriteHandler(tLBS::ConnectionFallback handler, int flags) {
     EventLoop *el = EventLoop::getInstance();
-    if (handler != nullptr && handler == this->getWriteHandler()) {
+    if (handler == this->getWriteHandler()) {
         error(this->getInfo()) << "重复设置writeHandler";
         return C_OK;
     }

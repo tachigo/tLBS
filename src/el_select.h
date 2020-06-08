@@ -36,6 +36,10 @@ namespace tLBS {
         int poll(EventLoop *el, struct timeval *tvp);
 
         static std::string getName();
+
+        bool fdRegistered(int fd);
+        bool fdReadable(int fd);
+        bool fdWritable(int fd);
     };
 }
 

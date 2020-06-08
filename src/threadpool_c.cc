@@ -6,6 +6,9 @@
 #include "threadpool_c.h"
 #include "log.h"
 #include "common.h"
+#include "client.h"
+
+#include <csignal>
 
 using namespace tLBS;
 
@@ -47,6 +50,15 @@ void ThreadPool::free() {
 
 
 ThreadPool::ThreadPool(std::string group, int threadNum) {
+    sigset_t signal_mask;
+    sigemptyset (&signal_mask);
+    sigaddset(&signal_mask, SIGPIPE);
+    int rc = pthread_sigmask(SIG_BLOCK, &signal_mask, nullptr);
+//    if (rc != 0)
+//    {
+//        printf("block sigpipe error\n");
+//    }
+
     this->shutdown = false;
     this->group = group;
     this->threadNum = threadNum;
@@ -92,7 +104,7 @@ int ThreadPool::getQueueSize() {
     return this->queueSize;
 }
 
-int ThreadPool::enqueueTask(void *(*fn)(void *), void *arg, const char *name) {
+int ThreadPool::enqueueTask(void *(*fn)(void *), void *arg, std::string name) {
     // 锁住线程池
     pthread_mutex_lock(&this->mutexLock);
     // 线程池关闭
@@ -161,7 +173,8 @@ void * ThreadPool::execute(void *threadPool) {
 
         if ((task = pool->dequeueTask()) != nullptr) {
             // 执行任务
-//            info(pool->getInfo()) << "#" << pthread_self() << "执行" << task->name;
+//            auto arg = (Client::ThreadArg *) task->arg;
+//            info(pool->getInfo()) << "#" << pthread_self() << "执行" << arg->getClient()->getInfo();
             (*(task->fn))(task->arg);
 
             delete task;

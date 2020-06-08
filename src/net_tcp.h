@@ -47,6 +47,7 @@ namespace tLBS {
         static int setNonBlock(int fd);
         static int setNoDelay(int fd, int val);
         static int setKeepalive(int fd, int interval);
+        static int peerToString(int fd, char *ip, size_t ip_len, int *port);
 
 
         // threads

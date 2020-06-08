@@ -15,7 +15,7 @@ namespace tLBS {
     // 线程池任务
     class ThreadPoolTask {
     public:
-        const char *name;
+        std::string name;
         void *arg; // 参数
         void *(* fn)(void *arg); // 方法
         ThreadPoolTask *next;
@@ -43,7 +43,7 @@ namespace tLBS {
         static ThreadPool *createPool(std::string group, int threadNum);
         static void free();
         ~ThreadPool();
-        int enqueueTask(void *(*fn)(void *arg), void *arg, const char *name);
+        int enqueueTask(void *(*fn)(void *arg), void *arg, std::string name);
         ThreadPoolTask *dequeueTask();
 
         std::string getGroup();

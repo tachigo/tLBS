@@ -143,6 +143,10 @@ namespace tLBS {
         void addFiredEvent(int key, int fd, int flags);
 
         void setBeforeSleep(elBeforeSleepFallback beforeSleepFallback);
+
+        bool fdRegistered(int fd);
+        bool fdReadable(int fd);
+        bool fdWritable(int fd);
     };
 }
 
