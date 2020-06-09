@@ -7,6 +7,7 @@
 #include "config.h"
 #include "log.h"
 #include "connection.h"
+#include "client.h"
 //#include "threadpool_c.h"
 
 #include <sys/socket.h>
@@ -370,6 +371,7 @@ void NetTcp::acceptCommonHandler(Connection *conn, int flags) {
 //    }
 //    info(client->getInfo()) << " accepted";
     conn->setReadHandler(Connection::connReadHandler);
+    Client::linkClient(new Client(conn));
 }
 
 void NetTcp::acceptHandler(int fd, int flags, void *data) {

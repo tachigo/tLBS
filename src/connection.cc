@@ -39,7 +39,7 @@ Connection::Connection(int fd) {
     this->readHandler = nullptr;
     this->writeHandler = nullptr;
     this->http = false;
-    this->setDb(Db::getDb(0));
+    this->db = Db::getDb(0);
 //    this->connHandler = nullptr;
 //    info("创建") << this->getInfo();
 }
@@ -80,17 +80,17 @@ bool Connection::isPendingClose() {
 
 // 只能通过关闭client来关闭connection
 void Connection::close() {
-    if (this->fd != -1) {
+    if (!this->isHttp()) {
+//        warning(this->getInfo()) << "非HTTP连接关闭";
         EventLoop *el = EventLoop::getInstance();
         el->delFileEvent(this->fd, EL_READABLE);
         el->delFileEvent(this->fd, EL_WRITABLE);
-        if (::close(this->fd) < 0) {
-//            info(this->getInfo()) << "关闭出错: " << strerror(errno) << "(" << errno << ")";
-        }
-        else {
-//            info(this->getInfo()) << "关闭成功";
-        }
-        this->fd = -1;
+    }
+    if (::close(this->fd) < 0) {
+        error(this->getInfo()) << "关闭出错: " << strerror(errno) << "(" << errno << ")";
+    }
+    else {
+//        warning(this->getInfo()) << "关闭成功";
     }
 }
 
@@ -136,11 +136,6 @@ int Connection::invokeHandler(ConnectionFallback handler) {
         handler(this);
     }
     this->decrRefs();
-    if (this->isPendingClose() && this->getRefs() == 0) {
-//        info(this->getInfo()) << "计划关闭...";
-        this->close();
-        delete this;
-    }
     return 1;
 }
 
@@ -168,7 +163,7 @@ int Connection::invokeHandler(ConnectionFallback handler) {
 int Connection::setWriteHandler(ConnectionFallback handler) {
     EventLoop *el = EventLoop::getInstance();
     if (handler == this->getWriteHandler()) {
-//        error(this->getInfo()) << "重复设置write handler";
+        error(this->getInfo()) << "重复设置write handler";
         return C_OK;
     }
     this->writeHandler = handler;
@@ -188,7 +183,7 @@ ConnectionFallback Connection::getWriteHandler() {
 int Connection::setReadHandler(ConnectionFallback handler) {
     EventLoop *el = EventLoop::getInstance();
     if (handler == this->getReadHandler()) {
-//        error(this->getInfo()) << "重复设置read handler";
+        error(this->getInfo()) << "重复设置read handler";
         return C_OK;
     }
     this->readHandler = handler;
@@ -217,6 +212,13 @@ void Connection::setFlags(int flags) {
 void Connection::eventHandler(int fd, int flags, void *data) {
     UNUSED(fd);
     auto *conn = (Connection *)data;
+//    if (conn->isPendingClose() && conn->getRefs() == 0) {
+////        info(conn->getInfo()) << "计划关闭...";
+//        conn->close();
+//        delete conn;
+//        return;
+//    }
+
     int callRead = (flags & EL_READABLE) && conn->getReadHandler();
     int callWrite = (flags & EL_WRITABLE) && conn->getWriteHandler();
 
@@ -232,6 +234,11 @@ void Connection::eventHandler(int fd, int flags, void *data) {
             return;
         }
     }
+//    if (conn->isPendingClose() && conn->getRefs() == 0) {
+////        info(conn->getInfo()) << "计划关闭...";
+//        conn->close();
+//        delete conn;
+//    }
 }
 
 
@@ -259,16 +266,16 @@ int Connection::success(const char *msg) {
     }
 
     if (this->write(str.c_str(), str.size()) < 0) {
-        error(this->getInfo()) << strerror(errno) << "(" << errno << ")";
+//        error(this->getInfo()) << strerror(errno) << "(" << errno << ")";
     }
     else {
-        info(this->getInfo()) << "写入成功";
+//        info(this->getInfo()) << "写入成功";
     }
     if (this->isHttp()) {
-        this->pendingClose();
+        this->close();
     }
     else {
-        this->setReadHandler(connReadHandler);
+//        this->setReadHandler(connReadHandler);
     }
     return C_OK;
 }
@@ -303,10 +310,10 @@ int Connection::fail(const char *fmt, ...) {
     }
     this->write(str.c_str(), str.size());
     if (this->isHttp()) {
-        this->pendingClose();
+        this->close();
     }
     else {
-        this->setReadHandler(connReadHandler);
+//        this->setReadHandler(connReadHandler);
     }
     return C_ERR;
 }
@@ -337,8 +344,7 @@ std::string Connection::ThreadArg::getQuery() {
 void * Connection::threadProcess(void *arg) {
     auto threadArg = (ThreadArg *)arg;
     Connection *conn = threadArg->getConnection();
-    conn->setHttp(Http::connIsHttp(threadArg->getQuery()));
-
+//    pthread_detach(pthread_self());
     if (!conn->isHttp()) {
         Command::processCommandAndReset(conn, threadArg->getQuery());
     }
@@ -404,23 +410,25 @@ void Connection::connReadHandler(Connection *conn) {
         conn->pendingClose();
         return;
     } else {
-//        warning(conn->getInfo()) << "读取数据长度为: " << totalRead;
+//        warning(conn->getInfo()) << "读取数据长度为: " << totalRead << std::endl
+//            << qb;
     }
+
+    conn->setHttp(Http::connIsHttp(qb));
 
     if (FLAGS_threads_connection) {
-        std::string taskName = "client::threadProcess ";
+        std::string taskName = "connection::threadProcess ";
         taskName += conn->getInfo();
         // 使用线程处理
-        ThreadPool::getPool("client")
+        ThreadPool::getPool("connection")
                 ->enqueueTask(Connection::threadProcess, (void *)new ThreadArg(conn, qb), taskName);
+        if (conn->isHttp()) {
+            EventLoop *el = EventLoop::getInstance();
+            el->delFileEvent(conn->getFd(), EL_READABLE);
+            el->delFileEvent(conn->getFd(), EL_WRITABLE);
+        }
     }
     else {
-        conn->setHttp(Http::connIsHttp(qb));
-
-//    for (int i = 0; i < (int)this->args.size(); i++) {
-//        info("argv#") << i << ": " << this->args[i].c_str();
-//    }
-
         if (!conn->isHttp()) {
             Command::processCommandAndReset(conn, qb);
         }
@@ -479,7 +487,7 @@ void Connection::adjustMaxConnections() {
                     warning("服务无法设置可打开的最大文件数至: ") << maxFileNum
                                                   << ", 由于系统错误: " << strerror(setResourceLimitErrno);
                 }
-                info("原配置的max_clients为: ") << oldMaxClients
+                info("原配置的max_connections为: ") << oldMaxClients
                                            << ", 现被修改为: " << FLAGS_max_connections;
             }
             else {

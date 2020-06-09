@@ -56,7 +56,7 @@ execCmdFallback Command::getFallback() {
 }
 
 int Command::processCommand(Connection *conn, std::vector<std::string> args) {
-    info(conn->getInfo()) << "执行命令: " << args[0];
+//    info(conn->getInfo()) << "执行命令: " << args[0];
     Command *command = Command::findCommand(args[0]);
     if (command == nullptr) {
         // 没有找到命令
@@ -197,10 +197,10 @@ int Command::processCommandAndReset(Connection *conn, std::string query) {
     if (args.size() > 0) {
         long long start = ustime();
         if (processCommand(conn, args) == C_OK) {
-            long long duration = ustime() - start;
-            char msg[1024];
-            sprintf(msg, "命令[%s]外部执行时间: %0.5f 毫秒", args[0].c_str(), (double)duration / (double)1000);
-            info(conn->getInfo()) << msg;
+//            long long duration = ustime() - start;
+//            char msg[1024];
+//            sprintf(msg, "命令[%s]外部执行时间: %0.5f 毫秒", args[0].c_str(), (double)duration / (double)1000);
+//            info(conn->getInfo()) << msg;
             return C_OK;
         }
     }

@@ -7,6 +7,7 @@
 #include "log.h"
 #include "el.h"
 #include "db.h"
+#include "client.h"
 
 #include <string>
 #include <fstream>
@@ -169,13 +170,14 @@ void Server::updateCachedTime() {
 }
 
 
-void *Server::threadCron(void *arg) {
-    while (true) {
-        sleep(1);
-//        info(pthread_self());
-        timeEventCron(0, nullptr);
-    }
-}
+//void *Server::threadCron(void *arg) {
+//    UNUSED(arg);
+//    while (true) {
+//        sleep(1);
+////        info(pthread_self());
+//        timeEventCron(0, nullptr);
+//    }
+//}
 
 
 int Server::timeEventCron(long long id, void *data) {
@@ -193,7 +195,9 @@ int Server::timeEventCron(long long id, void *data) {
         }
     }
 
-    Db::cron(id, data);
+//    Db::cron(id, data);
+
+    Client::unlinkIfNeed();
 
     return 1000 / server->getCronHz();
 }
@@ -220,5 +224,4 @@ void Server::free() {
 }
 
 void Server::beforeEventLoopSleep() {
-
 }

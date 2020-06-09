@@ -99,7 +99,7 @@ int EventLoopSelect::poll(EventLoop *el, struct timeval *tvp)  {
 //        info(el->getMaxFd());
     }
     else {
-        info("select 0");
+//        info("select 0");
     }
 
     return feKey;

@@ -19,7 +19,6 @@ using namespace tLBS;
 
 void beforeEventLoopSleep() {
     Server::beforeEventLoopSleep();
-
 }
 
 int main(int argc, char *argv[]) {
@@ -50,10 +49,8 @@ int main(int argc, char *argv[]) {
     sigemptyset (&signal_mask);
     sigaddset(&signal_mask, SIGPIPE);
     pthread_sigmask(SIG_BLOCK, &signal_mask, nullptr);
-    // 1.初始化client线程池
-    ThreadPool::createPool("client", 100);
-//     2.初始化data线程池
-//    ThreadPool::createPool("data", 1);
+    // 1.初始化connection线程池
+    ThreadPool::createPool("connection", 50);
     atexit(ThreadPool::free);
     // 初始化db
     Db::init();
@@ -63,10 +60,12 @@ int main(int argc, char *argv[]) {
     EventLoop *el = EventLoop::create(FLAGS_max_connections);
     atexit(EventLoop::free);
     warning("i/o多路复用: " + el->getName());
-//    if (el->addTimeEvent(1, Server::timeEventCron, nullptr) == EL_ERR) {
-//        fatal("添加server定时任务失败");
-//    }
-    ThreadPool::createSingleThread(nullptr, Server::threadCron, nullptr);
+    // 主线程内执行一些和多线程无关的东西
+    if (el->addTimeEvent(1, Server::timeEventCron, nullptr) == EL_ERR) {
+        fatal("添加server时间事件失败");
+    }
+    // 开启保存数据的线程
+//    ThreadPool::createSingleThread(nullptr, Server::threadCron, nullptr);
 
     NetTcp *net = NetTcp::getInstance();
     atexit(NetTcp::free);
