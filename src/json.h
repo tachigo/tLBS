@@ -14,7 +14,7 @@ namespace tLBS {
         rapidjson::Document* doc;
         std::string str;
     public:
-        Json(const char *tpl);
+        Json(std::string tpl);
         ~Json();
         rapidjson::Value *get(const char *key);
         std::string toString();

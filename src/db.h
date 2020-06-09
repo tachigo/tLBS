@@ -8,6 +8,7 @@
 #include <string>
 #include <map>
 #include <vector>
+#include "connection.h"
 
 #define DB_FLAGS_LOOKUP_NONE 0
 
@@ -81,7 +82,7 @@ namespace tLBS {
         static void cron(long long id, void *data);
 
         // command
-        static int execDb(Client *client);
+        static int execDb(Connection *conn, std::vector<std::string> args);
     };
 }
 

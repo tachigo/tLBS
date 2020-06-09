@@ -162,15 +162,21 @@ void * ThreadPool::execute(void *threadPool) {
 
         if ((task = pool->dequeueTask()) != nullptr) {
             // 执行任务
-            auto arg = (Client::ThreadArg *) task->arg;
-            info(pool->getInfo()) << "#" << pthread_self() << "执行" << arg->getClient()->getInfo();
+//            auto arg = (Client::ThreadArg *) task->arg;
+//            info(pool->getInfo()) << "#" << pthread_self() << "执行" << arg->getClient()->getInfo();
             (*(task->fn))(task->arg);
 
-            delete task;
+//            delete task;
         }
     }
 
     return (void *) 0; // never reached
 }
 
+
+pthread_t ThreadPool::createSingleThread(const pthread_attr_t *pthreadAttr, void *(*fn)(void *), void *arg) {
+    pthread_t tid;
+    pthread_create(&tid, nullptr, fn, arg);
+    return tid;
+}
 

@@ -6,7 +6,6 @@
 #include "config.h"
 #include "log.h"
 #include "el.h"
-#include "client.h"
 #include "db.h"
 
 #include <string>
@@ -17,7 +16,7 @@ using namespace tLBS;
 
 DEFINE_string(pid_file, "tLBS-server.pid", "PID进程锁文件");
 DEFINE_bool(daemonize, false, "是否以守护进程方式启动");
-DEFINE_int32(server_hz, 100, "server时间事件每秒执行多少次");
+DEFINE_int32(server_hz, 10, "server时间事件每秒执行多少次");
 
 
 
@@ -170,8 +169,16 @@ void Server::updateCachedTime() {
 }
 
 
-int Server::cron(long long id, void *data) {
-//    EventLoop *el = EventLoop::getInstance();
+void *Server::threadCron(void *arg) {
+    while (true) {
+        sleep(1);
+//        info(pthread_self());
+        timeEventCron(0, nullptr);
+    }
+}
+
+
+int Server::timeEventCron(long long id, void *data) {
     Server *server = getInstance();
     server->updateCachedTime();
 
@@ -185,8 +192,6 @@ int Server::cron(long long id, void *data) {
             server->setShutdownAsap(0);
         }
     }
-
-    Client::cron(id, data);
 
     Db::cron(id, data);
 

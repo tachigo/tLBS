@@ -10,9 +10,9 @@
 
 using namespace tLBS;
 
-Json::Json(const char *tpl) {
+Json::Json(std::string tpl) {
     this->doc = new rapidjson::Document();
-    this->doc->Parse(tpl);
+    this->doc->Parse(tpl.c_str());
 }
 
 Json::~Json() {

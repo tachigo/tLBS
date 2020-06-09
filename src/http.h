@@ -12,9 +12,9 @@
 
 namespace tLBS {
 
-    class Client;
+    class Connection;
 
-    typedef int (*execHttpFallback)(Client *client);
+    typedef int (*execHttpFallback)(Connection *conn, std::vector<std::string> args);
 
     class Http {
     private:
@@ -37,15 +37,15 @@ namespace tLBS {
         bool isNeedSpecifiedDb();
 
 
-        static bool clientIsHttp(Client *client);
+        static bool connIsHttp(std::string query);
 
         static void init();
         static void free();
         static Http *findHttp(std::string name);
-        int call(Client *client);
+        int call(Connection *conn, std::vector<std::string> args);
 
-        static int processHttp(Client *client);
-        static int processHttpAndReset(Client *client);
+        static int processHttp(Connection *conn, std::vector<std::string> args);
+        static int processHttpAndReset(Connection *conn, std::string query);
     };
 }
 

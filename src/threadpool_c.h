@@ -51,6 +51,8 @@ namespace tLBS {
         int getQueueSize();
 
         static void *execute(void *threadPool);
+
+        static pthread_t createSingleThread(const pthread_attr_t *pthreadAttr, void * (*)(void *arg), void *arg);
     };
 }
 

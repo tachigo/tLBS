@@ -157,7 +157,6 @@ int EventLoop::processEvents(int flags) {
         // 很奇怪 即不是文件事件 也不是定时任务事件 想干嘛
         return processed;
     }
-//    info(this->maxFd);
     if (this->maxFd != -1 ||
             ((flags & EL_TIME_EVENT) && !(flags & EL_NOT_WAIT))) {
         // 没有文件事件的话，看看有没有定时任务事件能够执行
@@ -217,14 +216,14 @@ int EventLoop::processEvents(int flags) {
 //            int fired = 0;
 
             if (fe->rFallback && fe->flags & firedFlags & EL_READABLE) {
-                info("处理读fd#") << fd;
+//                info("处理读fd#") << fd;
                 fe->rFallback(fd, firedFlags, fe->data);
                 fe = &this->events[fd];
 //                fired++;
             }
 
             if (fe->wFallback && fe->flags & firedFlags & EL_WRITABLE) {
-                info("处理写fd#") << fd;
+//                info("处理写fd#") << fd;
                 fe->wFallback(fd, firedFlags, fe->data);
             }
 

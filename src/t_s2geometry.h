@@ -12,7 +12,7 @@
 
 
 namespace tLBS {
-    class Client;
+    class Connection;
 
     class S2Geometry {
 
@@ -45,16 +45,16 @@ namespace tLBS {
         };
 
         // command
-        static int execTest(Client *client);
+        static int execTest(Connection *conn, std::vector<std::string> args);
 
         // s2polyset table id data
-        static int execSetPolygon(Client *client);
+        static int execSetPolygon(Connection *conn, std::vector<std::string> args);
 
         // s2polyget table id
-        static int execGetPolygon(Client *client);
+        static int execGetPolygon(Connection *conn, std::vector<std::string> args);
 
         // s2polydel table id
-        static int execDelPolygon(Client *client);
+        static int execDelPolygon(Connection *conn, std::vector<std::string> args);
     };
 }
 

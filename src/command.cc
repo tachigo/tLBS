@@ -55,23 +55,23 @@ execCmdFallback Command::getFallback() {
     return this->fallback;
 }
 
-int Command::processCommand(Client *client) {
-    info(client->getInfo()) << "执行命令: " << client->arg(0);
-    Command *command = Command::findCommand(client->arg(0));
+int Command::processCommand(Connection *conn, std::vector<std::string> args) {
+    info(conn->getInfo()) << "执行命令: " << args[0];
+    Command *command = Command::findCommand(args[0]);
     if (command == nullptr) {
         // 没有找到命令
-        warning("未知的命令: ") << client->arg(0);
-        return client->fail("未知的命令!");
+        warning("未知的命令: ") << args[0];
+        return conn->fail("未知的命令!");
     }
     Server *server = Server::getInstance();
     server->updateCachedTime();
     long long start = server->getUsTime();
-    int ret = command->call(client);
+    int ret = command->call(conn, args);
     if (ret == C_OK) {
-        long long duration = ustime() - start;
-        char msg[128];
-        sprintf(msg, "命令[%s]内部执行时间: %0.5f 毫秒", client->arg(0).c_str(), (double)duration/(double)1000);
-        info(client->getInfo()) << msg;
+//        long long duration = ustime() - start;
+//        char msg[128];
+//        sprintf(msg, "命令[%s]内部执行时间: %0.5f 毫秒", args[0].c_str(), (double)duration/(double)1000);
+//        info(conn->getInfo()) << msg;
     }
     return ret;
 }
@@ -191,21 +191,21 @@ end:
     return argv;
 }
 
-int Command::processCommandAndReset(Client *client) {
+int Command::processCommandAndReset(Connection *conn, std::string query) {
     // 解析参数
-    client->setArgs(parseQueryBuff(client->getQuery().c_str()));
-    if (client->getArgs().size() > 0) {
+    std::vector<std::string> args = parseQueryBuff(query.c_str());
+    if (args.size() > 0) {
         long long start = ustime();
-        if (processCommand(client) == C_OK) {
+        if (processCommand(conn, args) == C_OK) {
             long long duration = ustime() - start;
             char msg[1024];
-            sprintf(msg, "命令[%s]外部执行时间: %0.5f 毫秒", client->arg(0).c_str(), (double)duration / (double)1000);
-            info(client->getInfo()) << msg;
+            sprintf(msg, "命令[%s]外部执行时间: %0.5f 毫秒", args[0].c_str(), (double)duration / (double)1000);
+            info(conn->getInfo()) << msg;
             return C_OK;
         }
     }
     else {
-        error(client->getInfo()) << "没有参数";
+        error(conn->getInfo()) << "没有参数";
     }
     return C_ERR;
 }
@@ -219,8 +219,8 @@ Command* Command::findCommand(std::string name) {
     return nullptr;
 }
 
-int Command::call(tLBS::Client *client) {
-    int ret = this->fallback(client);
+int Command::call(Connection *conn, std::vector<std::string> args) {
+    int ret = this->fallback(conn, args);
     return ret;
 }
 
@@ -240,6 +240,7 @@ void Command::free() {
 }
 
 void Command::init() {
+    registerCommand("hello", Client::execHello, nullptr, "输出欢迎语");
     registerCommand("quit", Client::execQuit, nullptr, "退出连接");
     registerCommand("db", Db::execDb, nullptr, "查看当前选择的数据库编号");
 

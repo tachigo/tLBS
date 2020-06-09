@@ -6,7 +6,6 @@
 #include "http.h"
 #include "common.h"
 #include "log.h"
-#include "client.h"
 #include "server.h"
 #include "db.h"
 #include "t_s2geometry.h"
@@ -163,12 +162,12 @@ int Http::parseQueryBuff(const char *line, std::string *method, std::string *pat
 }
 
 
-bool Http::clientIsHttp(tLBS::Client *client) {
-    if (client->getQuery().size() == 0) {
+bool Http::connIsHttp(std::string query) {
+    if (query.size() == 0) {
         return false;
     }
-    char *p = (char *)malloc(client->getQuery().size() * sizeof(char));
-    client->getQuery().copy(p, client->getQuery().size(), 0);
+    char *p = (char *)malloc(query.size() * sizeof(char));
+    query.copy(p, query.size(), 0);
     bool isHttp = false;
     std::string method;
     std::string path;
@@ -304,18 +303,18 @@ bool Http::isNeedSpecifiedDb() {
     return this->needSpecifiedDb;
 }
 
-int Http::processHttp(tLBS::Client *client) {
+int Http::processHttp(Connection *conn, std::vector<std::string> args) {
 //    info(client->getInfo()) << "执行HTTP请求: " << client->arg(0);
-    Http *http = Http::findHttp(client->arg(0));
+    Http *http = Http::findHttp(args[0]);
     if (http == nullptr) {
         // 没有找到命令
-        warning("未知的HTTP请求: ") << client->arg(0);
-        return client->fail("未知的HTTP请求!");
+        warning("未知的HTTP请求: ") << args[0];
+        return conn->fail("未知的HTTP请求!");
     }
     Server *server = Server::getInstance();
     server->updateCachedTime();
     long long start = server->getUsTime();
-    int ret = http->call(client);
+    int ret = http->call(conn, args);
     if (ret == C_OK) {
 //        long long duration = ustime() - start;
 //        char msg[128];
@@ -327,12 +326,12 @@ int Http::processHttp(tLBS::Client *client) {
 }
 
 
-int Http::processHttpAndReset(tLBS::Client *client) {
+int Http::processHttpAndReset(Connection *conn, std::string query) {
     // 解析参数
     std::string method = "", path = "";
     std::map<std::string, std::string> params;
     params.clear();
-    if (parseQueryBuff(client->getQuery().c_str(), &method, &path, &params) == C_OK) {
+    if (parseQueryBuff(query.c_str(), &method, &path, &params) == C_OK) {
 //        info(client->getInfo()) << " HTTP method: " << method;
 //        info(client->getInfo()) << " HTTP path: " << path;
 //        for (auto mapIter = params.begin(); mapIter != params.end(); mapIter++) {
@@ -345,24 +344,24 @@ int Http::processHttpAndReset(tLBS::Client *client) {
         Http *http = findHttp(name);
         if (http == nullptr) {
             // 没有找到命令
-            warning("未知的HTTP请求: ") << client->arg(0);
-            return client->fail(Json::createErrorJsonObj(ERRNO_EXEC_HTTP_UNKNOWN, ERROR_EXEC_HTTP_UNKNOWN));
+            warning("未知的HTTP请求: ") << args[0];
+            return conn->fail(Json::createErrorJsonObj(ERRNO_EXEC_HTTP_UNKNOWN, ERROR_EXEC_HTTP_UNKNOWN));
         }
         auto mapIter = params.find("db");
         if (mapIter == params.end()) {
             if (http->isNeedSpecifiedDb()) {
-                error(client->getInfo()) << " "
+                error(conn->getInfo()) << " "
                     << http->getName() << " 中必须在querystring中指定db参数";
-                return client->fail(Json::createErrorJsonObj(ERRNO_EXEC_PARAMS_NEED, "必须在querystring中指定db参数"));
+                return conn->fail(Json::createErrorJsonObj(ERRNO_EXEC_PARAMS_NEED, "必须在querystring中指定db参数"));
             }
             else {
                 // 默认0 但是其实在创建client的时候就指定了默认0
-                client->setDb(Db::getDb(0));
+                conn->setDb(Db::getDb(0));
             }
         }
         else {
             // 只要有db参数就设置db
-            client->setDb(Db::getDb(atoi(mapIter->second.c_str())));
+            conn->setDb(Db::getDb(atoi(mapIter->second.c_str())));
         }
         // 找到exec 按照params的顺序来设置client的args
         std::vector<std::string> paramsMetadata = http->getParams();
@@ -370,18 +369,17 @@ int Http::processHttpAndReset(tLBS::Client *client) {
             std::string key = paramsMetadata[i];
             auto mapIter = params.find(key);
             if (mapIter == params.end()) {
-                error(client->getInfo()) << " "
+                error(conn->getInfo()) << " "
                     << http->getName() << " 中必须在querystring中指定" + key + "参数";
-                return client->fail(Json::createErrorJsonObj(ERRNO_EXEC_PARAMS_NEED, std::string("必须在querystring中指定" + key + "参数").c_str()));
+                return conn->fail(Json::createErrorJsonObj(ERRNO_EXEC_PARAMS_NEED, std::string("必须在querystring中指定" + key + "参数").c_str()));
             }
             else {
                 args.push_back(mapIter->second);
             }
         }
-        client->setArgs(args);
-        if (client->getArgs().size() > 0) {
+        if (args.size() > 0) {
             long long start = ustime();
-            if (processHttp(client) == C_OK) {
+            if (processHttp(conn, args) == C_OK) {
                 // reset client
 //                long long duration = ustime() - start;
 //                char msg[1024];
@@ -391,11 +389,11 @@ int Http::processHttpAndReset(tLBS::Client *client) {
             }
         }
         else {
-            error(client->getInfo()) << "没有参数";
+            error(conn->getInfo()) << "没有参数";
         }
     }
     else {
-        error(client->getInfo()) << "参数解析出错";
+        error(conn->getInfo()) << "参数解析出错";
         return C_ERR;
     }
     return C_ERR;
@@ -409,8 +407,8 @@ Http* Http::findHttp(std::string name) {
     return nullptr;
 }
 
-int Http::call(tLBS::Client *client) {
-    int ret = this->fallback(client);
+int Http::call(Connection *conn, std::vector<std::string> args) {
+    int ret = this->fallback(conn, args);
     return ret;
 }
 

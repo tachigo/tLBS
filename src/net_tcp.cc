@@ -7,8 +7,7 @@
 #include "config.h"
 #include "log.h"
 #include "connection.h"
-#include "client.h"
-#include "threadpool_c.h"
+//#include "threadpool_c.h"
 
 #include <sys/socket.h>
 #include <sys/file.h>
@@ -303,6 +302,7 @@ int NetTcp::genericAccept(int s, struct sockaddr *sa, socklen_t *len) {
         if (fd == -1) {
             if (errno == EINTR) {
                 // 中断
+                info(strerror(errno));
                 continue;
             }
             else {
@@ -357,37 +357,19 @@ int NetTcp::genericAccept(int s, struct sockaddr *sa, socklen_t *len) {
 //    return (void *)0;
 //}
 
-void NetTcp::acceptCommonHandler(Connection *conn, int flags, const char *ip) {
-    UNUSED(ip);
-    if (Client::getClients().size() >= FLAGS_max_clients) {
-        // 客户端连接数量超了
-        const char *err = "-ERR max number of clients reached\r\n";
-        conn->write(err, strlen(err));
-        conn->close();
-        return;
-    }
+void NetTcp::acceptCommonHandler(Connection *conn, int flags) {
 //    // 使用线程处理
 //    ThreadPool::getPool("connection")->enqueueTask(
 //            NetTcp::createClient,
 //            (void *) new CThreadCreateClientArgs(conn, flags),
 //            "NetTcp::createClient");
-    // 创建一个客户端连接对象
-    auto *client = new Client(conn, flags);
-
     NetTcp::setNonBlock(conn->getFd());
-    NetTcp::setNoDelay(conn->getFd(), 1);
-    if (FLAGS_tcp_keepalive > 0) {
-        NetTcp::setKeepalive(conn->getFd(), FLAGS_tcp_keepalive);
-    }
-    // 向connection安装client的读句柄
+//    NetTcp::setNoDelay(conn->getFd(), 1);
+//    if (FLAGS_tcp_keepalive > 0) {
+//        NetTcp::setKeepalive(conn->getFd(), FLAGS_tcp_keepalive);
+//    }
 //    info(client->getInfo()) << " accepted";
-    conn->setReadHandler(Client::connReadHandler);
-    // 要支持http协议，这个地方的输出还是算了吧~
-    // accept这里有往连接写的时候 需要是 EL_BARRIER 这种模式
-//    info(conn->getInfo()) << "输出欢迎语!";
-//    client->setResponse("+OK 你好啊!~👋\r\n");
-//    conn->setWriteHandler(Client::connWriteHandler, EL_BARRIER);
-    Client::link(client);
+    conn->setReadHandler(Connection::connReadHandler);
 }
 
 void NetTcp::acceptHandler(int fd, int flags, void *data) {
@@ -399,7 +381,6 @@ void NetTcp::acceptHandler(int fd, int flags, void *data) {
     int connPort, connFd;
     while (maxAcceptsPerCall--) {
         // 接收一个套接字
-//        info("try accept fd[") << fd << "]";
         connFd = NetTcp::accept(fd, connIp, sizeof(connIp), &connPort);
         if (connFd == NET_ERR) {
             if (errno != EWOULDBLOCK) {
@@ -412,7 +393,7 @@ void NetTcp::acceptHandler(int fd, int flags, void *data) {
 //        warning("接受的连接fd#") << connFd << " " << connIp << ":" << connPort;
 //        warning("fd#") << fd << " accept创建一个connFd#" << connFd;
         // 创建一个连接对象
-        acceptCommonHandler(new Connection(connFd), 0, connIp);
+        acceptCommonHandler(new Connection(connFd), 0);
     }
 }
 

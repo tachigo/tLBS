@@ -94,17 +94,17 @@ Config::Config() {
                     is >> FLAGS_tcp_keepalive;
 //                    info(key) << FLAGS_tcp_keepalive;
                 }
-                else if (key == "max_clients") {
+                else if (key == "max_connections") {
                     std::istringstream is(val);
-                    is >> FLAGS_max_clients;
+                    is >> FLAGS_max_connections;
 //                    info(key) << FLAGS_max_clients;
                 }
-                else if (key == "threads_client") {
+                else if (key == "threads_connection") {
                     if (val == "yes") {
-                        FLAGS_threads_client = true;
+                        FLAGS_threads_connection = true;
                     }
                     else {
-                        FLAGS_threads_client = false;
+                        FLAGS_threads_connection = false;
                     }
                 }
                 else if (key == "db_num") {

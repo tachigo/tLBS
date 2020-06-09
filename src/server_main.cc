@@ -7,7 +7,6 @@
 #include "server.h"
 #include "net_tcp.h"
 #include "el.h"
-#include "client.h"
 #include "threadpool_c.h"
 #include "command.h"
 #include "http.h"
@@ -16,13 +15,6 @@
 #include <csignal>
 
 using namespace tLBS;
-
-
-//void *testThread(void *arg) {
-//    static int index = 0;
-//    info("线程执行 [") << "[" << pthread_self() << "]#" << ++index;
-//    return (void *)0;
-//}
 
 
 void beforeEventLoopSleep() {
@@ -57,21 +49,24 @@ int main(int argc, char *argv[]) {
     sigset_t signal_mask;
     sigemptyset (&signal_mask);
     sigaddset(&signal_mask, SIGPIPE);
-    int rc = pthread_sigmask(SIG_BLOCK, &signal_mask, nullptr);
-    // 1.初始化client的线程池
+    pthread_sigmask(SIG_BLOCK, &signal_mask, nullptr);
+    // 1.初始化client线程池
     ThreadPool::createPool("client", 100);
+//     2.初始化data线程池
+//    ThreadPool::createPool("data", 1);
     atexit(ThreadPool::free);
     // 初始化db
     Db::init();
     atexit(Db::free);
     // i/o多路复用代理
-    Client::adjustMaxClients();
-    EventLoop *el = EventLoop::create(FLAGS_max_clients + FD_SET_INCR);
+    Connection::adjustMaxConnections();
+    EventLoop *el = EventLoop::create(FLAGS_max_connections);
     atexit(EventLoop::free);
     warning("i/o多路复用: " + el->getName());
-    if (el->addTimeEvent(1, Server::cron, nullptr) == EL_ERR) {
-        fatal("添加server定时任务失败");
-    }
+//    if (el->addTimeEvent(1, Server::timeEventCron, nullptr) == EL_ERR) {
+//        fatal("添加server定时任务失败");
+//    }
+    ThreadPool::createSingleThread(nullptr, Server::threadCron, nullptr);
 
     NetTcp *net = NetTcp::getInstance();
     atexit(NetTcp::free);

@@ -5,7 +5,7 @@
 #include "t_s2geometry.h"
 #include "common.h"
 #include "log.h"
-#include "client.h"
+#include "connection.h"
 #include "db.h"
 #include "table.h"
 
@@ -18,31 +18,31 @@ using namespace tLBS;
 
 // commands
 
-int S2Geometry::execTest(tLBS::Client *client) {
+int S2Geometry::execTest(Connection *conn, std::vector<std::string> args) {
     info("找到我了！");
     return C_OK;
 }
 
 // s2polydel table id
-int S2Geometry::execDelPolygon(tLBS::Client *client) {
-    if (client->getArgs().size() != 3) {
-        return client->fail(Json::createErrorJsonObj(ERRNO_EXEC_SYNTAX_ERR, ERROR_EXEC_SYNTAX_ERR));
+int S2Geometry::execDelPolygon(Connection *conn, std::vector<std::string> args) {
+    if (args.size() != 3) {
+        return conn->fail(Json::createErrorJsonObj(ERRNO_EXEC_SYNTAX_ERR, ERROR_EXEC_SYNTAX_ERR));
     }
     Table *tableObj;
-    std::string table = client->arg(1);
-    std::string id = client->arg(2);
+    std::string table = args[1];
+    std::string id = args[2];
 
     info("s2polydel: table[") << table << "] "
         << "id[" << id << "] ";
-    tableObj = client->getDb()->lookupTableRead(table);
+    tableObj = conn->getDb()->lookupTableRead(table);
     if (tableObj == nullptr) {
         info("表`") << table << "`不存在";
-        return client->success(Json::createSuccessStringJsonObj());
+        return conn->success(Json::createSuccessStringJsonObj());
     }
     else {
         info("表`") << table << "`存在";
         if (tableObj->getType() != OBJ_TYPE_GEO_POLYGON) {
-            return client->fail(Json::createErrorJsonObj(ERRNO_EXEC_TABLE_TYPE_ERR, ERROR_EXEC_TABLE_TYPE_ERR));
+            return conn->fail(Json::createErrorJsonObj(ERRNO_EXEC_TABLE_TYPE_ERR, ERROR_EXEC_TABLE_TYPE_ERR));
         }
         auto indexObj = (S2Geometry::PolygonIndex *) tableObj->getData();
         int shapeId;
@@ -51,66 +51,66 @@ int S2Geometry::execDelPolygon(tLBS::Client *client) {
             indexObj->delPolygon(shapeId);
             indexObj->flush();
         }
-        return client->success(Json::createSuccessStringJsonObj());
+        return conn->success(Json::createSuccessStringJsonObj());
     }
     return C_OK; // never reached
 }
 
 // s2polyget table id
-int S2Geometry::execGetPolygon(tLBS::Client *client) {
-    if (client->getArgs().size() != 3) {
-        return client->fail(Json::createErrorJsonObj(ERRNO_EXEC_SYNTAX_ERR, ERROR_EXEC_SYNTAX_ERR));
+int S2Geometry::execGetPolygon(Connection *conn, std::vector<std::string> args) {
+    if (args.size() != 3) {
+        return conn->fail(Json::createErrorJsonObj(ERRNO_EXEC_SYNTAX_ERR, ERROR_EXEC_SYNTAX_ERR));
     }
     Table *tableObj;
-    std::string table = client->arg(1);
-    std::string id = client->arg(2);
+    std::string table = args[1];
+    std::string id = args[2];
 
     info("s2polyget: table[") << table << "] "
           << "id[" << id << "] ";
 
-    tableObj = client->getDb()->lookupTableRead(table);
+    tableObj = conn->getDb()->lookupTableRead(table);
     if (tableObj == nullptr) {
         info("表`") << table << "`不存在";
-        return client->success(Json::createSuccessStringJsonObj());
+        return conn->success(Json::createSuccessStringJsonObj());
     }
     else {
         info("表`") << table << "`存在";
         if (tableObj->getType() != OBJ_TYPE_GEO_POLYGON) {
-            return client->fail(Json::createErrorJsonObj(ERRNO_EXEC_TABLE_TYPE_ERR, ERROR_EXEC_TABLE_TYPE_ERR));
+            return conn->fail(Json::createErrorJsonObj(ERRNO_EXEC_TABLE_TYPE_ERR, ERROR_EXEC_TABLE_TYPE_ERR));
         }
         auto indexObj = (S2Geometry::PolygonIndex *) tableObj->getData();
         std::string data = indexObj->findDataById(id);
-        return client->success(Json::createSuccessStringJsonObj(data.c_str()));
+        return conn->success(Json::createSuccessStringJsonObj(data.c_str()));
     }
     return C_OK; // never reached
 }
 
 
 // s2polyset table id data
-int S2Geometry::execSetPolygon(tLBS::Client *client) {
-    if (client->getArgs().size() != 4) {
-        return client->fail(Json::createErrorJsonObj(ERRNO_EXEC_SYNTAX_ERR, ERROR_EXEC_SYNTAX_ERR));
+int S2Geometry::execSetPolygon(Connection *conn, std::vector<std::string> args) {
+    if (args.size() != 4) {
+        return conn->fail(Json::createErrorJsonObj(ERRNO_EXEC_SYNTAX_ERR, ERROR_EXEC_SYNTAX_ERR));
     }
     Table *tableObj;
-    std::string table = client->arg(1);
-    std::string id = client->arg(2);
-    std::string data = client->arg(3);
+    std::string table = args[1];
+    std::string id = args[2];
+    std::string data = args[3];
     info("s2polyset: table[") << table << "] "
         << "id[" << id << "] "
         << "data[" << data << "] ";
 
-    tableObj = client->getDb()->lookupTableWrite(table);
+    tableObj = conn->getDb()->lookupTableWrite(table);
     if (tableObj == nullptr) {
         info("表`") << table << "`不存在";
         tableObj = Table::createS2GeoPolygonTable(
-                client->getDb()->getId(),
+                conn->getDb()->getId(),
                 table);
-        client->getDb()->tableAdd(table, tableObj);
+        conn->getDb()->tableAdd(table, tableObj);
     }
     else {
         info("表`") << table << "`存在";
         if (tableObj->getType() != OBJ_TYPE_GEO_POLYGON) {
-            return client->fail(Json::createErrorJsonObj(ERRNO_EXEC_TABLE_TYPE_ERR, ERROR_EXEC_TABLE_TYPE_ERR));
+            return conn->fail(Json::createErrorJsonObj(ERRNO_EXEC_TABLE_TYPE_ERR, ERROR_EXEC_TABLE_TYPE_ERR));
         }
     }
 
@@ -131,12 +131,12 @@ int S2Geometry::execSetPolygon(tLBS::Client *client) {
         if ((err = indexObj->addPolygon(id, data)) != C_OK) goto err;
     }
     indexObj->flush();
-    client->getDb()->incrDirty(1);
-    client->success();
+    conn->getDb()->incrDirty(1);
+    conn->success();
     return C_OK;
 
 err:
-    client->fail(Json::createErrorJsonObj(err, "添加多边形失败"));
+    conn->fail(Json::createErrorJsonObj(err, "添加多边形失败"));
     return C_ERR;
 }
 

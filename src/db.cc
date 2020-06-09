@@ -156,23 +156,23 @@ Db* Db::getDb(int id) {
 }
 
 
-int Db::execDb(tLBS::Client *client) {
-    if (client->getArgs().size() == 2) {
-        std::string arg = client->arg(1);
+int Db::execDb(Connection *conn, std::vector<std::string> args) {
+    if (args.size() == 2) {
+        std::string arg = args[1];
         int dbId = atoi(arg.c_str());
         if (dbId < dbs.size()) {
-            client->setDb(dbs[dbId]);
-            info(client->getInfo()) << "选择数据库#" << dbId;
-            client->success();
+            conn->setDb(dbs[dbId]);
+            info(conn->getInfo()) << "选择数据库#" << dbId;
+            conn->success();
         }
         else {
-            client->fail(Json::createErrorJsonObj(ERRNO_EXEC_DB_SELECT_ERR, ERROR_EXEC_DB_SELECT_ERR));
+            conn->fail(Json::createErrorJsonObj(ERRNO_EXEC_DB_SELECT_ERR, ERROR_EXEC_DB_SELECT_ERR));
         }
     }
     else {
         Json* json = Json::createSuccessNumberJsonObj();
-        json->get("data")->SetInt(client->getDb()->getId());
-        client->success(json);
+        json->get("data")->SetInt(conn->getDb()->getId());
+        conn->success(json);
     }
     return C_OK;
 }

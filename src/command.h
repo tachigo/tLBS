@@ -10,9 +10,9 @@
 #include <string>
 
 namespace tLBS {
-    class Client;
+    class Connection;
 
-    typedef int (*execCmdFallback)(Client *client);
+    typedef int (*execCmdFallback)(Connection *conn, std::vector<std::string> args);
 
     class Command {
     private:
@@ -33,11 +33,11 @@ namespace tLBS {
         static void init();
         static void free();
         static Command *findCommand(std::string name);
-        int call(Client *client);
+        int call(Connection *conn, std::vector<std::string> args);
 
 
-        static int processCommand(Client *client);
-        static int processCommandAndReset(Client *);
+        static int processCommand(Connection *conn, std::vector<std::string> args);
+        static int processCommandAndReset(Connection *conn, std::string query);
 
     };
 }

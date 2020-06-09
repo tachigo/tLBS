@@ -22,9 +22,9 @@ DECLARE_string(tcp_port); // tcp端口号
 DECLARE_int32(tcp_backlog); // tcp连接队列的长度
 DECLARE_int32(tcp_keepalive); // tcp连接保持存活时长
 
-// client
-DECLARE_int32(max_clients); // 最大同时产生的客户端连接数
-DECLARE_bool(threads_client); // 线程处理客户端
+// connection
+DECLARE_int32(max_connections); // 最大同时产生的客户端连接数
+DECLARE_bool(threads_connection); // 线程处理客户端
 
 // db
 DECLARE_int32(db_num); // 数据库的数量

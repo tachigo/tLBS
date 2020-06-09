@@ -13,6 +13,9 @@
 #include "connection.h"
 
 namespace tLBS {
+
+    class Connection;
+
     class NetTcp {
     private:
         static NetTcp *instance;
@@ -41,7 +44,7 @@ namespace tLBS {
         int getTcpFdCount();
         int *getTcpFd();
         static void acceptHandler(int fd, int flags, void *data);
-        static void acceptCommonHandler(Connection *conn, int flags, const char *ip);
+        static void acceptCommonHandler(Connection *conn, int flags);
         static int accept(int fd, char *ip, size_t ipLen, int *port);
         static int setBlock(int fd);
         static int setNonBlock(int fd);

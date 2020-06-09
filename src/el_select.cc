@@ -8,6 +8,7 @@ using namespace tLBS;
 
 
 EventLoopSelect::EventLoopSelect(EventLoop *el) {
+    UNUSED(el);
     this->readFds = *((fd_set *) malloc(sizeof(fd_set)));
     this->writeFds = *((fd_set *) malloc(sizeof(fd_set)));
     FD_ZERO(&this->readFds);
@@ -39,6 +40,9 @@ int EventLoopSelect::resize(int setSize) {
 }
 
 int EventLoopSelect::addEvent(EventLoop *el, int fd, int flags) {
+//    if (fd > FD_SETSIZE) {
+//        fatal("select fd_set fd[") << fd << "] > FD_SETSIZE[" << FD_SETSIZE << "]";
+//    }
     UNUSED(el);
     if (flags & EL_READABLE && !FD_ISSET(fd, &this->readFds)) {
         FD_SET(fd, &this->readFds);
@@ -86,9 +90,16 @@ int EventLoopSelect::poll(EventLoop *el, struct timeval *tvp)  {
             feKey++;
         }
     }
-    else {
+    else if (retVal < 0) {
+//        if (errno == EBADF) {
+//
+//        }
+        error("select error: ") << strerror(errno) << "(" << errno << ")";
 //        sleep(1);
 //        info(el->getMaxFd());
+    }
+    else {
+        info("select 0");
     }
 
     return feKey;
