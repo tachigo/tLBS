@@ -269,7 +269,7 @@ int EventLoop::delTimeEvent(long long id) {
 }
 
 void EventLoop::delFileEvent(int fd, int flags) {
-    if (fd >= this->setSize) {
+    if (fd < 0 || fd >= this->setSize) {
         return;
     }
     FileEvent *fe = &this->events[fd];
@@ -293,6 +293,9 @@ void EventLoop::delFileEvent(int fd, int flags) {
 }
 
 int EventLoop::addFileEvent(int fd, int flags, elFileFallback proc, void *data) {
+    if (fd < 0) {
+        return EL_ERR;
+    }
     if (fd >= this->setSize) {
         error("EventLoop::addFileEvent 失败: fd[") << fd << "] >= setSize[" << this->setSize << "]";
         errno = ERANGE;

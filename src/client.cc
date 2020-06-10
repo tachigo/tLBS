@@ -15,7 +15,9 @@ Client::Client(tLBS::Connection *conn) {
 }
 
 Client::~Client() {
-    delete this->conn;
+    if (this->conn != nullptr) {
+        delete this->conn;
+    }
 }
 
 Connection * Client::getConnection() {

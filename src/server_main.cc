@@ -84,6 +84,8 @@ int main(int argc, char *argv[]) {
     // cluster
     Cluster::init();
     atexit(Cluster::free);
+    // 开启尝试连接有未连接的集群节点的线程
+    ThreadPool::createSingleThread(nullptr, Cluster::threadTryConnect, nullptr);
 
     el->setBeforeSleep(beforeEventLoopSleep);
     el->start();

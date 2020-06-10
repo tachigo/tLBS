@@ -44,6 +44,7 @@ namespace tLBS {
         static void addNode(std::string nodeUrl, Connection *conn);
 
         static void tryConnect();
+        static void *threadTryConnect(void *arg);
         static void connConnectHandler(Connection *conn);
         static void connReadHandler(Connection *conn);
 
@@ -51,6 +52,8 @@ namespace tLBS {
         // exec
         // 加入集群
         static int execClusterJoin(Connection *conn, std::vector<std::string> args);
+        // 查看集群节点
+        static int execClusterNodes(Connection *conn, std::vector<std::string> args);
     };
 }
 

@@ -89,18 +89,22 @@ bool Connection::isPendingClose() {
 
 // 只能通过关闭client来关闭connection
 void Connection::close() {
-    if (!this->isHttp()) {
-        warning(this->getInfo()) << "连接关闭";
-        EventLoop *el = EventLoop::getInstance();
-        el->delFileEvent(this->fd, EL_READABLE);
-        el->delFileEvent(this->fd, EL_WRITABLE);
+    if (this->fd != -1) {
+        if (!this->isHttp()) {
+//            warning(this->getInfo()) << "连接关闭";
+            EventLoop *el = EventLoop::getInstance();
+            el->delFileEvent(this->fd, EL_READABLE);
+            el->delFileEvent(this->fd, EL_WRITABLE);
+        }
+        if (::close(this->fd) < 0) {
+            error(this->getInfo()) << "关闭出错: " << strerror(errno) << "(" << errno << ")";
+        }
+        else {
+//            warning(this->getInfo()) << "关闭成功";
+        }
+        this->fd = -1;
     }
-    if (::close(this->fd) < 0) {
-        error(this->getInfo()) << "关闭出错: " << strerror(errno) << "(" << errno << ")";
-    }
-    else {
-//        warning(this->getInfo()) << "关闭成功";
-    }
+
 }
 
 int Connection::write(const void *data, size_t dataLen) {
@@ -153,11 +157,9 @@ void* Connection::getData() {
 }
 
 int Connection::invokeHandler(ConnectionFallback handler) {
-    this->incrRefs();
     if (handler) {
         handler(this);
     }
-    this->decrRefs();
     return 1;
 }
 
