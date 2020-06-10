@@ -266,7 +266,7 @@ Http::Http(const char *name, tLBS::execHttpFallback fallback, std::vector<std::s
 }
 
 Http::~Http() {
-    info("销毁http#") << this->name;
+//    info("销毁http#") << this->name;
 }
 
 void Http::registerHttp(const char *name, tLBS::execHttpFallback fallback, const char *params,

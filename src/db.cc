@@ -27,7 +27,7 @@ Db::Db(int id) {
     this->dirty = 0;
     this->resetSaveParams();
     char buf[256];
-    snprintf(buf, sizeof(buf), "db#%0.2d", id);
+    snprintf(buf, sizeof(buf), "node[%0.5d]db#%0.2d", atoi(FLAGS_tcp_port.c_str()), id);
     this->info = buf;
     this->lastSave = time(nullptr);
     this->saving = false;
@@ -98,6 +98,13 @@ void Db::init() {
         // 如果没有配置过数据文件存放的根路径 配置为默认的根路径
         FLAGS_db_root = getAbsolutePath("../data/");
     }
+    const char *dbDataRoot = FLAGS_db_root.c_str();
+    if (access(dbDataRoot, F_OK) != 0) {
+        // 不存在
+        if (mkdir(dbDataRoot, S_IXUSR | S_IWUSR | S_IRUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)) {
+            fatal("无法创建数据库目录: ") << strerror(errno);
+        }
+    }
     warning("db root: ") << FLAGS_db_root;
     for (int i = 0; i < FLAGS_db_num; i++) {
         Db *db = new Db(i);
@@ -130,6 +137,28 @@ void Db::free() {
 
 time_t Db::getLastSave() {
     return this->lastSave;
+}
+
+void* Db::threadProcess(void *arg) {
+    UNUSED(arg);
+    while (true) {
+        sleep(1);
+        Server *server = Server::getInstance();
+        for (int i = 0; i < FLAGS_db_num; i++) {
+            Db *db = dbs[i];
+            std::vector<SaveParam *> dbSaveParams = db->getSaveParams();
+            for (int j = 0; j < dbSaveParams.size(); j++) {
+                SaveParam *sp = dbSaveParams[j];
+                if (db->getDirty() >= sp->getChanges() &&
+                    server->getUnixTime() - db->getLastSave() > sp->getSeconds() ) {
+                    warning(db->getInfo()) << " " << sp->getSeconds() << "秒内有"
+                                           << sp->getChanges() << "数据变化，即将开始保存数据...";
+                    db->save();
+                    break;
+                }
+            }
+        }
+    }
 }
 
 void Db::saveAll() {
@@ -240,13 +269,13 @@ int Db::getDirty() {
 
 std::string Db::getTmpFile() {
     char tmpFile[256];
-    snprintf(tmpFile, sizeof(tmpFile), "db#%0.2d-%d.tmp", this->getId(), ::getpid());
+    snprintf(tmpFile, sizeof(tmpFile), "node[%0.5d]db#%0.2d-%d.tmp", atoi(FLAGS_tcp_port.c_str()), this->getId(), ::getpid());
     return tmpFile;
 }
 
 std::string Db::getDatFile() {
     char tmpFile[256];
-    snprintf(tmpFile, sizeof(tmpFile), "db#%0.2d.dat", this->getId());
+    snprintf(tmpFile, sizeof(tmpFile), "node[%0.5d]db#%0.2d.dat", atoi(FLAGS_tcp_port.c_str()), this->getId());
     return tmpFile;
 }
 
@@ -329,26 +358,4 @@ void Db::save() {
 end:
     this->setSaving(false);
     info(this->getInfo()) << "保存结束";
-}
-
-void Db::cron(long long id, void *data) {
-    Server *server = Server::getInstance();
-    UNUSED(id);
-    UNUSED(data);
-    // 保存数据
-    for (int i = 0; i < FLAGS_db_num; i++) {
-        Db *db = dbs[i];
-        std::vector<SaveParam *> dbSaveParams = db->getSaveParams();
-        for (int j = 0; j < dbSaveParams.size(); j++) {
-            SaveParam *sp = dbSaveParams[j];
-            if (db->getDirty() >= sp->getChanges() &&
-                server->getUnixTime() - db->getLastSave() > sp->getSeconds() ) {
-                warning(db->getInfo()) << " " << sp->getSeconds() << "秒内有"
-                    << sp->getChanges() << "数据变化，即将开始保存数据...";
-                // 异步保存数据 todo
-                db->save();
-                break;
-            }
-        }
-    }
 }

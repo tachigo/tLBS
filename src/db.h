@@ -79,7 +79,8 @@ namespace tLBS {
         static Db* getDb(int id);
         static void init();
         static void free();
-        static void cron(long long id, void *data);
+
+        static void *threadProcess(void *arg);
 
         // command
         static int execDb(Connection *conn, std::vector<std::string> args);

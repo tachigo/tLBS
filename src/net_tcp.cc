@@ -48,7 +48,7 @@ int NetTcp::v6server(char *bindAddr) {
 }
 
 int NetTcp::server(char *bindAddr, int af) {
-    int fd = -1;
+    int fd = NET_ERR;
     // 使用配置的tcp端口号
     std::string service = FLAGS_tcp_port;
     struct addrinfo hints, *serviceInfo, *p;
@@ -61,7 +61,7 @@ int NetTcp::server(char *bindAddr, int af) {
     int err;
 
     // 将主机名和服务名映射到一个地址
-    if ((err = getaddrinfo(bindAddr, service.c_str(), &hints, &serviceInfo))) {
+    if ((err = getaddrinfo(bindAddr, service.c_str(), &hints, &serviceInfo)) != NET_OK) {
         error(gai_strerror(err));
         return NET_ERR;
     }
@@ -395,7 +395,7 @@ void NetTcp::acceptHandler(int fd, int flags, void *data) {
 //        warning("接受的连接fd#") << connFd << " " << connIp << ":" << connPort;
 //        warning("fd#") << fd << " accept创建一个connFd#" << connFd;
         // 创建一个连接对象
-        acceptCommonHandler(new Connection(connFd), 0);
+        acceptCommonHandler(new Connection(connFd, ConnectionState::CONN_STATE_ACCEPTING), 0);
     }
 }
 
@@ -437,6 +437,15 @@ NetTcp::~NetTcp() {
     info("销毁tcp网络对象");
 }
 
+int NetTcp::checkError(int fd) {
+    int sockErr = 0;
+    socklen_t errLen = sizeof(sockErr);
+    if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &sockErr, &errLen) == -1) {
+        sockErr = errno;
+    }
+    return sockErr;
+}
+
 int NetTcp::peerToString(int fd, char *ip, size_t ip_len, int *port) {
     struct sockaddr_storage sa;
     socklen_t salen = sizeof(sa);
@@ -471,4 +480,83 @@ error:
     }
     if (port) *port = 0;
     return -1;
+}
+
+int NetTcp::connect(const char *addr, int port, const char *sourceAddr, int flags) {
+    int fd = NET_ERR;
+    char portStr[6];
+    struct addrinfo hints, *serviceInfo, *bServiceInfo, *p, *b;
+
+    snprintf(portStr, sizeof(portStr), "%d", port);
+    memset(&hints, 0, sizeof(hints));
+
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+
+    int err;
+    // 将主机名和服务名映射到一个地址
+    if ((err = getaddrinfo(addr, portStr, &hints, &serviceInfo))) {
+        error(gai_strerror(err));
+        return NET_ERR;
+    }
+
+    for (p = serviceInfo; p != nullptr; p = p->ai_next) {
+        if ((fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
+            continue;
+        }
+        if (this->setReuseAddr(fd) == NET_ERR) {
+            goto error;
+        }
+        if (flags & NET_CONNECT_NONBLOCK && setNonBlock(fd) != NET_OK) {
+            goto error;
+        }
+        if (sourceAddr) {
+            int bound = 0;
+            if ((err = getaddrinfo(sourceAddr, nullptr, &hints, &bServiceInfo)) != NET_OK) {
+                error(gai_strerror(err));
+                goto error;
+            }
+            for (b = bServiceInfo; b != nullptr; b = b->ai_next) {
+                if (::bind(fd, b->ai_addr, b->ai_addrlen) != -1) {
+                    bound = 1;
+                    break;
+                }
+            }
+            freeaddrinfo(bServiceInfo);
+            if (!bound) {
+                error("bind: ") << strerror(errno);
+                goto error;
+            }
+        }
+        if (::connect(fd, p->ai_addr, p->ai_addrlen) == -1) {
+            if (errno == EINPROGRESS && flags & NET_CONNECT_NONBLOCK) {
+                goto end;
+            }
+            close(fd);
+            fd = NET_ERR;
+            continue;
+        }
+
+        goto end;
+    }
+    if (p == nullptr) {
+        error("creating connect socket: ") << strerror(errno);
+    }
+
+error:
+    if (fd != NET_ERR) {
+        close(fd);
+        fd = NET_ERR;
+    }
+
+end:
+    freeaddrinfo(serviceInfo);
+
+    /* Handle best effort binding: if a binding address was used, but it is
+     * not possible to create a socket, try again without a binding address. */
+    if (fd == NET_ERR && sourceAddr && (flags & NET_CONNECT_BE_BINDING)) {
+        return connect(addr, port, nullptr, flags);
+    } else {
+        return fd;
+    }
 }

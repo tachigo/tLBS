@@ -8,6 +8,10 @@
 #define NET_OK 0
 #define NET_ERR -1
 
+#define NET_CONNECT_NONE 0
+#define NET_CONNECT_NONBLOCK 1
+#define NET_CONNECT_BE_BINDING 2 /* Best effort binding. */
+
 #include <netdb.h>
 #include "el.h"
 #include "connection.h"
@@ -51,6 +55,11 @@ namespace tLBS {
         static int setNoDelay(int fd, int val);
         static int setKeepalive(int fd, int interval);
         static int peerToString(int fd, char *ip, size_t ip_len, int *port);
+        static int checkError(int fd);
+
+
+        // connect
+        int connect(const char *addr, int port, const char *sourceAddr, int flags);
 
 
         // threads

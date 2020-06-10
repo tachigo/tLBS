@@ -8,6 +8,7 @@
 #include "http.h"
 #include "command.h"
 #include "threadpool_c.h"
+#include "net_tcp.h"
 #include <unistd.h>
 #include <cerrno>
 
@@ -26,10 +27,10 @@ bool Connection::isHttp() {
     return this->http;
 }
 
-Connection::Connection(int fd) {
+Connection::Connection(int fd, ConnectionState state) {
     this->id = ++Connection::nextConnectionId;
     this->fd = fd;
-    this->state = ConnectionState::CONN_STATE_ACCEPTING;
+    this->state = state;
     this->flags = CONN_FLAGS_NONE;
     this->lastErrno = 0;
     this->refs = 0;
@@ -53,6 +54,10 @@ int Connection::getFd() {
     return this->fd;
 }
 
+void Connection::setFd(int fd) {
+    this->fd = fd;
+}
+
 void Connection::incrRefs() {
     this->refs++;
 }
@@ -63,6 +68,10 @@ void Connection::decrRefs() {
 
 int Connection::getRefs() {
     return this->refs;
+}
+
+void Connection::setInfo(std::string info) {
+    this->info = info;
 }
 
 std::string Connection::getInfo() {
@@ -81,7 +90,7 @@ bool Connection::isPendingClose() {
 // 只能通过关闭client来关闭connection
 void Connection::close() {
     if (!this->isHttp()) {
-//        warning(this->getInfo()) << "非HTTP连接关闭";
+        warning(this->getInfo()) << "连接关闭";
         EventLoop *el = EventLoop::getInstance();
         el->delFileEvent(this->fd, EL_READABLE);
         el->delFileEvent(this->fd, EL_WRITABLE);
@@ -118,6 +127,10 @@ int Connection::getLastErrno() {
     return this->lastErrno;
 }
 
+void Connection::setLastErrno(int lastErrno) {
+    this->lastErrno = lastErrno;
+}
+
 Connection::~Connection() {
 //    info("销毁") << this->getInfo();
 }
@@ -130,6 +143,15 @@ void Connection::setState(ConnectionState state) {
     this->state = state;
 }
 
+
+void Connection::setData(void *data) {
+    this->data = data;
+}
+
+void* Connection::getData() {
+    return this->data;
+}
+
 int Connection::invokeHandler(ConnectionFallback handler) {
     this->incrRefs();
     if (handler) {
@@ -139,26 +161,26 @@ int Connection::invokeHandler(ConnectionFallback handler) {
     return 1;
 }
 
-//int Connection::setConnHandler(tLBS::ConnectionFallback handler) {
-//    EventLoop *el = EventLoop::getInstance();
-//    if (handler == this->getConnHandler()) {
-//        // error(this->getInfo()) << "重复设置connection handler";
-//        return C_OK;
-//    }
-//    this->connHandler = handler;
-//    if (!this->connHandler) {
-//        el->delFileEvent(this->getFd(), EL_READABLE);
-//    }
-//    else {
-//        el->addFileEvent(this->getFd(), EL_READABLE, eventHandler, this);
-//    }
-//    return C_OK;
-//}
-//
-//
-//ConnectionFallback Connection::getConnHandler() {
-//    return this->connHandler;
-//}
+int Connection::setConnHandler(tLBS::ConnectionFallback handler) {
+    EventLoop *el = EventLoop::getInstance();
+    if (handler == this->getConnHandler()) {
+        error(this->getInfo()) << "重复设置connection handler";
+        return C_OK;
+    }
+    this->connHandler = handler;
+    if (!this->connHandler) {
+        el->delFileEvent(this->getFd(), EL_WRITABLE);
+    }
+    else {
+        el->addFileEvent(this->getFd(), EL_WRITABLE, eventHandler, this);
+    }
+    return C_OK;
+}
+
+
+ConnectionFallback Connection::getConnHandler() {
+    return this->connHandler;
+}
 
 int Connection::setWriteHandler(ConnectionFallback handler) {
     EventLoop *el = EventLoop::getInstance();
@@ -212,12 +234,27 @@ void Connection::setFlags(int flags) {
 void Connection::eventHandler(int fd, int flags, void *data) {
     UNUSED(fd);
     auto *conn = (Connection *)data;
-//    if (conn->isPendingClose() && conn->getRefs() == 0) {
-////        info(conn->getInfo()) << "计划关闭...";
-//        conn->close();
-//        delete conn;
-//        return;
-//    }
+
+    if (conn->getState() == ConnectionState::CONN_STATE_CONNECTING && (flags & EL_WRITABLE) && (conn->getConnHandler() != nullptr)) {
+        if (NetTcp::checkError(fd)) {
+            conn->setLastErrno(errno);
+            conn->setState(ConnectionState::CONN_STATE_ERROR);
+        }
+        else {
+            // 设置为已连接
+            conn->setState(ConnectionState::CONN_STATE_CONNECTED);
+        }
+
+        if (!conn->getWriteHandler()) {
+            EventLoop *el = EventLoop::getInstance();
+            el->delFileEvent(conn->getFd(), EL_WRITABLE);
+        }
+
+        if (!conn->invokeHandler(conn->getConnHandler())) {
+            return;
+        }
+        conn->setConnHandler(nullptr);
+    }
 
     int callRead = (flags & EL_READABLE) && conn->getReadHandler();
     int callWrite = (flags & EL_WRITABLE) && conn->getWriteHandler();
@@ -234,11 +271,6 @@ void Connection::eventHandler(int fd, int flags, void *data) {
             return;
         }
     }
-//    if (conn->isPendingClose() && conn->getRefs() == 0) {
-////        info(conn->getInfo()) << "计划关闭...";
-//        conn->close();
-//        delete conn;
-//    }
 }
 
 
@@ -356,7 +388,6 @@ void * Connection::threadProcess(void *arg) {
 
 
 void Connection::connReadHandler(Connection *conn) {
-//    conn->setReadHandler(nullptr);
     if (conn->getState() == ConnectionState::CONN_STATE_CLOSED) {
         return;
     }
@@ -404,7 +435,6 @@ void Connection::connReadHandler(Connection *conn) {
             }
         }
     }
-//    */
     if (totalRead == 0) {
         warning(conn->getInfo()) << "读取数据长度为0, " << conn->getInfo() << "准备关闭";
         conn->pendingClose();

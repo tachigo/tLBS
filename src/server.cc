@@ -15,7 +15,7 @@
 
 using namespace tLBS;
 
-DEFINE_string(pid_file, "tLBS-server.pid", "PID进程锁文件");
+//DEFINE_string(pid_file, "tLBS-server.pid", "PID进程锁文件");
 DEFINE_bool(daemonize, false, "是否以守护进程方式启动");
 DEFINE_int32(server_hz, 10, "server时间事件每秒执行多少次");
 
@@ -37,7 +37,7 @@ Server::Server() {
     this->daemonized = FLAGS_daemonize;
     this->cronHz = FLAGS_server_hz;
     this->binRoot = FLAGS_bin_root;
-    this->pidFile = getAbsolutePath("../run/") + FLAGS_pid_file;
+    this->pidFile = std::string(getAbsolutePath("../run/")) + "tLBS-server#" + std::to_string(::getpid()) + ".pid";
     this->isParentProcess = true;
 }
 
@@ -88,7 +88,9 @@ void Server::daemonize() {
     // 子 脱离会话
     this->isParentProcess = false;
     setsid();
+    // 重新设置pid相关
     this->pid = ::getpid();
+    this->pidFile = std::string(getAbsolutePath("../run/")) + "tLBS-server#" + std::to_string(::getpid()) + ".pid";
     info("将进程变成守护进程");
     warning("守护进程#") << this->pid;
 }
@@ -118,8 +120,8 @@ std::string Server::getPidFile() {
 }
 
 void Server::createPidFile() {
-    info("创建PID进程锁文件: ") << this->getPidFile();
     std::string pid_file = this->getPidFile();
+    info("创建PID进程锁文件: ") << pid_file;
     std::ofstream ofs;
     ofs.open(pid_file, std::ios::out);
     ofs << this->pid << std::endl;
@@ -127,8 +129,8 @@ void Server::createPidFile() {
 }
 
 void Server::deletePidFile() {
-    info("删除PID进程锁文件: ") << this->getPidFile();
     std::string pid_file = this->getPidFile();
+    info("删除PID进程锁文件: ") << pid_file;
     unlink(pid_file.c_str());
 }
 

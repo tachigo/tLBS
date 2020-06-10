@@ -61,12 +61,8 @@ Config::Config() {
                     val += *p;
                     p++;
                 }
-//                info("配置" + key) << " = " << val;
                 // 解析支持的配置
-                if (key == "pid_file") {
-                    FLAGS_pid_file = val;
-                }
-                else if (key == "daemonize") {
+                if (key == "daemonize") {
                     if (val == "yes") {
                         FLAGS_daemonize = true;
                     }
@@ -77,27 +73,22 @@ Config::Config() {
                 else if (key == "server_hz") {
                     std::istringstream is(val);
                     is >> FLAGS_server_hz;
-//                    info(key) << FLAGS_server_hz;
                 }
                 else if (key == "tcp_port") {
                     std::istringstream is(val);
                     is >> FLAGS_tcp_port;
-//                    info(key) << FLAGS_tcp_port;
                 }
                 else if (key == "tcp_backlog") {
                     std::istringstream is(val);
                     is >> FLAGS_tcp_backlog;
-//                    info(key) << FLAGS_tcp_backlog;
                 }
                 else if (key == "tcp_keepalive") {
                     std::istringstream is(val);
                     is >> FLAGS_tcp_keepalive;
-//                    info(key) << FLAGS_tcp_keepalive;
                 }
                 else if (key == "max_connections") {
                     std::istringstream is(val);
                     is >> FLAGS_max_connections;
-//                    info(key) << FLAGS_max_clients;
                 }
                 else if (key == "threads_connection") {
                     if (val == "yes") {
@@ -110,7 +101,9 @@ Config::Config() {
                 else if (key == "db_num") {
                     std::istringstream is(val);
                     is >> FLAGS_db_num;
-//                    info(key) << FLAGS_db_num;
+                }
+                else if (key == "cluster_nodes") {
+                    FLAGS_cluster_nodes = val;
                 }
             }
         }

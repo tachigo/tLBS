@@ -48,14 +48,15 @@ add_definitions(-DS2_USE_GFLAGS)
 include_directories (${GFLAGS_INCLUDE_DIRS} ${GLOG_INCLUDE_DIRS} ${S2GEOMETRY_INCLUDE_DIRS})
 
 # 判断操作系统
-message("CMAKE_SYSTEM_NAME ${CMAKE_SYSTEM_NAME}")
-if (CMAKE_SYSTEM_NAME MATCHES "Linux")
-    add_definitions(-DHAVE_EPOLL)
-endif()
+#message("CMAKE_SYSTEM_NAME ${CMAKE_SYSTEM_NAME}")
+#if (CMAKE_SYSTEM_NAME MATCHES "Linux")
+#    add_definitions(-DHAVE_EPOLL)
+#endif()
 
 set(SRC_SERVER_TMP
 #        src/childinfo.cc
         src/client.cc
+        src/cluster.cc
         src/command.cc
         src/common.cc
         src/config.cc

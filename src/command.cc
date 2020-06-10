@@ -8,6 +8,7 @@
 #include "db.h"
 #include "log.h"
 #include "t_s2geometry.h"
+#include "cluster.h"
 #include "server.h"
 
 #include <string>
@@ -25,7 +26,7 @@ Command::Command(const char *name, execCmdFallback fallback, int arty, const cha
 }
 
 Command::~Command() {
-    info("销毁command#") << this->name;
+//    info("销毁command#") << this->name;
 }
 
 void Command::registerCommand(const char *name, tLBS::execCmdFallback fallback, const char *params, const char *description) {
@@ -197,10 +198,10 @@ int Command::processCommandAndReset(Connection *conn, std::string query) {
     if (args.size() > 0) {
         long long start = ustime();
         if (processCommand(conn, args) == C_OK) {
-//            long long duration = ustime() - start;
-//            char msg[1024];
-//            sprintf(msg, "命令[%s]外部执行时间: %0.5f 毫秒", args[0].c_str(), (double)duration / (double)1000);
-//            info(conn->getInfo()) << msg;
+            long long duration = ustime() - start;
+            char msg[1024];
+            sprintf(msg, "命令[%s]外部执行时间: %0.5f 毫秒", args[0].c_str(), (double)duration / (double)1000);
+            info(conn->getInfo()) << msg;
             return C_OK;
         }
     }
@@ -243,6 +244,9 @@ void Command::init() {
     registerCommand("hello", Client::execHello, nullptr, "输出欢迎语");
     registerCommand("quit", Client::execQuit, nullptr, "退出连接");
     registerCommand("db", Db::execDb, nullptr, "查看当前选择的数据库编号");
+
+    // cluster
+    registerCommand("clusterjoin", Cluster::execClusterJoin, "address", "加入集群");
 
     // s2geometry
     registerCommand("s2test", S2Geometry::execTest, nullptr, "测试s2");

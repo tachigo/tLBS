@@ -11,6 +11,7 @@
 #include "command.h"
 #include "http.h"
 #include "db.h"
+#include "cluster.h"
 
 #include <csignal>
 
@@ -65,7 +66,7 @@ int main(int argc, char *argv[]) {
         fatal("添加server时间事件失败");
     }
     // 开启保存数据的线程
-//    ThreadPool::createSingleThread(nullptr, Server::threadCron, nullptr);
+    ThreadPool::createSingleThread(nullptr, Db::threadProcess, nullptr);
 
     NetTcp *net = NetTcp::getInstance();
     atexit(NetTcp::free);
@@ -80,6 +81,9 @@ int main(int argc, char *argv[]) {
             fatal("将监听接受tcp连接时的处理句柄注册到事件循环中");
         }
     }
+    // cluster
+    Cluster::init();
+    atexit(Cluster::free);
 
     el->setBeforeSleep(beforeEventLoopSleep);
     el->start();

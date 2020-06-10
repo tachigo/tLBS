@@ -44,7 +44,9 @@ namespace tLBS {
         short int refs;
         int lastErrno;
 
-//        ConnectionFallback connHandler;
+        void *data;
+
+        ConnectionFallback connHandler;
         ConnectionFallback readHandler;
         ConnectionFallback writeHandler;
 
@@ -52,25 +54,30 @@ namespace tLBS {
         bool http;
 
 
+
     public:
 
         void setHttp(bool http);
         bool isHttp();
 
-        explicit Connection(int fd); // 通过文件描述符来创建tcp连接对象
+        explicit Connection(int fd, ConnectionState state); // 通过文件描述符来创建tcp连接对象
         ~Connection();
-
+        void setInfo(std::string info);
         std::string getInfo();
         void incrRefs();
         void decrRefs();
         int getRefs();
         uint64_t getId();
         int getFd();
+        void setFd(int fd);
         int getLastErrno();
+        void setLastErrno(int lastErrno);
         int getFlags();
         void setFlags(int flags);
         ConnectionState getState();
         void setState(ConnectionState state);
+        void setData(void *data);
+        void *getData();
 
         int write(const void *data, size_t dataLen); // 向连接写数据
         int read(void *buf, size_t bufLen); // 从连接读数据
@@ -89,8 +96,9 @@ namespace tLBS {
         int setWriteHandler(ConnectionFallback handler);
         ConnectionFallback getWriteHandler();
 
-//        int setConnHandler(ConnectionFallback handler);
-//        ConnectionFallback getConnHandler();
+        int setConnHandler(ConnectionFallback handler);
+        ConnectionFallback getConnHandler();
+
 
         int invokeHandler(ConnectionFallback handler);
 

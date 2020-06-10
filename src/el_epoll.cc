@@ -66,8 +66,8 @@ int EventLoopEPoll::delEvent(EventLoop *el, int fd, int delFlags) {
 int EventLoopEPoll::poll(EventLoop *el, struct timeval *tvp) {
     int retVal, numEvents = 0;
 
-    retVal = epoll_wait(this->epfd,this->events,el->getSetSize(),
-                        tvp ? (tvp->tv_sec*1000 + tvp->tv_usec/1000) : -1);
+    retVal = epoll_wait(this->epfd, this->events, el->getSetSize(),
+                        tvp ? (tvp->tv_sec * 1000 + tvp->tv_usec / 1000) : -1);
     if (retVal > 0) {
         int j;
 

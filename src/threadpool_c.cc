@@ -166,7 +166,7 @@ void * ThreadPool::execute(void *threadPool) {
 //            info(pool->getInfo()) << "#" << pthread_self() << "执行" << arg->getClient()->getInfo();
             (*(task->fn))(task->arg);
 
-//            delete task;
+            delete task;
         }
     }
 
