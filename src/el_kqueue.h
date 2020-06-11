@@ -1,22 +1,24 @@
 //
-// Created by 刘立悟 on 2020/6/7.
+// Created by 刘立悟 on 2020/6/11.
 //
 
-#ifndef TLBS_EL_EPOLL_H
-#define TLBS_EL_EPOLL_H
+#ifndef TLBS_EL_KQUEUE_H
+#define TLBS_EL_KQUEUE_H
 
-#include <sys/epoll.h>
+#include <sys/event.h>
+#include <sys/time.h>
 #include <string>
 
 namespace tLBS {
     class EventLoop;
 
-    class EventLoopEPoll {
-        int epfd;
-        struct epoll_event *events;
+    class EventLoopKQueue {
+    private:
+        int kqfd;
+        struct kevent *events;
     public:
-        explicit EventLoopEPoll(EventLoop *el);
-        ~EventLoopEPoll();
+        explicit EventLoopKQueue(EventLoop *el);
+        ~EventLoopKQueue();
 
         int resize(int setSize);
         int addEvent(EventLoop *el, int fd, int flags);
@@ -27,5 +29,4 @@ namespace tLBS {
     };
 }
 
-
-#endif //TLBS_EL_EPOLL_H
+#endif //TLBS_EL_KQUEUE_H

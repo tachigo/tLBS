@@ -95,12 +95,8 @@ Config::Config() {
                     is >> FLAGS_max_connections;
                 }
                 else if (key == "threads_connection") {
-                    if (val == "yes") {
-                        FLAGS_threads_connection = true;
-                    }
-                    else {
-                        FLAGS_threads_connection = false;
-                    }
+                    std::istringstream is(val);
+                    is >> FLAGS_threads_connection;
                 }
                 else if (key == "db_num") {
                     std::istringstream is(val);

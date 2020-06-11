@@ -13,7 +13,7 @@
 #include <cerrno>
 
 DEFINE_int32(max_connections, 100000, "最大的同时产生的客户端连接数");
-DEFINE_bool(threads_connection, true, "是否使用线程处理客户端");
+DEFINE_int32(threads_connection, 50, "是否使用线程处理客户端");
 
 using namespace tLBS;
 
@@ -451,7 +451,7 @@ void Connection::connReadHandler(Connection *conn) {
 
     conn->setHttp(Http::connIsHttp(qb));
 
-    if (FLAGS_threads_connection) {
+    if (FLAGS_threads_connection > 0) {
         std::string taskName = "connection::threadProcess";
         taskName += conn->getInfo();
         // 使用线程处理

@@ -51,7 +51,10 @@ int main(int argc, char *argv[]) {
     sigaddset(&signal_mask, SIGPIPE);
     pthread_sigmask(SIG_BLOCK, &signal_mask, nullptr);
     // 1.初始化connection线程池
-    ThreadPool::createPool("connection", 50);
+    if (FLAGS_threads_connection > 0) {
+        ThreadPool::createPool("connection", FLAGS_threads_connection);
+    }
+
     atexit(ThreadPool::free);
     // 初始化db
     Db::init();

@@ -8,7 +8,7 @@
 using namespace tLBS;
 
 EventLoopEPoll::EventLoopEPoll(EventLoop *el) {
-    this->events = (epoll_event *)malloc(sizeof(struct epoll_event)*el->getSetSize());
+    this->events = (struct epoll_event *)malloc(sizeof(struct epoll_event)*el->getSetSize());
     this->epfd = epoll_create(1024); /* 1024 is just a hint for the kernel */
     if (this->epfd == -1) {
         ::free(this->events);
@@ -23,7 +23,7 @@ EventLoopEPoll::~EventLoopEPoll() {
 
 
 int EventLoopEPoll::resize(int setSize) {
-    this->events = (epoll_event *)realloc(this->events, sizeof(struct epoll_event)*setSize);
+    this->events = (struct epoll_event *)realloc(this->events, sizeof(struct epoll_event)*setSize);
     return 0;
 }
 
@@ -61,6 +61,7 @@ int EventLoopEPoll::delEvent(EventLoop *el, int fd, int delFlags) {
          * EPOLL_CTL_DEL. */
         epoll_ctl(this->epfd, EPOLL_CTL_DEL, fd, &ee);
     }
+    return 0;
 }
 
 int EventLoopEPoll::poll(EventLoop *el, struct timeval *tvp) {

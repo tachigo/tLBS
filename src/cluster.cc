@@ -215,7 +215,7 @@ void Cluster::connReadHandler(tLBS::Connection *conn) {
     }
 //    info(conn->getInfo()) << "读取数据长度为: " << qb.size() << "\t===================>" << std::endl
 //        << qb;
-    if (FLAGS_threads_connection) {
+    if (FLAGS_threads_connection > 0) {
         std::string taskName = "cluster::threadProcess";
         taskName += conn->getInfo();
         // 使用线程处理

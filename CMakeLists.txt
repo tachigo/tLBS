@@ -63,6 +63,7 @@ set(SRC_SERVER_TMP
         src/connection.cc
         src/db.cc
         src/el.cc
+#        src/el_kqueue.cc
 #        src/el_epoll.cc
 #        src/endianconv.cc
 #        src/geo.cc

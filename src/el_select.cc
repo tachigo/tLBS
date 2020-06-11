@@ -3,6 +3,8 @@
 //
 
 #include "el_select.h"
+#include "common.h"
+#include "log.h"
 
 using namespace tLBS;
 
@@ -20,18 +22,6 @@ EventLoopSelect::~EventLoopSelect() {
     free(&this->writeFds);
 }
 
-bool EventLoopSelect::fdRegistered(int fd) {
-    return fdReadable(fd) || fdWritable(fd);
-}
-
-bool EventLoopSelect::fdReadable(int fd) {
-    return FD_ISSET(fd, &this->readFds);
-}
-
-bool EventLoopSelect::fdWritable(int fd) {
-    return FD_ISSET(fd, &this->writeFds);
-}
-
 int EventLoopSelect::resize(int setSize) {
     if (setSize >= FD_SETSIZE) {
         return -1;
@@ -44,10 +34,10 @@ int EventLoopSelect::addEvent(EventLoop *el, int fd, int flags) {
 //        fatal("select fd_set fd[") << fd << "] > FD_SETSIZE[" << FD_SETSIZE << "]";
 //    }
     UNUSED(el);
-    if (flags & EL_READABLE && !FD_ISSET(fd, &this->readFds)) {
+    if ((flags & EL_READABLE) && !FD_ISSET(fd, &this->readFds)) {
         FD_SET(fd, &this->readFds);
     }
-    if (flags & EL_WRITABLE && !FD_ISSET(fd, &this->writeFds)) {
+    if ((flags & EL_WRITABLE) && !FD_ISSET(fd, &this->writeFds)) {
         FD_SET(fd, &this->writeFds);
     }
     return 0;
@@ -55,10 +45,10 @@ int EventLoopSelect::addEvent(EventLoop *el, int fd, int flags) {
 
 int EventLoopSelect::delEvent(EventLoop *el, int fd, int flags)  {
     UNUSED(el);
-    if (flags & EL_READABLE && FD_ISSET(fd, &this->readFds)) {
+    if ((flags & EL_READABLE) && FD_ISSET(fd, &this->readFds)) {
         FD_CLR(fd, &this->readFds);
     }
-    if (flags & EL_WRITABLE && FD_ISSET(fd, &this->writeFds)) {
+    if ((flags & EL_WRITABLE) && FD_ISSET(fd, &this->writeFds)) {
         FD_CLR(fd, &this->writeFds);
     }
     return 0;

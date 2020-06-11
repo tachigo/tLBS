@@ -2,6 +2,7 @@
 // Created by liuliwu on 2020-05-28.
 //
 
+#include "config.h"
 #include "el.h"
 #include "log.h"
 
@@ -16,12 +17,13 @@ using namespace tLBS;
         #include "el_epoll.cc"
     #else
         #ifdef HAVE_KQUEUE
-//            #include "el_kqueue.cc"
+            #include "el_kqueue.cc"
         #else
             #include "el_select.cc"
         #endif
     #endif
 #endif
+
 
 EventLoop *EventLoop::instance = nullptr;
 
@@ -327,17 +329,4 @@ void EventLoop::addFiredEvent(int key, int fd, int flags) {
 
 void EventLoop::setBeforeSleep(tLBS::elBeforeSleepFallback beforeSleepFallback) {
     this->beforeSleep = beforeSleepFallback;
-}
-
-
-bool EventLoop::fdRegistered(int fd) {
-    return this->getHandler()->fdRegistered(fd);
-}
-
-bool EventLoop::fdReadable(int fd) {
-    return this->getHandler()->fdReadable(fd);
-}
-
-bool EventLoop::fdWritable(int fd) {
-    return this->getHandler()->fdWritable(fd);
 }

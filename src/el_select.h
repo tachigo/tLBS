@@ -27,19 +27,11 @@ namespace tLBS {
         ~EventLoopSelect();
 
         int resize(int setSize);
-
         int addEvent(EventLoop *el, int fd, int flags);
-
         int delEvent(EventLoop *el, int fd, int flags);
-
-
         int poll(EventLoop *el, struct timeval *tvp);
 
         static std::string getName();
-
-        bool fdRegistered(int fd);
-        bool fdReadable(int fd);
-        bool fdWritable(int fd);
     };
 }
 

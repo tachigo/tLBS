@@ -5,6 +5,7 @@
 #ifndef TLBS_EL_H
 #define TLBS_EL_H
 
+#include "config.h"
 #include "common.h"
 #include <string>
 
@@ -50,8 +51,8 @@
         #define EventLoopHandler EventLoopEPoll
     #else
         #ifdef HAVE_KQUEUE
-//            #include "el_kqueue.h"
-//            #define EventLoopHandler EventLoopKqueue
+            #include "el_kqueue.h"
+            #define EventLoopHandler EventLoopKQueue
         #else
             #include "el_select.h"
             #define EventLoopHandler EventLoopSelect
@@ -144,10 +145,6 @@ namespace tLBS {
         void addFiredEvent(int key, int fd, int flags);
 
         void setBeforeSleep(elBeforeSleepFallback beforeSleepFallback);
-
-        bool fdRegistered(int fd);
-        bool fdReadable(int fd);
-        bool fdWritable(int fd);
     };
 }
 

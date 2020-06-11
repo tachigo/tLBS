@@ -28,11 +28,11 @@
 //#ifdef __linux__
 //#define HAVE_EPOLL 1
 //#endif
-//
-//#if (defined(__APPLE__) && defined(MAC_OS_X_VERSION_10_6)) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined (__NetBSD__)
-//#define HAVE_KQUEUE 1
-//#endif
-//
+
+#if (defined(__APPLE__) && defined(MAC_OS_X_VERSION_10_6)) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined (__NetBSD__)
+#define HAVE_KQUEUE 1
+#endif
+
 //#ifdef __sun
 //#include <sys/feature_tests.h>
 //#ifdef _DTRACE_VERSION
@@ -60,7 +60,7 @@ DECLARE_int32(tcp_keepalive); // tcp连接保持存活时长
 
 // connection
 DECLARE_int32(max_connections); // 最大同时产生的客户端连接数
-DECLARE_bool(threads_connection); // 线程处理客户端
+DECLARE_int32(threads_connection); // 线程处理客户端
 
 // db
 DECLARE_int32(db_num); // 数据库的数量
