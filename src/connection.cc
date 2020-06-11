@@ -383,10 +383,10 @@ void * Connection::threadProcess(void *arg) {
     Connection *conn = threadArg->getConnection();
 //    pthread_detach(pthread_self());
     if (!conn->isHttp()) {
-        Command::processCommandAndReset(conn, threadArg->getQuery());
+        Command::processCommandAndReset(conn, threadArg->getQuery(), false);
     }
     else {
-        Http::processHttpAndReset(conn, threadArg->getQuery());
+        Http::processHttpAndReset(conn, threadArg->getQuery(), false);
     }
     return (void *)0;
 }
@@ -419,7 +419,7 @@ void Connection::connReadHandler(Connection *conn) {
         else {
             if (nRead == 0) {
                 if (strlen(buf) > 0) {
-                    info(conn->getInfo()) << "被关闭？但是还是有数据: " << buf;
+                    info(conn->getInfo()) << "被断开？但是还是有数据: " << buf;
                     buf[segLen] = '\0'; // 确保最后一个字符是\0
                     // 有新的内容 追加进去
                     totalRead += strlen(buf);
@@ -427,7 +427,7 @@ void Connection::connReadHandler(Connection *conn) {
                     break;
                 }
                 else {
-                    info(conn->getInfo()) << "客户端关闭连接,准备关闭";
+                    info(conn->getInfo()) << "客户端关闭连接,准备断开";
                     conn->pendingClose();
                     return;
                 }
@@ -445,8 +445,8 @@ void Connection::connReadHandler(Connection *conn) {
         conn->pendingClose();
         return;
     } else {
-        info(conn->getInfo()) << "读取数据长度为: " << totalRead << std::endl
-            << qb;
+//        info(conn->getInfo()) << "读取数据长度为: " << totalRead << "\t===================>" << std::endl
+//            << qb;
     }
 
     conn->setHttp(Http::connIsHttp(qb));
@@ -465,10 +465,10 @@ void Connection::connReadHandler(Connection *conn) {
     }
     else {
         if (!conn->isHttp()) {
-            Command::processCommandAndReset(conn, qb);
+            Command::processCommandAndReset(conn, qb, false);
         }
         else {
-            Http::processHttpAndReset(conn, qb);
+            Http::processHttpAndReset(conn, qb, false);
         }
     }
 }

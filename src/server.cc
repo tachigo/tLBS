@@ -211,7 +211,7 @@ int Server::timeEventCron(long long id, void *data) {
     server->setCronHz(cronHz);
 
     ServerCronRunWithPeriod(5000) {
-        Cluster::tryConnect();
+        Cluster::tryReady();
     }
 
     if (server->getShutdownAsap()) {

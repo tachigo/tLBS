@@ -26,15 +26,19 @@ namespace tLBS {
         std::vector<std::string> params;
         std::string description; // 描述
         bool needSpecifiedDb;
-        static void registerHttp(const char *name, execHttpFallback fallback, const char *params, const char *description, bool needSpecifiedDb);
+        bool clusterBroadcast; // 是否集群广播
+
+
+        static void registerHttp(const char *name, execHttpFallback fallback, const char *params, const char *description, bool needSpecifiedDb, bool needClusterBroadcast);
         static int parseQueryBuff(const char *line, std::string *method, std::string *path, std::map<std::string, std::string> *params);
     public:
-        Http(const char *name, execHttpFallback fallback, std::vector<std::string> params, const char *description, bool needSpecifiedDb);
+        Http(const char *name, execHttpFallback fallback, std::vector<std::string> params, const char *description, bool needSpecifiedDb, bool needClusterBroadcast);
         ~Http();
         std::string getName();
         execHttpFallback getFallback();
         std::vector<std::string> getParams();
         bool isNeedSpecifiedDb();
+        bool isNeedClusterBroadcast();
 
 
         static bool connIsHttp(std::string query);
@@ -44,8 +48,8 @@ namespace tLBS {
         static Http *findHttp(std::string name);
         int call(Connection *conn, std::vector<std::string> args);
 
-        static int processHttp(Connection *conn, std::vector<std::string> args);
-        static int processHttpAndReset(Connection *conn, std::string query);
+        static int processHttp(Connection *conn, std::vector<std::string> args, bool inClusterScope);
+        static int processHttpAndReset(Connection *conn, std::string query, bool inClusterScope);
     };
 }
 

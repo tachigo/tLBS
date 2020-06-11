@@ -7,6 +7,8 @@
 #include "connection.h"
 #include "log.h"
 #include "net_tcp.h"
+#include "threadpool_c.h"
+#include "command.h"
 
 #include <regex>
 #include <sstream>
@@ -37,7 +39,7 @@ void Cluster::init() {
     else {
         warning("没有集群");
     }
-    tryConnect();
+    tryReady();
 }
 
 
@@ -56,11 +58,13 @@ void Cluster::addNode(std::string nodeUrl, tLBS::Connection *conn) {
     nodes[nodeUrl] = clusterNode;
     clusterNode->setConnection(conn);
     clusterNode->setEstablished(true);
+    clusterNode->setJoined(true);
     char buf[100];
     snprintf(buf, sizeof(buf) - 1, "cluster[%s:%d][fd:%d]", clusterNode->getIp().c_str(), clusterNode->getPort(), conn->getFd());
     clusterNode->setInfo(buf);
     conn->setInfo(clusterNode->getInfo());
-    warning("join cluster node: ") << clusterNode->getInfo();
+    conn->setContainer(clusterNode);
+    warning("cluster添加节点: ") << clusterNode->getInfo();
 }
 
 
@@ -77,7 +81,7 @@ void Cluster::addNode(std::string nodeUrl) {
     is >> port;
     auto clusterNode = new ClusterNode(ip, port);
     nodes[nodeUrl] = clusterNode;
-    info("config cluster node: ") << clusterNode->getInfo() << " going to join...";
+    info("配置cluster节点: ") << clusterNode->getInfo() << "准备加入...";
 }
 
 void Cluster::connConnectHandler(tLBS::Connection *conn) {
@@ -101,14 +105,13 @@ void Cluster::connConnectHandler(tLBS::Connection *conn) {
 }
 
 
-void Cluster::connReadClusterJoinHandler(tLBS::Connection *conn) {
+int Cluster::connRead(Connection *conn, std::string *qb) {
     if (conn->getState() == ConnectionState::CONN_STATE_CLOSED) {
-        return;
+        return C_ERR;
     }
     auto node = (ClusterNode *)conn->getContainer();
     int segLen = (1024); // 32M
     int totalRead = 0;
-    std::string qb;
     char buf[segLen];
     while (true) {
         // 每次读出一部分
@@ -119,7 +122,7 @@ void Cluster::connReadClusterJoinHandler(tLBS::Connection *conn) {
 //                info(conn->getInfo()) << "已读取(" << totalRead << "): " << qb;
                 error(conn->getInfo()) << "读取数据错误: " << strerror(conn->getLastErrno()) << "(" << conn->getLastErrno() << ")";
                 node->closeConnection();
-                return;
+                return C_ERR;
             }
             else {
 //                error(conn->getInfo()) << "读取数据错误: " << strerror(conn->getLastErrno()) << "(" << conn->getLastErrno() << ")";
@@ -133,139 +136,152 @@ void Cluster::connReadClusterJoinHandler(tLBS::Connection *conn) {
                     buf[segLen] = '\0'; // 确保最后一个字符是\0
                     // 有新的内容 追加进去
                     totalRead += strlen(buf);
-                    qb += buf;
+                    *qb += buf;
                     break;
                 }
                 else {
                     info(conn->getInfo()) << "客户端关闭连接,节点准备断开";
                     node->closeConnection();
-                    return;
+                    return C_ERR;
                 }
             }
             else if (strlen(buf) > 0) {
                 buf[segLen] = '\0'; // 确保最后一个字符是\0
                 // 有新的内容 追加进去
                 totalRead += strlen(buf);
-                qb += std::string(buf);
+                *qb += std::string(buf);
             }
         }
     }
     if (totalRead == 0) {
-        warning(conn->getInfo()) << "读取数据长度为0, " << conn->getInfo() << "准备关闭";
+        warning(conn->getInfo()) << "读取数据长度为0, " << conn->getInfo() << "准备断开";
         node->closeConnection();
+        return C_ERR;
+    }
+
+    return C_OK;
+}
+
+void Cluster::connReadClusterJoinHandler(tLBS::Connection *conn) {
+    auto node = (ClusterNode *)conn->getContainer();
+    std::string qb = "";
+    if (connRead(conn, &qb) != C_OK) {
         return;
-    } else {
-        info(conn->getInfo()) << "读取数据长度为: " << totalRead << std::endl
-            << qb;
+    }
+//    info(conn->getInfo()) << "读取数据长度为: " << qb.size() << "\t===================>" << std::endl
+//        << qb;
+
+    auto json = new Json(qb);
+    if (*(json->get("data")) == "OK") {
+        warning(conn->getInfo()) << "成功加入集群";
+        node->setJoined(true);
+        conn->setReadHandler(nullptr);
+    }
+    else {
+        warning(conn->getInfo()) << "加入集群失败";
+        node->setJoined(false);
+        conn->setReadHandler(nullptr);
     }
 }
 
+Cluster::ThreadArg::ThreadArg(tLBS::Connection *conn, std::string query) {
+    this->connection = conn;
+    this->query = query;
+}
+
+Connection* Cluster::ThreadArg::getConnection() {
+    return this->connection;
+}
+
+std::string Cluster::ThreadArg::getQuery() {
+    return this->query;
+}
+
+void * Cluster::threadProcess(void *arg) {
+    auto threadArg = (ThreadArg *)arg;
+    Connection *conn = threadArg->getConnection();
+//    pthread_detach(pthread_self());
+    Command::processCommandAndReset(conn, threadArg->getQuery(), true);
+    return (void *)0;
+}
+
+
+
 // 读取连接的其他节点发送过来的数据
 void Cluster::connReadHandler(tLBS::Connection *conn) {
-    if (conn->getState() == ConnectionState::CONN_STATE_CLOSED) {
+    std::string qb = "";
+    if (connRead(conn, &qb) != C_OK) {
         return;
     }
-    auto node = (ClusterNode *)conn->getContainer();
-    int segLen = (1024); // 32M
-    int totalRead = 0;
-    std::string qb;
-    char buf[segLen];
-    while (true) {
-        // 每次读出一部分
-        memset(buf, 0, segLen);
-        int nRead = conn->read(buf, segLen);
-        if (nRead == -1) {
-            if (conn->getLastErrno() > 0) {
-//                info(conn->getInfo()) << "已读取(" << totalRead << "): " << qb;
-                error(conn->getInfo()) << "读取数据错误: " << strerror(conn->getLastErrno()) << "(" << conn->getLastErrno() << ")";
-                node->closeConnection();
-                return;
-            }
-            else {
-//                error(conn->getInfo()) << "读取数据错误: " << strerror(conn->getLastErrno()) << "(" << conn->getLastErrno() << ")";
-                break;
-            }
-        }
-        else {
-            if (nRead == 0) {
-                if (strlen(buf) > 0) {
-//                    info(conn->getInfo()) << "被关闭？但是还是有数据: " << buf;
-                    buf[segLen] = '\0'; // 确保最后一个字符是\0
-                    // 有新的内容 追加进去
-                    totalRead += strlen(buf);
-                    qb += buf;
-                    break;
-                }
-                else {
-                    info(conn->getInfo()) << "客户端关闭连接,节点准备断开";
-                    node->closeConnection();
-                    return;
-                }
-            }
-            else if (strlen(buf) > 0) {
-                buf[segLen] = '\0'; // 确保最后一个字符是\0
-                // 有新的内容 追加进去
-                totalRead += strlen(buf);
-                qb += std::string(buf);
-            }
-        }
+//    info(conn->getInfo()) << "读取数据长度为: " << qb.size() << "\t===================>" << std::endl
+//        << qb;
+    if (FLAGS_threads_connection) {
+        std::string taskName = "cluster::threadProcess";
+        taskName += conn->getInfo();
+        // 使用线程处理
+        ThreadPool::getPool("connection")
+                ->enqueueTask(Cluster::threadProcess, (void *)new ThreadArg(conn, qb), taskName);
     }
-    if (totalRead == 0) {
-        warning(conn->getInfo()) << "读取数据长度为0, " << conn->getInfo() << "准备关闭";
-        node->closeConnection();
-        return;
-    } else {
-        info(conn->getInfo()) << "读取数据长度为: " << totalRead << std::endl
-            << qb;
+    else {
+        Command::processCommandAndReset(conn, qb, true);
     }
 }
 
 void Cluster::connWriteHandler(tLBS::Connection *conn) {
-    conn->setWriteHandler(nullptr);
+//    conn->setWriteHandler(nullptr);
 }
 
-void Cluster::tryConnect() {
+void Cluster::tryReady() {
     // 尝试建立连接
     EventLoop *el = EventLoop::getInstance();
-    if (unEstablishedNodeCount > 0) {
-//        info("尝试建立尚未建立cluster节点的连接: (") << unEstablishedNodeCount << ")";
-        NetTcp *net = NetTcp::getInstance();
-        for (auto mapIter = nodes.begin(); mapIter != nodes.end(); mapIter++) {
-            auto node = mapIter->second;
-            if (!node->getEstablished()) {
-                // 没有建立连接
-                int cfd = net->connect(node->getIp().c_str(), node->getPort(), nullptr, NET_CONNECT_NONBLOCK | NET_CONNECT_BE_BINDING);
-                if (cfd > 0) {
-                    auto conn = new Connection(cfd, ConnectionState::CONN_STATE_CONNECTING);
+    NetTcp *net = NetTcp::getInstance();
+    for (auto mapIter = nodes.begin(); mapIter != nodes.end(); mapIter++) {
+        auto node = mapIter->second;
+        if (!node->getEstablished()) {
+            // 没有建立连接
+            int cfd = net->connect(node->getIp().c_str(), node->getPort(), nullptr, NET_CONNECT_NONBLOCK | NET_CONNECT_BE_BINDING);
+            if (cfd > 0) {
+                auto conn = new Connection(cfd, ConnectionState::CONN_STATE_CONNECTING);
 
-                    char buf[100];
-                    snprintf(buf, sizeof(buf) - 1, "cluster[%s:%d][fd:%d]", node->getIp().c_str(), node->getPort(), conn->getFd());
-                    node->setInfo(buf);
+                char buf[100];
+                snprintf(buf, sizeof(buf) - 1, "cluster[%s:%d][fd:%d]", node->getIp().c_str(), node->getPort(), conn->getFd());
+                node->setInfo(buf);
 
-                    conn->setInfo(node->getInfo());
-                    conn->setConnHandler(connConnectHandler);
-                    conn->setContainer((void *)node);
-                    node->setConnection(conn);
-                    el->addFileEvent(cfd, EL_WRITABLE, Connection::eventHandler, conn);
-                }
+                conn->setInfo(node->getInfo());
+                conn->setContainer((void *)node);
+                node->setConnection(conn);
+                conn->setConnHandler(connConnectHandler);
             }
         }
+        else if (!node->getJoined()) {
+            // 没有加入集群
+            auto conn = node->getConnection();
+            conn->setReadHandler(connReadClusterJoinHandler);
+            joinCluster(conn);
+        }
+        else{
+            // 进行ping
+            auto conn = node->getConnection();
+            if (conn->getReadHandler() != Cluster::connReadHandler) {
+                conn->setReadHandler(Cluster::connReadHandler);
+            }
+            pingCluster(conn);
+        }
     }
-//    for (auto mapIter = nodes.begin(); mapIter != nodes.end(); mapIter++) {
-//        auto node = mapIter->second;
-//        if (node->getEstablished()) {
-//            auto conn = node->getConnection();
-//            conn->setWriteHandler(connPingHandler);
-//            el->addFileEvent(conn->getFd(), EL_WRITABLE, Connection::eventHandler, conn);
-//        }
-//    }
 }
 
 
-//void Cluster::connPingHandler(tLBS::Connection *conn) {
-//    conn->success("clusterping");
-//    conn->setWriteHandler(nullptr);
-//}
+void Cluster::broadcast(std::string cmd) {
+    for (auto mapIter = nodes.begin(); mapIter != nodes.end(); mapIter++) {
+        auto node = mapIter->second;
+        if (node->getEstablished() && node->getJoined()) {
+            // 已经建立连接且加入集群的
+            auto conn = node->getConnection();
+            conn->success(cmd.c_str());
+        }
+    }
+}
+
 
 void Cluster::free() {
     info("销毁所有cluster节点");
@@ -298,6 +314,7 @@ ClusterNode::ClusterNode(std::string ip, int port) {
     this->port = port;
     this->conn = nullptr;
     this->established = false;
+    this->joined = false;
     char buf[100];
     snprintf(buf, sizeof(buf) - 1, "cluster[%s:%d]", ip.c_str(), port);
     this->info = buf;
@@ -339,6 +356,13 @@ bool ClusterNode::getEstablished() {
     return this->established;
 }
 
+void ClusterNode::setJoined(bool joined) {
+    this->joined = joined;
+}
+
+bool ClusterNode::getJoined() {
+    return this->joined;
+}
 
 void ClusterNode::closeConnection() {
     if (this->conn != nullptr) {
@@ -347,11 +371,12 @@ void ClusterNode::closeConnection() {
         Cluster::incrUnEstablishedNodeCount();
     }
     this->established = false;
+    this->joined = false;
 }
 
 // send
 int Cluster::joinCluster(tLBS::Connection *conn) {
-    auto node = (ClusterNode *)conn->getContainer();
+    warning(conn->getInfo()) << "进行加入集群";
     char msg[1024];
     snprintf(msg, sizeof(msg) - 1, "clusterjoin %s:%s", FLAGS_tcp_host.c_str(), FLAGS_tcp_port.c_str());
     return conn->success(msg);
@@ -364,14 +389,17 @@ int Cluster::execClusterJoin(tLBS::Connection *conn, std::vector<std::string> ar
     }
     std::string addr = args[1];
     addNode(addr, conn);
-    return conn->success(Json::createSuccessStringJsonObj("clusterjoin"));
+    return conn->success(Json::createSuccessStringJsonObj("OK"));
 }
 
-// recv
-int Cluster::execClusterPing(tLBS::Connection *conn, std::vector<std::string> args) {
-    UNUSED(args);
-    return conn->success(Json::createSuccessStringJsonObj("clusterpong"));
+int Cluster::pingCluster(Connection *conn) {
+//    info(conn->getInfo()) << " ping...";
+    char msg[1024];
+    snprintf(msg, sizeof(msg) - 1, "ping %s:%s", FLAGS_tcp_host.c_str(), FLAGS_tcp_port.c_str());
+    return conn->success(msg);
 }
+
+
 
 
 // recv

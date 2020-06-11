@@ -18,6 +18,8 @@ namespace tLBS {
         // cmd
         static int execQuit(Connection *conn, std::vector<std::string> args);
         static int execHello(Connection *conn, std::vector<std::string> args);
+        static int execPing(Connection *conn, std::vector<std::string> args);
+        static int execPong(Connection *conn, std::vector<std::string> args);
     };
 }
 

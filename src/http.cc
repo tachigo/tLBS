@@ -9,6 +9,7 @@
 #include "server.h"
 #include "db.h"
 #include "t_s2geometry.h"
+#include "cluster.h"
 
 using namespace tLBS;
 
@@ -257,7 +258,8 @@ bool Http::connIsHttp(std::string query) {
 }
 
 
-Http::Http(const char *name, tLBS::execHttpFallback fallback, std::vector<std::string> params, const char *description, bool needSpecifiedDb) {
+Http::Http(const char *name, tLBS::execHttpFallback fallback, std::vector<std::string> params,
+        const char *description, bool needSpecifiedDb, bool needClusterBroadcast) {
     this->name = name;
     this->fallback = fallback;
     this->params = params;
@@ -270,7 +272,7 @@ Http::~Http() {
 }
 
 void Http::registerHttp(const char *name, tLBS::execHttpFallback fallback, const char *params,
-                        const char *description, bool needSpecifiedDb) {
+                        const char *description, bool needSpecifiedDb, bool needClusterBroadcast) {
     if (params != nullptr) {
         std::string paramsMetadata = params;
         std::regex reg(",");
@@ -279,11 +281,11 @@ void Http::registerHttp(const char *name, tLBS::execHttpFallback fallback, const
                         paramsMetadata.begin(), paramsMetadata.end(), reg, -1
                 ),
                 std::sregex_token_iterator());
-        https[name] = new Http(name, fallback, v, description, needSpecifiedDb);
+        https[name] = new Http(name, fallback, v, description, needSpecifiedDb, needClusterBroadcast);
     }
     else {
         std::vector<std::string> v;
-        https[name] = new Http(name, fallback, v, description, needSpecifiedDb);
+        https[name] = new Http(name, fallback, v, description, needSpecifiedDb, needClusterBroadcast);
     }
 }
 
@@ -303,7 +305,11 @@ bool Http::isNeedSpecifiedDb() {
     return this->needSpecifiedDb;
 }
 
-int Http::processHttp(Connection *conn, std::vector<std::string> args) {
+bool Http::isNeedClusterBroadcast() {
+    return this->clusterBroadcast;
+}
+
+int Http::processHttp(Connection *conn, std::vector<std::string> args, bool inClusterScope) {
 //    info(client->getInfo()) << "执行HTTP请求: " << client->arg(0);
     Http *http = Http::findHttp(args[0]);
     if (http == nullptr) {
@@ -316,6 +322,14 @@ int Http::processHttp(Connection *conn, std::vector<std::string> args) {
     long long start = server->getUsTime();
     int ret = http->call(conn, args);
     if (ret == C_OK) {
+        if (http->isNeedClusterBroadcast() && !inClusterScope) {
+            // 需要集群广播
+            std::string cmd = args[0];
+            for (int i = 1; i < args.size(); i++) {
+                cmd += " " + args[i];
+            }
+            Cluster::broadcast(cmd);
+        }
 //        long long duration = ustime() - start;
 //        char msg[128];
 //        sprintf(msg, "HTTP请求[%s]内部执行时间: %0.5f 毫秒", client->arg(0).c_str(), (double)duration/(double)1000);
@@ -326,7 +340,7 @@ int Http::processHttp(Connection *conn, std::vector<std::string> args) {
 }
 
 
-int Http::processHttpAndReset(Connection *conn, std::string query) {
+int Http::processHttpAndReset(Connection *conn, std::string query, bool inClusterScope) {
     // 解析参数
     std::string method = "", path = "";
     std::map<std::string, std::string> params;
@@ -379,7 +393,7 @@ int Http::processHttpAndReset(Connection *conn, std::string query) {
         }
         if (args.size() > 0) {
             long long start = ustime();
-            if (processHttp(conn, args) == C_OK) {
+            if (processHttp(conn, args, inClusterScope) == C_OK) {
                 // reset client
 //                long long duration = ustime() - start;
 //                char msg[1024];
@@ -429,6 +443,6 @@ void Http::free() {
 
 
 void Http::init() {
-    registerHttp("GET /db", Db::execDb, nullptr, "查看当前选择的数据库编号", false);
-    registerHttp("GET /s2polyget", S2Geometry::execGetPolygon, "table,id", "获取一个多边形", false);
+    registerHttp("GET /db", Db::execDb, nullptr, "查看当前选择的数据库编号", false, false);
+    registerHttp("GET /s2polyget", S2Geometry::execGetPolygon, "table,id", "获取一个多边形", false, false);
 }

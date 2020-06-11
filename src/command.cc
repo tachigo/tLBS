@@ -18,18 +18,19 @@ using namespace tLBS;
 
 std::map<std::string, Command *> Command::commands;
 
-Command::Command(const char *name, execCmdFallback fallback, int arty, const char *description) {
+Command::Command(const char *name, execCmdFallback fallback, int arty, const char *description, bool needClusterBroadcast) {
     this->name = name;
     this->fallback = fallback;
     this->arty = arty;
     this->description = description;
+    this->clusterBroadcast = needClusterBroadcast;
 }
 
 Command::~Command() {
 //    info("销毁command#") << this->name;
 }
 
-void Command::registerCommand(const char *name, tLBS::execCmdFallback fallback, const char *params, const char *description) {
+void Command::registerCommand(const char *name, tLBS::execCmdFallback fallback, const char *params, const char *description, bool needClusterBroadcast) {
     int arty = 0;
     if (params != nullptr) {
         std::string paramsMetadata = params;
@@ -41,7 +42,7 @@ void Command::registerCommand(const char *name, tLBS::execCmdFallback fallback, 
                 std::sregex_token_iterator());
         arty = v.size();
     }
-    commands[name] = new Command(name, fallback, arty, description);
+    commands[name] = new Command(name, fallback, arty, description, needClusterBroadcast);
 }
 
 std::string Command::getName() {
@@ -52,11 +53,15 @@ int Command::getArty() {
     return this->arty;
 }
 
+bool Command::isNeedClusterBroadcast() {
+    return this->clusterBroadcast;
+}
+
 execCmdFallback Command::getFallback() {
     return this->fallback;
 }
 
-int Command::processCommand(Connection *conn, std::vector<std::string> args) {
+int Command::processCommand(Connection *conn, std::vector<std::string> args, bool inClusterScope) {
 //    info(conn->getInfo()) << "执行命令: " << args[0];
     Command *command = Command::findCommand(args[0]);
     if (command == nullptr) {
@@ -69,6 +74,14 @@ int Command::processCommand(Connection *conn, std::vector<std::string> args) {
     long long start = server->getUsTime();
     int ret = command->call(conn, args);
     if (ret == C_OK) {
+        if (command->isNeedClusterBroadcast() && !inClusterScope) {
+            // 需要集群广播
+            std::string cmd = args[0];
+            for (int i = 1; i < args.size(); i++) {
+                cmd += " " + args[i];
+            }
+            Cluster::broadcast(cmd);
+        }
 //        long long duration = ustime() - start;
 //        char msg[128];
 //        sprintf(msg, "命令[%s]内部执行时间: %0.5f 毫秒", args[0].c_str(), (double)duration/(double)1000);
@@ -192,12 +205,12 @@ end:
     return argv;
 }
 
-int Command::processCommandAndReset(Connection *conn, std::string query) {
+int Command::processCommandAndReset(Connection *conn, std::string query, bool inClusterScope) {
     // 解析参数
     std::vector<std::string> args = parseQueryBuff(query.c_str());
     if (args.size() > 0) {
         long long start = ustime();
-        if (processCommand(conn, args) == C_OK) {
+        if (processCommand(conn, args, inClusterScope) == C_OK) {
             long long duration = ustime() - start;
             char msg[1024];
             sprintf(msg, "命令[%s]外部执行时间: %0.5f 毫秒", args[0].c_str(), (double)duration / (double)1000);
@@ -241,19 +254,22 @@ void Command::free() {
 }
 
 void Command::init() {
-    registerCommand("hello", Client::execHello, nullptr, "输出欢迎语");
-    registerCommand("quit", Client::execQuit, nullptr, "退出连接");
-    registerCommand("db", Db::execDb, nullptr, "查看当前选择的数据库编号");
+    registerCommand("hello", Client::execHello, nullptr, "输出欢迎语", false);
+    registerCommand("quit", Client::execQuit, nullptr, "退出连接", false);
+    registerCommand("ping", Client::execPing, nullptr, "ping", false);
+    registerCommand("pong", Client::execPong, "addr", "pong", false);
+
+    // db
+    registerCommand("db", Db::execDb, nullptr, "查看当前选择的数据库编号", false);
 
     // cluster
-    registerCommand("clusterjoin", Cluster::execClusterJoin, "address", "有节点要加入集群");
-    registerCommand("clusterping", Cluster::execClusterPing, nullptr, "集群ping");
+    registerCommand("clusterjoin", Cluster::execClusterJoin, "address", "有节点要加入集群", false);
 
     // s2geometry
-    registerCommand("s2test", S2Geometry::execTest, nullptr, "测试s2");
-    registerCommand("s2polyset", S2Geometry::execSetPolygon, "table,id,data", "添加一个多边形");
-    registerCommand("s2polyget", S2Geometry::execGetPolygon, "table,id", "获取一个多边形");
-    registerCommand("s2polydel", S2Geometry::execDelPolygon, "table,id", "删除一个多边形");
+    registerCommand("s2test", S2Geometry::execTest, nullptr, "测试s2", false);
+    registerCommand("s2polyset", S2Geometry::execSetPolygon, "table,id,data", "添加一个多边形", true);
+    registerCommand("s2polyget", S2Geometry::execGetPolygon, "table,id", "获取一个多边形", false);
+    registerCommand("s2polydel", S2Geometry::execDelPolygon, "table,id", "删除一个多边形", true);
 
 
 }

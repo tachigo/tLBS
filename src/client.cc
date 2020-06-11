@@ -5,6 +5,7 @@
 #include "client.h"
 #include "connection.h"
 #include "log.h"
+#include "config.h"
 
 using namespace tLBS;
 
@@ -19,6 +20,20 @@ int Client::execQuit(tLBS::Connection *conn, std::vector<std::string> args) {
 
 int Client::execHello(tLBS::Connection *conn, std::vector<std::string> args) {
     UNUSED(args);
-    conn->success("+OK Hello! 你好啊!~👋");
-    return C_OK;
+    return conn->success("+OK Hello! 你好啊!~👋");
+}
+
+
+int Client::execPing(Connection *conn, std::vector<std::string> args) {
+    UNUSED(args);
+    char msg[1024];
+    snprintf(msg, sizeof(msg) - 1, "pong %s:%s", FLAGS_tcp_host.c_str(), FLAGS_tcp_port.c_str());
+    return conn->fail(msg);
+}
+
+int Client::execPong(Connection *conn, std::vector<std::string> args) {
+    UNUSED(conn);
+    UNUSED(args);
+    // 不做任何处理
+    return C_ERR;
 }
