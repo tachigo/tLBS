@@ -246,7 +246,8 @@ void Command::init() {
     registerCommand("db", Db::execDb, nullptr, "查看当前选择的数据库编号");
 
     // cluster
-    registerCommand("clusterjoin", Cluster::execClusterJoin, "address", "加入集群");
+    registerCommand("clusterjoin", Cluster::execClusterJoin, "address", "有节点要加入集群");
+    registerCommand("clusterping", Cluster::execClusterPing, nullptr, "集群ping");
 
     // s2geometry
     registerCommand("s2test", S2Geometry::execTest, nullptr, "测试s2");

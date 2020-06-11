@@ -12,6 +12,7 @@
 
 // 最小保留的文件描述符数
 #define MIN_REVERSED_FDS 32
+#define MAX_CONNECTIONS_PER_CLOCK_TICK 200
 // 计划关闭
 #define CONN_FLAGS_NONE 0
 #define CONN_FLAGS_PENDING_CLOSE 1
@@ -36,6 +37,7 @@ namespace tLBS {
     class Connection {
     private:
         static _Atomic uint64_t nextConnectionId;
+        static std::vector<Connection *> connections;
         uint64_t id;
         std::string info;
         int fd; // 连接的文件描述符
@@ -44,7 +46,7 @@ namespace tLBS {
         short int refs;
         int lastErrno;
 
-        void *data;
+        void *container;
 
         ConnectionFallback connHandler;
         ConnectionFallback readHandler;
@@ -52,8 +54,6 @@ namespace tLBS {
 
         Db *db; // 客户端连接的库
         bool http;
-
-
 
     public:
 
@@ -76,8 +76,8 @@ namespace tLBS {
         void setFlags(int flags);
         ConnectionState getState();
         void setState(ConnectionState state);
-        void setData(void *data);
-        void *getData();
+        void setContainer(void *container);
+        void *getContainer();
 
         int write(const void *data, size_t dataLen); // 向连接写数据
         int read(void *buf, size_t bufLen); // 从连接读数据
@@ -89,6 +89,9 @@ namespace tLBS {
         static void connReadHandler(Connection *conn);
         static void *threadProcess(void *arg);
         static void adjustMaxConnections();
+        static void destroyConnectionsIfNeed();
+        static void destroyConnections();
+        static int getConnectionsSize();
 
 
         int setReadHandler(ConnectionFallback handler);

@@ -32,7 +32,7 @@ Db::Db(int id) {
     this->lastSave = time(nullptr);
     this->saving = false;
     this->loading = false;
-    info("创建") << this->getInfo();
+//    info("创建") << this->getInfo();
 }
 
 Db::SaveParam::SaveParam(time_t seconds, int changes) {
@@ -49,7 +49,7 @@ int Db::SaveParam::getChanges() {
 }
 
 Db::~Db() {
-    info("销毁") << this->getInfo();
+//    info("销毁") << this->getInfo();
 }
 
 
@@ -192,7 +192,7 @@ int Db::execDb(Connection *conn, std::vector<std::string> args) {
         if (dbId < dbs.size()) {
             conn->setDb(dbs[dbId]);
             info(conn->getInfo()) << "选择数据库#" << dbId;
-            conn->success();
+            conn->success(Json::createSuccessStringJsonObj("OK"));
         }
         else {
             conn->fail(Json::createErrorJsonObj(ERRNO_EXEC_DB_SELECT_ERR, ERROR_EXEC_DB_SELECT_ERR));
@@ -292,8 +292,8 @@ void Db::load() {
     if (!ifs) {
         if (errno == ENOENT) {
             // 文件不存在
-            error("无法打开" + this->getInfo() + "磁盘数据文件" + datFile)
-                    << ": " << strerror(errno) << "(" << errno << ")";
+//            error("无法打开" + this->getInfo() + "磁盘数据文件" + datFile)
+//                    << ": " << strerror(errno) << "(" << errno << ")";
         }
         else {
             fatal("无法打开" + this->getInfo() + "磁盘数据文件" + datFile)
@@ -353,9 +353,10 @@ void Db::save() {
         goto end;
     }
     else {
-        info(this->getInfo()) << "无数据变化, 保存结束";
+        warning(this->getInfo()) << "无数据变化, 保存结束";
+        return;
     }
 end:
     this->setSaving(false);
-    info(this->getInfo()) << "保存结束";
+    warning(this->getInfo()) << "保存结束";
 }

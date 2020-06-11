@@ -6,6 +6,7 @@
 #include "log.h"
 
 #include <rapidjson/writer.h>
+#include <rapidjson/prettywriter.h>
 #include <rapidjson/stringbuffer.h>
 
 using namespace tLBS;
@@ -26,7 +27,8 @@ rapidjson::Value* Json::get(const char *key) {
 std::string Json::toString() {
     if (this->str.size() == 0) {
         rapidjson::StringBuffer buf;
-        rapidjson::Writer<rapidjson::StringBuffer> writer(buf);
+//        rapidjson::Writer<rapidjson::StringBuffer> writer(buf);
+        rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buf);
         this->doc->Accept(writer);
         this->str = std::string(buf.GetString());
     }

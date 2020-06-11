@@ -61,12 +61,6 @@ int main(int argc, char *argv[]) {
     EventLoop *el = EventLoop::create(FLAGS_max_connections);
     atexit(EventLoop::free);
     warning("i/o多路复用: " + el->getName());
-    // 主线程内执行一些和多线程无关的东西
-    if (el->addTimeEvent(1, Server::timeEventCron, nullptr) == EL_ERR) {
-        fatal("添加server时间事件失败");
-    }
-    // 开启保存数据的线程
-    ThreadPool::createSingleThread(nullptr, Db::threadProcess, nullptr);
 
     NetTcp *net = NetTcp::getInstance();
     atexit(NetTcp::free);
@@ -84,8 +78,13 @@ int main(int argc, char *argv[]) {
     // cluster
     Cluster::init();
     atexit(Cluster::free);
-    // 开启尝试连接有未连接的集群节点的线程
-    ThreadPool::createSingleThread(nullptr, Cluster::threadTryConnect, nullptr);
+
+    // 主线程内执行一些和多线程无关的东西
+    if (el->addTimeEvent(1, Server::timeEventCron, nullptr) == EL_ERR) {
+        fatal("添加server时间事件失败");
+    }
+    // 开启保存数据的线程
+    ThreadPool::createSingleThread(nullptr, Db::threadProcess, nullptr);
 
     el->setBeforeSleep(beforeEventLoopSleep);
     el->start();

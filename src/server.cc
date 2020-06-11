@@ -6,8 +6,8 @@
 #include "config.h"
 #include "log.h"
 #include "el.h"
-#include "db.h"
-#include "client.h"
+#include "cluster.h"
+#include "connection.h"
 
 #include <string>
 #include <fstream>
@@ -39,6 +39,7 @@ Server::Server() {
     this->binRoot = FLAGS_bin_root;
     this->pidFile = std::string(getAbsolutePath("../run/")) + "tLBS-server#" + std::to_string(::getpid()) + ".pid";
     this->isParentProcess = true;
+    this->cronLoops = 0;
 }
 
 Server::~Server() {
@@ -50,6 +51,14 @@ Server::~Server() {
 
 bool Server::getIsParentProcess() {
     return this->isParentProcess;
+}
+
+void Server::setCronLoops(int cronLoops) {
+    this->cronLoops = cronLoops;
+}
+
+int Server::getCronLoops() {
+    return this->cronLoops;
 }
 
 void Server::setExecutable(std::string executable) {
@@ -145,15 +154,19 @@ void Server::shutdown(int sig) {
             break;
         default:
             msg = "接收到shutdown信号，server准备关闭...";
-    };
-
+    }
     warning(msg);
+
     Server::getInstance()->setShutdownAsap(1);
 }
 
 
 int Server::getCronHz() {
     return this->cronHz;
+}
+
+void Server::setCronHz(int hz) {
+    this->cronHz = hz;
 }
 
 time_t Server::getUnixTime() {
@@ -186,6 +199,21 @@ int Server::timeEventCron(long long id, void *data) {
     Server *server = getInstance();
     server->updateCachedTime();
 
+    int connSize = Connection::getConnectionsSize();
+    int cronHz = server->getCronHz();
+    while (connSize / server->getCronHz()) {
+        cronHz *= 2;
+        if (cronHz > SERVER_MAX_HZ) {
+            cronHz = SERVER_MAX_HZ;
+            break;
+        }
+    }
+    server->setCronHz(cronHz);
+
+    ServerCronRunWithPeriod(5000) {
+        Cluster::tryConnect();
+    }
+
     if (server->getShutdownAsap()) {
         // 确认要关闭
         if (prepareShutdown(SERVER_SHUTDOWN_NO_FLAGS) == C_OK) {
@@ -197,9 +225,7 @@ int Server::timeEventCron(long long id, void *data) {
         }
     }
 
-//    Db::cron(id, data);
-
-    Client::unlinkIfNeed();
+    server->setCronLoops(server->getCronLoops() + 1);
 
     return 1000 / server->getCronHz();
 }
@@ -218,6 +244,8 @@ int Server::prepareShutdown(int flags) {
         server->deletePidFile();
     }
 
+    Connection::destroyConnections();
+
     return C_OK;
 }
 
@@ -226,4 +254,5 @@ void Server::free() {
 }
 
 void Server::beforeEventLoopSleep() {
+    Connection::destroyConnectionsIfNeed();
 }

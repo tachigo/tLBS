@@ -6,6 +6,7 @@
 #include "log.h"
 #include <sys/time.h>
 #include <string>
+#include <regex>
 
 void getTimeval(long *seconds, long *milliseconds) {
     struct timeval tv = {0, 0};
@@ -162,4 +163,15 @@ char *getAbsolutePath(const char *filename) {
     absPath = absPath + relPath;
 //    info("absPath: ") << absPath;
     return (char *)absPath.c_str();
+}
+
+
+std::vector<std::string> splitString(std::string str, std::string delimiter) {
+    std::regex reg(delimiter);
+    std::vector<std::string> v(
+            std::sregex_token_iterator(
+                    str.begin(), str.end(), reg, -1
+            ),
+            std::sregex_token_iterator());
+    return v;
 }

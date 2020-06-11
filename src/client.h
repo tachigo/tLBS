@@ -14,19 +14,7 @@ namespace tLBS {
     class Connection;
 
     class Client {
-
-    private:
-        static std::map<uint64_t, Client *> clients;
-
-        Connection *conn;
     public:
-        explicit Client(Connection *conn);
-        ~Client();
-        Connection *getConnection();
-        static void linkClient(Client *client);
-        static void unlinkClient(Client *client);
-        static void unlinkIfNeed();
-
         // cmd
         static int execQuit(Connection *conn, std::vector<std::string> args);
         static int execHello(Connection *conn, std::vector<std::string> args);

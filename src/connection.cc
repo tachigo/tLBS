@@ -18,6 +18,7 @@ DEFINE_bool(threads_connection, true, "是否使用线程处理客户端");
 using namespace tLBS;
 
 _Atomic uint64_t Connection::nextConnectionId = 0;
+std::vector<Connection *> Connection::connections;
 
 void Connection::setHttp(bool http) {
     this->http = http;
@@ -43,6 +44,7 @@ Connection::Connection(int fd, ConnectionState state) {
     this->db = Db::getDb(0);
 //    this->connHandler = nullptr;
 //    info("创建") << this->getInfo();
+    connections.push_back(this);
 }
 
 
@@ -80,6 +82,7 @@ std::string Connection::getInfo() {
 
 void Connection::pendingClose() {
     this->flags |= CONN_FLAGS_PENDING_CLOSE;
+    this->container = nullptr;
 //    info(this->getInfo()) << "conn pending close: " << this->flags;
 }
 
@@ -148,12 +151,12 @@ void Connection::setState(ConnectionState state) {
 }
 
 
-void Connection::setData(void *data) {
-    this->data = data;
+void Connection::setContainer(void *container) {
+    this->container = container;
 }
 
-void* Connection::getData() {
-    return this->data;
+void* Connection::getContainer() {
+    return this->container;
 }
 
 int Connection::invokeHandler(ConnectionFallback handler) {
@@ -424,7 +427,7 @@ void Connection::connReadHandler(Connection *conn) {
                     break;
                 }
                 else {
-//                    info(conn->getInfo()) << "客户端关闭连接,准备关闭";
+                    info(conn->getInfo()) << "客户端关闭连接,准备关闭";
                     conn->pendingClose();
                     return;
                 }
@@ -442,14 +445,14 @@ void Connection::connReadHandler(Connection *conn) {
         conn->pendingClose();
         return;
     } else {
-//        warning(conn->getInfo()) << "读取数据长度为: " << totalRead << std::endl
-//            << qb;
+        info(conn->getInfo()) << "读取数据长度为: " << totalRead << std::endl
+            << qb;
     }
 
     conn->setHttp(Http::connIsHttp(qb));
 
     if (FLAGS_threads_connection) {
-        std::string taskName = "connection::threadProcess ";
+        std::string taskName = "connection::threadProcess";
         taskName += conn->getInfo();
         // 使用线程处理
         ThreadPool::getPool("connection")
@@ -473,7 +476,7 @@ void Connection::connReadHandler(Connection *conn) {
 
 void Connection::adjustMaxConnections() {
     rlim_t maxFileNum = FLAGS_max_connections + MIN_REVERSED_FDS;
-    info("max fileno: ") << maxFileNum;
+//    info("max fileno: ") << maxFileNum;
     struct rlimit limit;
     if (getrlimit(RLIMIT_NOFILE, &limit) == -1) {
         warning("无法获知当前系统的 NOFILE 的限制，假设是1024个来设置 max_connections");
@@ -481,13 +484,13 @@ void Connection::adjustMaxConnections() {
     }
     else {
         rlim_t oldLimit = limit.rlim_cur;
-        info("current rlimit: ") << oldLimit;
+//        info("current rlimit: ") << oldLimit;
         if (oldLimit < maxFileNum) {
             rlim_t bestLimit;
             int setResourceLimitErrno = 0;
 
             bestLimit = maxFileNum;
-            info("best rlimit: ") << bestLimit;
+//            info("best rlimit: ") << bestLimit;
             while (bestLimit > oldLimit) {
                 // 不断地尝试setrlimit 每次递减16
                 limit.rlim_cur = bestLimit;
@@ -506,7 +509,7 @@ void Connection::adjustMaxConnections() {
             if (bestLimit < oldLimit) {
                 bestLimit = oldLimit;
             }
-            info("best rlimit: ") << bestLimit;
+//            info("best rlimit: ") << bestLimit;
             if (bestLimit < maxFileNum) {
                 int oldMaxClients = FLAGS_max_connections;
                 FLAGS_max_connections = bestLimit - MIN_REVERSED_FDS;
@@ -529,4 +532,35 @@ void Connection::adjustMaxConnections() {
         }
     }
     info("适配最大可打开文件数的限制: ") << FLAGS_max_connections;
+}
+
+
+
+void Connection::destroyConnectionsIfNeed() {
+    for (auto vecIter = connections.begin(); vecIter != connections.end();) {
+        Connection *conn = *vecIter;
+        if (conn->isPendingClose()) {
+            vecIter = connections.erase(vecIter);
+//            warning("销毁") << conn->getInfo();
+            conn->close();
+            delete conn;
+        }
+        else {
+            vecIter++;
+        }
+    }
+}
+
+void Connection::destroyConnections() {
+    for (auto vecIter = connections.begin(); vecIter != connections.end();) {
+        Connection *conn = *vecIter;
+        vecIter = connections.erase(vecIter);
+//        warning("销毁") << conn->getInfo();
+        conn->close();
+        delete conn;
+    }
+}
+
+int Connection::getConnectionsSize() {
+    return connections.size();
 }

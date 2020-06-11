@@ -74,6 +74,10 @@ Config::Config() {
                     std::istringstream is(val);
                     is >> FLAGS_server_hz;
                 }
+                else if (key == "tcp_host") {
+                    std::istringstream is(val);
+                    is >> FLAGS_tcp_host;
+                }
                 else if (key == "tcp_port") {
                     std::istringstream is(val);
                     is >> FLAGS_tcp_port;

@@ -205,10 +205,6 @@ int EventLoop::processEvents(int flags) {
 //            info("poll: ") << numEvents;
 //        }
 
-        // 上一步如果阻塞进入sleep，需要做一些清理工作
-        if (flags & EL_CALL_AFTER_SLEEP) {
-            // todo
-        }
         for (j = 0; j < numEvents; j++) {
             int fd = this->fired[j].fd;
             int firedFlags = this->fired[j].flags;

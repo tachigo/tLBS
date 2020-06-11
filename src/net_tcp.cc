@@ -18,6 +18,7 @@
 
 using namespace tLBS;
 
+DEFINE_string(tcp_host, "127.0.0.1", "tcp主机host ip");
 DEFINE_string(tcp_port, "8899", "tcp端口号");
 DEFINE_int32(tcp_backlog, 100, "tcp建立连接的队列长度");
 DEFINE_int32(tcp_keepalive, 300, "连接保持存活时长");
@@ -150,7 +151,7 @@ int NetTcp::bindAndListen() {
             this->tcpFd[this->tcpFdCount] = this->v6server(this->bindAddr[j]);
             if (this->tcpFd[this->tcpFdCount] != NET_ERR) {
                 NetTcp::setNonBlock(this->tcpFd[this->tcpFdCount]);
-                warning("创建IPv6 fd#") << this->tcpFd[this->tcpFdCount];
+                warning("创建IPv6 server fd#") << this->tcpFd[this->tcpFdCount];
                 this->tcpFdCount++;
             }
             else if (errno == EAFNOSUPPORT) {
@@ -161,7 +162,7 @@ int NetTcp::bindAndListen() {
                 this->tcpFd[this->tcpFdCount] = this->v4server(this->bindAddr[j]);
                 if (this->tcpFd[this->tcpFdCount] != NET_ERR) {
                     NetTcp::setNonBlock(this->tcpFd[this->tcpFdCount]);
-                    warning("创建IPv4 fd#") << this->tcpFd[this->tcpFdCount];
+                    warning("创建IPv4 server fd#") << this->tcpFd[this->tcpFdCount];
                     this->tcpFdCount++;
                 }
                 else if (errno == EAFNOSUPPORT) {
@@ -176,13 +177,13 @@ int NetTcp::bindAndListen() {
         else if (strchr(this->bindAddr[j], ':')) {
             this->tcpFd[this->tcpFdCount] = this->v6server(this->bindAddr[j]);
             if (this->tcpFd[this->tcpFdCount] != NET_ERR) {
-                warning("创建IPv6 fd#") << this->tcpFd[this->tcpFdCount];
+                warning("创建IPv6 server fd#") << this->tcpFd[this->tcpFdCount];
             }
         }
         else {
             this->tcpFd[this->tcpFdCount] = this->v4server(this->bindAddr[j]);
             if (this->tcpFd[this->tcpFdCount] != NET_ERR) {
-                warning("创建IPv4 fd#") << this->tcpFd[this->tcpFdCount];
+                warning("创建IPv4 server fd#") << this->tcpFd[this->tcpFdCount];
             }
         }
         if (this->tcpFd[this->tcpFdCount] == NET_ERR) {
@@ -371,7 +372,6 @@ void NetTcp::acceptCommonHandler(Connection *conn, int flags) {
 //    }
 //    info(client->getInfo()) << " accepted";
     conn->setReadHandler(Connection::connReadHandler);
-    Client::linkClient(new Client(conn));
 }
 
 void NetTcp::acceptHandler(int fd, int flags, void *data) {

@@ -132,7 +132,7 @@ int S2Geometry::execSetPolygon(Connection *conn, std::vector<std::string> args) 
     }
     indexObj->flush();
     conn->getDb()->incrDirty(1);
-    conn->success();
+    conn->success(Json::createSuccessStringJsonObj("OK"));
     return C_OK;
 
 err:

@@ -10,6 +10,9 @@
 
 #define UNUSED(V) ((void) V)
 
+#include <string>
+#include <vector>
+
 
 void getTimeval(long *seconds, long *milliseconds);
 void addMillisecondsToNow(long long milliseconds, long *sec, long *ms);
@@ -24,6 +27,9 @@ long long mstime();
 
 char *getAbsolutePath(const char *filename);
 char *trimString(const char *str1, const char *str2);
+
+
+std::vector<std::string> splitString(std::string str, std::string delimiter);
 
 
 // 定义错误码

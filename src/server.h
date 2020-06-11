@@ -10,7 +10,9 @@
 
 // server关闭的flags
 #define SERVER_SHUTDOWN_NO_FLAGS 0
+#define SERVER_MAX_HZ 500
 
+#define ServerCronRunWithPeriod(_ms_) if ((_ms_ <= 1000/server->getCronHz()) || !(server->getCronLoops()%((_ms_)/(1000/server->getCronHz()))))
 
 namespace tLBS {
     class Server {
@@ -30,6 +32,8 @@ namespace tLBS {
         long long usTime; // 微秒
         bool isParentProcess; // 是否是父进程
 
+        int cronLoops;
+
         void daemonize();
         Server();
     public:
@@ -45,19 +49,27 @@ namespace tLBS {
         void setShutdownAsap(int asap);
         int getArchBits();
         int getCronHz();
+        void setCronHz(int hz);
         bool isDaemonized();
         time_t getUnixTime();
         long long getUsTime();
         void updateCachedTime();
         void init();
+        std::string getPidFile();
+        bool getIsParentProcess();
+
+        int getCronLoops();
+        void setCronLoops(int cronLoops);
+
+
+
         static void shutdown(int sig);
         static int prepareShutdown(int flags);
         static int timeEventCron(long long id, void *data);
 
         static void beforeEventLoopSleep();
         static void free();
-        std::string getPidFile();
-        bool getIsParentProcess();
+
     };
 }
 

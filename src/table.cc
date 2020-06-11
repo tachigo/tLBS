@@ -71,9 +71,9 @@ Table* Table::parseMetadata(std::string metadata) {
     unsigned int type = atoi(v[2].c_str());
     unsigned int encoding = atoi(v[3].c_str());
     int shards = atoi(v[4].c_str());
-    info("parseMetadata: ") << db << "/"
-        << name << "/" << type << "/"
-        << encoding << "/" << shards;
+//    info("parseMetadata: ") << db << "/"
+//        << name << "/" << type << "/"
+//        << encoding << "/" << shards;
     Table *tableObj = nullptr;
     switch (encoding) {
         case ObjectEncoding::OBJ_ENCODING_S2GEOMETRY :
@@ -111,7 +111,7 @@ void Table::setLoaderHandler(tLBS::tableLoaderHandler loader) {
 
 int Table::callLoaderHandler(std::string dataRootPath) {
     if (this->loaderHandler != nullptr) {
-        info(this->getInfo()) << " 有loader句柄, 开始执行load";
+//        info(this->getInfo()) << " 有loader句柄, 开始执行load";
         return this->loaderHandler(dataRootPath, this->name, this->getShards(), this->getData());
     }
     return C_OK;
