@@ -8,7 +8,9 @@
 
 namespace tLBS {
     class MfwBusiness {
+    public:
 
+        static void init();
     };
 }
 

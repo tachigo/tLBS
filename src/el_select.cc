@@ -30,9 +30,6 @@ int EventLoopSelect::resize(int setSize) {
 }
 
 int EventLoopSelect::addEvent(EventLoop *el, int fd, int flags) {
-//    if (fd > FD_SETSIZE) {
-//        fatal("select fd_set fd[") << fd << "] > FD_SETSIZE[" << FD_SETSIZE << "]";
-//    }
     UNUSED(el);
     if ((flags & EL_READABLE) && !FD_ISSET(fd, &this->readFds)) {
         FD_SET(fd, &this->readFds);
@@ -66,8 +63,6 @@ int EventLoopSelect::poll(EventLoop *el, struct timeval *tvp)  {
             int flags = 0;
             FileEvent *fe = el->getEvent(fd);
             if (fe->flags == EL_NONE) {
-                // 0,1,2,3,4,5
-//                info(fd) << " EL_NONE";
                 continue;
             }
             if (fe->flags & EL_READABLE && FD_ISSET(fd, &this->_readFds)) {
@@ -81,15 +76,9 @@ int EventLoopSelect::poll(EventLoop *el, struct timeval *tvp)  {
         }
     }
     else if (retVal < 0) {
-//        if (errno == EBADF) {
-//
-//        }
         error("select error: ") << strerror(errno) << "(" << errno << ")";
-//        sleep(1);
-//        info(el->getMaxFd());
     }
     else {
-//        info("select 0");
     }
 
     return feKey;

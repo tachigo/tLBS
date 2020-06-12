@@ -200,7 +200,7 @@ int Db::execDb(Connection *conn, std::vector<std::string> args) {
     }
     else {
         Json* json = Json::createSuccessNumberJsonObj();
-        json->get("data")->SetInt(conn->getDb()->getId());
+        json->get("data").SetInt(conn->getDb()->getId());
         conn->success(json);
     }
     return C_OK;

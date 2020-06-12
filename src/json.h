@@ -11,13 +11,16 @@
 namespace tLBS {
     class Json {
     private:
-        rapidjson::Document* doc;
+        rapidjson::Document doc;
         std::string str;
     public:
-        Json(std::string tpl);
+        explicit Json(std::string tpl);
         ~Json();
-        rapidjson::Value *get(const char *key);
+        rapidjson::Value &get(const char *key);
         std::string toString();
+        rapidjson::Document::AllocatorType& getAllocator();
+        rapidjson::GenericValue<rapidjson::UTF8<char> >& value();
+
 
         static Json *createSuccessNumberJsonObj();
         static Json *createSuccessStringJsonObj();
@@ -28,6 +31,10 @@ namespace tLBS {
         static Json *createErrorJsonObj();
         static Json *createErrorJsonObj(int errorNo, const char *errorMsg);
         static Json *createSuccessStringJsonObj(const char *data);
+
+
+        static rapidjson::GenericStringRef<char> createString(const char *str);
+        static rapidjson::GenericStringRef<char> createString(std::string str);
     };
 }
 

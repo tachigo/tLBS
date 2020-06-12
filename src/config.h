@@ -9,25 +9,14 @@
 #include <AvailabilityMacros.h>
 #endif
 
-//#ifdef __linux__
-//#include <linux/version.h>
-//#include <features.h>
-//#endif
-//
-//#ifdef __linux__
-//#define HAVE_PROC_STAT 1
-//#define HAVE_PROC_MAPS 1
-//#define HAVE_PROC_SMAPS 1
-//#define HAVE_PROC_SOMAXCONN 1
-//#endif
-//
-//#ifdef __linux__
-//#define HAVE_MSG_NOSIGNAL 1
-//#endif
-//
-//#ifdef __linux__
-//#define HAVE_EPOLL 1
-//#endif
+#ifdef __linux__
+#include <linux/version.h>
+#include <features.h>
+#endif
+
+#ifdef __linux__
+#define HAVE_EPOLL 1
+#endif
 
 #if (defined(__APPLE__) && defined(MAC_OS_X_VERSION_10_6)) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined (__NetBSD__)
 #define HAVE_KQUEUE 1

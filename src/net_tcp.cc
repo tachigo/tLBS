@@ -318,59 +318,13 @@ int NetTcp::genericAccept(int s, struct sockaddr *sa, socklen_t *len) {
     return fd;
 }
 
-//NetTcp::CThreadCreateClientArgs::CThreadCreateClientArgs(Connection *conn, int flags) {
-//    this->conn = conn;
-//    this->flags = flags;
-//    char buf[100];
-//    snprintf(buf, sizeof(buf) - 1, "CThread::createClient[connFd:%d][flags:%d]", conn->getFd(), flags);
-//    this->info = buf;
-//}
-//
-//std::string NetTcp::CThreadCreateClientArgs::getInfo() {
-//    return this->info;
-//}
-//
-//NetTcp::CThreadCreateClientArgs::~CThreadCreateClientArgs() {
-//    info("销毁") << this->getInfo();
-//}
-//
-//Connection * NetTcp::CThreadCreateClientArgs::getConnection() {
-//    return this->conn;
-//}
-//
-//int NetTcp::CThreadCreateClientArgs::getFlags() {
-//    return this->flags;
-//}
-//
-//void * NetTcp::createClient(void *arg) {
-//    info("在线程池中创建client");
-//    auto params = (CThreadCreateClientArgs *)arg;
-//    Connection *conn = params->getConnection();
-//    int flags = params->getFlags();
-//    // 创建一个客户端连接对象
-//    auto *client = new Client(conn, flags);
-//
-//    NetTcp::setNonBlock(conn->getFd());
-//    NetTcp::setNoDelay(conn->getFd(), 1);
-//    if (FLAGS_tcp_keepalive > 0) {
-//        NetTcp::setKeepalive(conn->getFd(), FLAGS_tcp_keepalive);
-//    }
-//    Client::link(client);
-//    return (void *)0;
-//}
-
 void NetTcp::acceptCommonHandler(Connection *conn, int flags) {
-//    // 使用线程处理
-//    ThreadPool::getPool("connection")->enqueueTask(
-//            NetTcp::createClient,
-//            (void *) new CThreadCreateClientArgs(conn, flags),
-//            "NetTcp::createClient");
+    UNUSED(flags);
     NetTcp::setNonBlock(conn->getFd());
 //    NetTcp::setNoDelay(conn->getFd(), 1);
 //    if (FLAGS_tcp_keepalive > 0) {
 //        NetTcp::setKeepalive(conn->getFd(), FLAGS_tcp_keepalive);
 //    }
-//    info(client->getInfo()) << " accepted";
     conn->setReadHandler(Connection::connReadHandler);
 }
 

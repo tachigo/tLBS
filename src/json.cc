@@ -3,7 +3,6 @@
 //
 
 #include "json.h"
-#include "log.h"
 
 #include <rapidjson/writer.h>
 #include <rapidjson/prettywriter.h>
@@ -12,16 +11,19 @@
 using namespace tLBS;
 
 Json::Json(std::string tpl) {
-    this->doc = new rapidjson::Document();
-    this->doc->Parse(tpl.c_str());
+    this->doc = rapidjson::Document();
+    this->doc.Parse(tpl.c_str());
+}
+
+rapidjson::GenericValue<rapidjson::UTF8<char> >& Json::value() {
+    return this->doc;
 }
 
 Json::~Json() {
-    delete this->doc;
 }
 
-rapidjson::Value* Json::get(const char *key) {
-    return &(*this->doc)[key];
+rapidjson::Value& Json::get(const char *key) {
+    return this->doc[key];
 }
 
 std::string Json::toString() {
@@ -29,7 +31,7 @@ std::string Json::toString() {
         rapidjson::StringBuffer buf;
         rapidjson::Writer<rapidjson::StringBuffer> writer(buf);
 //        rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buf);
-        this->doc->Accept(writer);
+        this->doc.Accept(writer);
         this->str = std::string(buf.GetString());
     }
     return this->str;
@@ -61,13 +63,27 @@ Json* Json::createErrorJsonObj() {
 
 Json* Json::createErrorJsonObj(int errorNo, const char *errorMsg) {
     Json *json = createErrorJsonObj();
-    json->get("errno")->SetInt(errorNo);
-    json->get("data")->SetString(rapidjson::GenericStringRef<char>(errorMsg));
+    json->get("errno").SetInt(errorNo);
+    json->get("data").SetString(rapidjson::GenericStringRef<char>(errorMsg));
     return json;
 }
 
 Json *Json::createSuccessStringJsonObj(const char *data) {
     Json *json = createSuccessStringJsonObj();
-    json->get("data")->SetString(rapidjson::GenericStringRef<char>(data));
+    json->get("data").SetString(rapidjson::GenericStringRef<char>(data));
     return json;
+}
+
+
+rapidjson::GenericStringRef<char> Json::createString(const char *str) {
+    return rapidjson::GenericStringRef<char>(str);
+}
+
+rapidjson::GenericStringRef<char> Json::createString(std::string str) {
+    return rapidjson::GenericStringRef<char>(str.c_str());
+}
+
+
+rapidjson::Document::AllocatorType& Json::getAllocator() {
+    return this->doc.GetAllocator();
 }

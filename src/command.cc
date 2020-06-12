@@ -264,12 +264,15 @@ void Command::init() {
 
     // cluster
     registerCommand("clusterjoin", Cluster::execClusterJoin, "address", "有节点要加入集群", false);
+    registerCommand("clusternodes", Cluster::execClusterNodes, nullptr, "查询集群节点", false);
+
 
     // s2geometry
     registerCommand("s2test", S2Geometry::execTest, nullptr, "测试s2", false);
     registerCommand("s2polyset", S2Geometry::execSetPolygon, "table,id,data", "添加一个多边形", true);
     registerCommand("s2polyget", S2Geometry::execGetPolygon, "table,id", "获取一个多边形", false);
     registerCommand("s2polydel", S2Geometry::execDelPolygon, "table,id", "删除一个多边形", true);
+    registerCommand("s2build", S2Geometry::execForceBuild, "table", "强制重新构建一个索引", true);
 
 
 }

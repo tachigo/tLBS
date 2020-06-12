@@ -6,7 +6,6 @@
 #include "threadpool_c.h"
 #include "log.h"
 #include "common.h"
-#include "client.h"
 
 using namespace tLBS;
 
@@ -162,8 +161,6 @@ void * ThreadPool::execute(void *threadPool) {
 
         if ((task = pool->dequeueTask()) != nullptr) {
             // 执行任务
-//            auto arg = (Client::ThreadArg *) task->arg;
-//            info(pool->getInfo()) << "#" << pthread_self() << "执行" << arg->getClient()->getInfo();
             (*(task->fn))(task->arg);
 
             delete task;
@@ -176,7 +173,7 @@ void * ThreadPool::execute(void *threadPool) {
 
 pthread_t ThreadPool::createSingleThread(const pthread_attr_t *pthreadAttr, void *(*fn)(void *), void *arg) {
     pthread_t tid;
-    pthread_create(&tid, nullptr, fn, arg);
+    pthread_create(&tid, pthreadAttr, fn, arg);
     return tid;
 }
 

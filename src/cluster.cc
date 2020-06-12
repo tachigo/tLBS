@@ -172,7 +172,7 @@ void Cluster::connReadClusterJoinHandler(tLBS::Connection *conn) {
 //        << qb;
 
     auto json = new Json(qb);
-    if (*(json->get("data")) == "OK") {
+    if (json->get("data") == "OK") {
         warning(conn->getInfo()) << "成功加入集群";
         node->setJoined(true);
         conn->setReadHandler(nullptr);
@@ -213,8 +213,8 @@ void Cluster::connReadHandler(tLBS::Connection *conn) {
     if (connRead(conn, &qb) != C_OK) {
         return;
     }
-//    info(conn->getInfo()) << "读取数据长度为: " << qb.size() << "\t===================>" << std::endl
-//        << qb;
+    info(conn->getInfo()) << "读取数据长度为: " << qb.size() << "\t===================>" << std::endl
+        << qb;
     if (FLAGS_threads_connection > 0) {
         std::string taskName = "cluster::threadProcess";
         taskName += conn->getInfo();
@@ -258,6 +258,10 @@ void Cluster::tryReady() {
             auto conn = node->getConnection();
             conn->setReadHandler(connReadClusterJoinHandler);
             joinCluster(conn);
+        }
+        else if (!node->getSynced()) {
+            // 如果没有尝试同步过数据
+
         }
         else{
             // 进行ping
@@ -315,6 +319,7 @@ ClusterNode::ClusterNode(std::string ip, int port) {
     this->conn = nullptr;
     this->established = false;
     this->joined = false;
+    this->synced = false;
     char buf[100];
     snprintf(buf, sizeof(buf) - 1, "cluster[%s:%d]", ip.c_str(), port);
     this->info = buf;
@@ -364,6 +369,15 @@ bool ClusterNode::getJoined() {
     return this->joined;
 }
 
+
+void ClusterNode::setSynced(bool synced) {
+    this->synced = synced;
+}
+
+bool ClusterNode::getSynced() {
+    return this->synced;
+}
+
 void ClusterNode::closeConnection() {
     if (this->conn != nullptr) {
         this->conn->pendingClose();
@@ -402,9 +416,20 @@ int Cluster::pingCluster(Connection *conn) {
 
 
 
-// recv
 int Cluster::execClusterNodes(Connection *conn, std::vector<std::string> args) {
     UNUSED(args);
-
-    return conn->success(Json::createSuccessStringJsonObj("OK"));
+    Json *dataList = new Json(R"({"total": 0, "list": []})");
+    dataList->get("total").SetInt(nodes.size());
+    for (auto mapIter = nodes.begin(); mapIter != nodes.end(); mapIter++) {
+        Json *dataItem = new Json(R"({"addr": "", "established": false, "joined": false, "synced": false})");
+        auto node = mapIter->second;
+        dataItem->get("addr").SetString(Json::createString(mapIter->first));
+        dataItem->get("established").SetBool(node->getEstablished());
+        dataItem->get("joined").SetBool(node->getJoined());
+        dataItem->get("synced").SetBool(node->getSynced());
+        dataList->get("list").PushBack(dataItem->value(), dataList->getAllocator());
+    }
+    Json *response = Json::createSuccessObjectJsonObj();
+    response->get("data") = dataList->value();
+    return conn->success(response);
 }

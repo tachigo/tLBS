@@ -444,5 +444,8 @@ void Http::free() {
 
 void Http::init() {
     registerHttp("GET /db", Db::execDb, nullptr, "查看当前选择的数据库编号", false, false);
+
+    registerHttp("GET /clusternodes", Cluster::execClusterNodes, nullptr, "查询集群节点", false, false);
+
     registerHttp("GET /s2polyget", S2Geometry::execGetPolygon, "table,id", "获取一个多边形", false, false);
 }

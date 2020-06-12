@@ -337,7 +337,7 @@ int Connection::fail(const char *fmt, ...) {
     std::string str = msg;
 //    info(this->getInfo()) << "失败" << pthread_self();
     if (this->isHttp()) {
-        std::string responseHeader = "HTTP/1.0 200 OK\r\nConnection: close\r\nContent-Type: application/json;charset=utf-8\r\nContent-Length: ";
+        std::string responseHeader = "HTTP/1.0 500 OK\r\nConnection: close\r\nContent-Type: application/json;charset=utf-8\r\nContent-Length: ";
         responseHeader += std::to_string(str.size());
         responseHeader += "\r\n\r\n";
         str = responseHeader + str;
@@ -427,7 +427,7 @@ void Connection::connReadHandler(Connection *conn) {
                     break;
                 }
                 else {
-                    info(conn->getInfo()) << "客户端关闭连接,准备断开";
+//                    info(conn->getInfo()) << "客户端关闭连接,准备断开";
                     conn->pendingClose();
                     return;
                 }

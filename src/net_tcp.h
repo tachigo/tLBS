@@ -61,21 +61,6 @@ namespace tLBS {
         // connect
         int connect(const char *addr, int port, const char *sourceAddr, int flags);
 
-
-        // threads
-//        class CThreadCreateClientArgs {
-//        private:
-//            Connection *conn;
-//            int flags;
-//            std::string info;
-//        public:
-//            CThreadCreateClientArgs(Connection *conn, int flags);
-//            std::string getInfo();
-//            ~CThreadCreateClientArgs();
-//            Connection *getConnection();
-//            int getFlags();
-//        };
-//        static void *createClient(void *arg);
     };
 }
 

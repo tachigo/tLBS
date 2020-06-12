@@ -20,6 +20,7 @@ namespace tLBS {
         Connection *conn;
         bool established;
         bool joined;
+        bool synced;
     public:
         ClusterNode(std::string ip, int port);
         ~ClusterNode();
@@ -33,6 +34,8 @@ namespace tLBS {
         bool getEstablished();
         void setJoined(bool joined);
         bool getJoined();
+        void setSynced(bool synced);
+        bool getSynced();
         void closeConnection();
     };
 

@@ -55,6 +55,9 @@ namespace tLBS {
 
         // s2polydel table id
         static int execDelPolygon(Connection *conn, std::vector<std::string> args);
+
+        // s2forcebuild table
+        static int execForceBuild(Connection *conn, std::vector<std::string> args);
     };
 }
 

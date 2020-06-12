@@ -3,3 +3,10 @@
 //
 
 #include "mfw_busi.h"
+
+using namespace tLBS;
+
+
+void MfwBusiness::init() {
+    // 注册命令
+}
