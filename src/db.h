@@ -34,12 +34,12 @@ namespace tLBS {
         int id;
         std::map<std::string, Table *> tables;
         static std::vector<Db *> dbs;
-        int dirty;
-        time_t lastSave;
+//        int dirty;
         std::vector<SaveParam *> saveParams;
         std::string info;
-        bool saving;
-        bool loading;
+//        bool saving;
+//        time_t lastSave;
+//        bool loading;
     public:
         Db(int id);
         ~Db();
@@ -55,6 +55,8 @@ namespace tLBS {
         bool tableExists(std::string key);
         void tableRemove(std::string key);
 
+        std::map<std::string, Table *> getTables();
+
         std::string getTmpFile();
         std::string getDatFile();
         void load();
@@ -62,23 +64,14 @@ namespace tLBS {
         static void saveAll();
         static void loadAll();
 
-        void setSaving(bool saving);
-        bool isSaving();
-        void setLoading(bool loading);
-        bool isLoading();
         void resetSaveParams();
         void appendSaveParam(time_t seconds, int changes);
         std::vector<SaveParam *> getSaveParams();
-        time_t getLastSave();
-
-        void incrDirty(int incr);
-        void decrDirty(int decr);
-        void resetDirty();
-        int getDirty();
 
         static Db* getDb(int id);
         static void init();
         static void free();
+        static std::vector<Db *>getDbs();
 
         static void *threadProcess(void *arg);
 

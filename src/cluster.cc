@@ -9,9 +9,12 @@
 #include "net_tcp.h"
 #include "threadpool_c.h"
 #include "command.h"
+#include "db.h"
+#include "table.h"
 
 #include <regex>
 #include <sstream>
+#include <fstream>
 
 
 DEFINE_string(cluster_nodes, "", "cluster节点的链接字符串 eg. 127.0.0.1:8899;127.0.0.1:8888");
@@ -163,6 +166,7 @@ int Cluster::connRead(Connection *conn, std::string *qb) {
 }
 
 void Cluster::connReadClusterJoinHandler(tLBS::Connection *conn) {
+    conn->setReadHandler(nullptr);
     auto node = (ClusterNode *)conn->getContainer();
     std::string qb = "";
     if (connRead(conn, &qb) != C_OK) {
@@ -175,13 +179,59 @@ void Cluster::connReadClusterJoinHandler(tLBS::Connection *conn) {
     if (json->get("data") == "OK") {
         warning(conn->getInfo()) << "成功加入集群";
         node->setJoined(true);
-        conn->setReadHandler(nullptr);
     }
     else {
         warning(conn->getInfo()) << "加入集群失败";
         node->setJoined(false);
-        conn->setReadHandler(nullptr);
     }
+}
+
+void Cluster::connReadClusterSyncHandler(tLBS::Connection *conn) {
+    conn->setReadHandler(nullptr);
+    auto node = (ClusterNode *)conn->getContainer();
+    std::string qb = "";
+    if (connRead(conn, &qb) != C_OK) {
+        return;
+    }
+//    info(conn->getInfo()) << "读取数据长度为: " << qb.size() << "\t===================>" << std::endl
+//        << qb;
+
+    auto json = new Json(qb);
+    if (json->get("errno") != 0) {
+        warning(conn->getInfo()) << "获取集群数据同步信息失败";
+        node->setSynchronizing(false);
+    }
+    else {
+        warning(conn->getInfo()) << "获取集群数据同步信息成功";
+        // 遍历数据
+        const rapidjson::Value& arr = json->get("data");
+        for (auto iter = arr.Begin(); iter != arr.End(); iter++) {
+            std::vector<std::string> v = splitString(iter->GetString(), "/");
+            int dbNo = atoi(v[0].c_str());
+            std::string tableName = v[1];
+            if (dbNo >= FLAGS_db_num) {
+                error(conn->getInfo()) << "不支持的db";
+                continue;
+            }
+            Db *db = Db::getDb(dbNo);
+            Table *tableObj = db->lookupTableWrite(tableName);
+            if (tableObj == nullptr) {
+                // 如果table不存在
+                tableObj = Table::parseMetadata(iter->GetString());
+                tableObj->setVersion(0); // 重置版本号
+                db->tableAdd(tableName, tableObj);
+            }
+            // 根据版本号判断是否需要同步数据
+            int version = atoi(v[5].c_str());
+            if (version > tableObj->getVersion()) {
+                // 需要同步数据
+                info(conn->getInfo()) << "需要同步: " << iter->GetString();
+            }
+        }
+    }
+
+    // 设置为非正在同步
+//    node->setSynchronizing(false);
 }
 
 Cluster::ThreadArg::ThreadArg(tLBS::Connection *conn, std::string query) {
@@ -233,7 +283,6 @@ void Cluster::connWriteHandler(tLBS::Connection *conn) {
 
 void Cluster::tryReady() {
     // 尝试建立连接
-    EventLoop *el = EventLoop::getInstance();
     NetTcp *net = NetTcp::getInstance();
     for (auto mapIter = nodes.begin(); mapIter != nodes.end(); mapIter++) {
         auto node = mapIter->second;
@@ -256,12 +305,22 @@ void Cluster::tryReady() {
         else if (!node->getJoined()) {
             // 没有加入集群
             auto conn = node->getConnection();
-            conn->setReadHandler(connReadClusterJoinHandler);
+            if (conn->getReadHandler() != connReadClusterJoinHandler) {
+                conn->setReadHandler(connReadClusterJoinHandler);
+            }
             joinCluster(conn);
         }
         else if (!node->getSynced()) {
-            // 如果没有尝试同步过数据
-
+            if (!node->getSynchronizing()) {
+                // 设置为正在进行同步
+                node->setSynchronizing(true);
+                // 如果没有尝试同步过数据
+                auto conn = node->getConnection();
+                if (conn->getReadHandler() != connReadClusterSyncHandler) {
+                    conn->setReadHandler(connReadClusterSyncHandler);
+                }
+                syncCluster(conn);
+            }
         }
         else{
             // 进行ping
@@ -320,6 +379,7 @@ ClusterNode::ClusterNode(std::string ip, int port) {
     this->established = false;
     this->joined = false;
     this->synced = false;
+    this->synchronizing = false;
     char buf[100];
     snprintf(buf, sizeof(buf) - 1, "cluster[%s:%d]", ip.c_str(), port);
     this->info = buf;
@@ -378,6 +438,15 @@ bool ClusterNode::getSynced() {
     return this->synced;
 }
 
+void ClusterNode::setSynchronizing(bool synchronizing) {
+    this->synchronizing = synchronizing;
+}
+
+bool ClusterNode::getSynchronizing() {
+    return this->synchronizing;
+}
+
+
 void ClusterNode::closeConnection() {
     if (this->conn != nullptr) {
         this->conn->pendingClose();
@@ -386,6 +455,8 @@ void ClusterNode::closeConnection() {
     }
     this->established = false;
     this->joined = false;
+    this->synced = false;
+    this->synchronizing = false;
 }
 
 // send
@@ -413,6 +484,37 @@ int Cluster::pingCluster(Connection *conn) {
     return conn->success(msg);
 }
 
+
+// send
+int Cluster::syncCluster(tLBS::Connection *conn) {
+    char msg[1024];
+    snprintf(msg, sizeof(msg) - 1, "clustersync");
+    return conn->success(msg);
+}
+
+
+// recv
+int Cluster::execClusterSync(tLBS::Connection *conn, std::vector<std::string> args) {
+    UNUSED(args);
+    Json *response = Json::createSuccessArrayJsonObj();
+    Json *list = new Json(R"([])");
+    std::vector<Db *> dbs = Db::getDbs();
+    for (int i = 0; i < dbs.size(); i++) {
+        Db *db = dbs[i];
+        // 从文件中读取
+        std::string datFile = FLAGS_db_root + db->getDatFile();
+        std::ifstream ifs(datFile);
+        if (ifs) {
+            std::string line;
+            while (std::getline(ifs, line)) {
+                list->value().PushBack(Json::createString(line), list->getAllocator());
+            }
+            ifs.close();
+        }
+    }
+    response->get("data") = list->value();
+    return conn->success(response);
+}
 
 
 

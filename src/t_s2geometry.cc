@@ -155,7 +155,7 @@ int S2Geometry::execSetPolygon(Connection *conn, std::vector<std::string> args) 
         if ((err = indexObj->addPolygon(id, data)) != C_OK) goto err;
     }
     indexObj->flush();
-    conn->getDb()->incrDirty(1);
+    tableObj->incrDirty(1);
     conn->success();
     return C_OK;
 

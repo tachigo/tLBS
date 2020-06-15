@@ -24,14 +24,10 @@ std::vector<Db *> Db::dbs;
 
 Db::Db(int id) {
     this->id = id;
-    this->dirty = 0;
     this->resetSaveParams();
     char buf[256];
     snprintf(buf, sizeof(buf), "node[%0.5d]db#%0.2d", atoi(FLAGS_tcp_port.c_str()), id);
     this->info = buf;
-    this->lastSave = time(nullptr);
-    this->saving = false;
-    this->loading = false;
 //    info("创建") << this->getInfo();
 }
 
@@ -52,22 +48,6 @@ Db::~Db() {
 //    info("销毁") << this->getInfo();
 }
 
-
-void Db::setSaving(bool saving) {
-    this->saving = saving;
-}
-
-bool Db::isSaving() {
-    return this->saving;
-}
-
-void Db::setLoading(bool loading) {
-    this->loading = loading;
-}
-
-bool Db::isLoading() {
-    return this->loading;
-}
 
 void Db::appendSaveParam(time_t seconds, int changes) {
     this->saveParams.push_back(new Db::SaveParam(seconds, changes));
@@ -135,8 +115,8 @@ void Db::free() {
     dbs.clear();
 }
 
-time_t Db::getLastSave() {
-    return this->lastSave;
+std::vector<Db *> Db::getDbs() {
+    return dbs;
 }
 
 void* Db::threadProcess(void *arg) {
@@ -147,15 +127,24 @@ void* Db::threadProcess(void *arg) {
         for (int i = 0; i < FLAGS_db_num; i++) {
             Db *db = dbs[i];
             std::vector<SaveParam *> dbSaveParams = db->getSaveParams();
-            for (int j = 0; j < dbSaveParams.size(); j++) {
-                SaveParam *sp = dbSaveParams[j];
-                if (db->getDirty() >= sp->getChanges() &&
-                    server->getUnixTime() - db->getLastSave() > sp->getSeconds() ) {
-                    warning(db->getInfo()) << " " << sp->getSeconds() << "秒内有"
-                                           << sp->getChanges() << "数据变化，即将开始保存数据...";
-                    db->save();
-                    break;
+            std::map<std::string, Table *> tables = db->getTables();
+            bool needSave = false;
+            for (auto mapIter = tables.begin(); mapIter != tables.end(); mapIter++) {
+                std::string tableName = mapIter->first;
+                Table *tableObj = mapIter->second;
+                for (int j = 0; j < dbSaveParams.size(); j++) {
+                    SaveParam *sp = dbSaveParams[j];
+                    if (tableObj->getDirty() >= sp->getChanges() &&
+                        server->getUnixTime() - tableObj->getLastSave() > sp->getSeconds() ) {
+                        warning(tableObj->getInfo()) << " " << sp->getSeconds() << "秒内有"
+                                               << sp->getChanges() << "数据变化，即将开始保存数据...";
+                        needSave = true;
+                        break;
+                    }
                 }
+            }
+            if (needSave) {
+                db->save();
             }
         }
     }
@@ -232,6 +221,10 @@ void Db::tableRemove(std::string key) {
     }
 }
 
+std::map<std::string, Table *> Db::getTables() {
+    return this->tables;
+}
+
 Table* Db::lookupTableRead(std::string key) {
     return this->lookupTableReadWithFlags(key, DB_FLAGS_LOOKUP_NONE);
 }
@@ -250,23 +243,6 @@ Table* Db::lookupTableWriteWithFlags(std::string key, int flags) {
     return this->lookupTable(key, flags);
 }
 
-void Db::incrDirty(int incr) {
-    this->dirty += incr;
-}
-
-void Db::decrDirty(int decr) {
-    this->dirty -= decr;
-}
-
-void Db::resetDirty() {
-    this->dirty = 0;
-}
-
-int Db::getDirty() {
-    return this->dirty;
-}
-
-
 std::string Db::getTmpFile() {
     char tmpFile[256];
     snprintf(tmpFile, sizeof(tmpFile), "node[%0.5d]db#%0.2d-%d.tmp", atoi(FLAGS_tcp_port.c_str()), this->getId(), ::getpid());
@@ -281,12 +257,6 @@ std::string Db::getDatFile() {
 
 
 void Db::load() {
-    warning("准备从磁盘加载") << this->getInfo() << "数据";
-    if (this->isLoading()) {
-        info(this->getInfo()) << "正在加载中，加载结束";
-        return;
-    }
-    this->setLoading(true);
     std::string datFile = FLAGS_db_root + this->getDatFile();
     std::ifstream ifs(datFile);
     if (!ifs) {
@@ -309,54 +279,32 @@ void Db::load() {
         }
         ifs.close();
     }
-    this->setSaving(false);
-    info(this->getInfo()) << "加载结束";
+
 }
 
 void Db::save() {
-    warning("准备保存") << this->getInfo() << "数据到磁盘";
-    if (this->isSaving()) {
-        info(this->getInfo()) << "正在保存中，保存结束";
+    // 先保存db的table的metadata在db_root目录下 再保存各个table里面的数据
+    std::string tmpFile = FLAGS_db_root + this->getTmpFile();
+    std::string datFile = FLAGS_db_root + this->getDatFile();
+    std::ofstream ofs;
+    ofs.open(tmpFile, std::ios::out | std::ios::trunc);
+    for (auto mapIter = this->tables.begin(); mapIter != this->tables.end(); mapIter++) {
+        std::string tableName = mapIter->first;
+        Table *tableObj = mapIter->second;
+        ofs << tableObj->getMetadata() << std::endl;
+    }
+    ofs.close();
+    if (rename(tmpFile.c_str(), datFile.c_str()) == -1) {
+        error("将临时文件") << tmpFile << "移动到最终文件" << datFile << "失败!";
+        unlink(tmpFile.c_str());
         return;
     }
-    this->setSaving(true);
-    if (this->getDirty() > 0) {
-        // 有数据发生变化
-        int oldDirty = this->getDirty();
-        info(this->getInfo()) << "有数据变化, 开始保存";
-        // 先保存db的table的metadata在db_root目录下 再保存各个table里面的数据
-        std::string tmpFile = FLAGS_db_root + this->getTmpFile();
-        std::string datFile = FLAGS_db_root + this->getDatFile();
-        std::ofstream ofs;
-        ofs.open(tmpFile, std::ios::out | std::ios::trunc);
-        for (auto mapIter = this->tables.begin(); mapIter != this->tables.end(); mapIter++) {
-            std::string tableName = mapIter->first;
-            Table *tableObj = mapIter->second;
-            ofs << tableObj->getMetadata() << std::endl;
+    for (auto mapIter = this->tables.begin(); mapIter != this->tables.end(); mapIter++) {
+        std::string tableName = mapIter->first;
+        Table *tableObj = mapIter->second;
+        if (tableObj->callSaverHandler(this->getDataPath()) != C_OK) {
+            // 保存失败了
+            error(tableObj->getInfo()) << "保存失败";
         }
-        ofs.close();
-        if (rename(tmpFile.c_str(), datFile.c_str()) == -1) {
-            error("将临时文件") << tmpFile << "移动到最终文件" << datFile << "失败!";
-            unlink(tmpFile.c_str());
-            goto end;
-        }
-        for (auto mapIter = this->tables.begin(); mapIter != this->tables.end(); mapIter++) {
-            std::string tableName = mapIter->first;
-            Table *tableObj = mapIter->second;
-            if (tableObj->callDumperHandler(this->getDataPath()) != C_OK) {
-                // 保存失败了
-                goto end;
-            }
-        }
-        this->lastSave = time(nullptr);
-        this->decrDirty(oldDirty);
-        goto end;
     }
-    else {
-        warning(this->getInfo()) << "无数据变化, 保存结束";
-        return;
-    }
-end:
-    this->setSaving(false);
-    warning(this->getInfo()) << "保存结束";
 }

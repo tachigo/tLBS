@@ -21,6 +21,7 @@ namespace tLBS {
         bool established;
         bool joined;
         bool synced;
+        bool synchronizing;
     public:
         ClusterNode(std::string ip, int port);
         ~ClusterNode();
@@ -36,6 +37,10 @@ namespace tLBS {
         bool getJoined();
         void setSynced(bool synced);
         bool getSynced();
+
+        void setSynchronizing(bool synchronizing);
+        bool getSynchronizing();
+
         void closeConnection();
     };
 
@@ -57,6 +62,8 @@ namespace tLBS {
         static void connConnectHandler(Connection *conn);
         static void connReadHandler(Connection *conn);
         static void connReadClusterJoinHandler(Connection *conn);
+        static void connReadClusterSyncHandler(Connection *conn);
+
         static void connWriteHandler(Connection *conn);
 
 
@@ -64,6 +71,7 @@ namespace tLBS {
 
         static int joinCluster(Connection *conn);
         static int pingCluster(Connection *conn);
+        static int syncCluster(Connection *conn);
 
         static void broadcast(std::string cmd);
 
@@ -72,6 +80,8 @@ namespace tLBS {
         static int execClusterJoin(Connection *conn, std::vector<std::string> args);
         // 查看集群节点
         static int execClusterNodes(Connection *conn, std::vector<std::string> args);
+        // 相应集群节点想sync
+        static int execClusterSync(Connection *conn, std::vector<std::string> args);
 
 
         static void *threadProcess(void *arg);
