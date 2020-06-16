@@ -161,7 +161,7 @@ int Table::callSaverHandler(std::string dataRootPath) {
     }
     this->setSaving(true);
 
-    int ret = C_ERR;
+    int ret = C_OK;
 
     if (this->saverHandler != nullptr && this->getDirty() > 0) {
         info(this->getInfo()) << "有数据变化, 开始保存";
@@ -172,7 +172,7 @@ int Table::callSaverHandler(std::string dataRootPath) {
     }
 
     this->setSaving(false);
-    warning(this->getInfo()) << "加载结束";
+    warning(this->getInfo()) << "保存结束";
     return ret;
 }
 
@@ -198,6 +198,30 @@ int Table::callLoaderHandler(std::string dataRootPath) {
     return ret;
 }
 
+void Table::setSenderHandler(tLBS::tableSenderHandler sender) {
+    this->senderHandler = sender;
+}
+
+int Table::callSenderHandler(std::string dataRootPath, tLBS::Connection *conn) {
+    int ret = C_ERR;
+    if (this->senderHandler != nullptr) {
+        ret = this->senderHandler(dataRootPath, this->name, this->getShards(), this->getData(), this->db, conn);
+    }
+    return ret;
+}
+
+void Table::setReceiverHandler(tLBS::tableReceiverHandler receiver) {
+    this->receiverHandler = receiver;
+}
+
+int Table::callReceiverHandler(std::string data) {
+    int ret = C_ERR;
+    if (this->receiverHandler != nullptr) {
+        ret = this->receiverHandler(this->getData(), data);
+    }
+    return ret;
+}
+
 
 Table* Table::createTable(int db, std::string name, unsigned int type, unsigned int encoding, void *data) {
     return new Table(db, name, type, encoding, data);
@@ -210,5 +234,7 @@ Table * Table::createS2GeoPolygonTable(int db, std::string name) {
                                new S2Geometry::PolygonIndex());
     table->setSaverHandler(S2Geometry::PolygonIndex::dumper);
     table->setLoaderHandler(S2Geometry::PolygonIndex::loader);
+    table->setSenderHandler(S2Geometry::PolygonIndex::sender);
+    table->setReceiverHandler(S2Geometry::PolygonIndex::receiver);
     return table;
 }

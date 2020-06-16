@@ -10,11 +10,14 @@
 namespace tLBS {
 
     class Table;
-
     class Db;
+
+    class Connection;
 
     typedef int (*tableSaverHandler)(std::string dataRootPath, std::string table, int shards, void *ptr);
     typedef int (*tableLoaderHandler)(std::string dataRootPath, std::string table, int shards, void *ptr);
+    typedef int (*tableSenderHandler)(std::string dataRootPath, std::string table, int shards, void *ptr, int db, Connection *conn);
+    typedef int (*tableReceiverHandler)(void *ptr, std::string data);
 
     class Table : public Object {
     private:
@@ -22,6 +25,8 @@ namespace tLBS {
         std::string name;
         tableSaverHandler saverHandler;
         tableLoaderHandler loaderHandler;
+        tableSenderHandler senderHandler;
+        tableReceiverHandler receiverHandler;
         int shards;
         int version;
 
@@ -60,6 +65,10 @@ namespace tLBS {
         int callSaverHandler(std::string dataRootPath);
         void setLoaderHandler(tableLoaderHandler loader);
         int callLoaderHandler(std::string dataRootPath);
+        void setSenderHandler(tableSenderHandler sender);
+        int callSenderHandler(std::string dataRootPath, Connection *conn);
+        void setReceiverHandler(tableReceiverHandler receiver);
+        int callReceiverHandler(std::string data);
 
         static Table *createTable(int db, std::string name, unsigned int type, unsigned int encoding, void *data);
         static Table *createS2GeoPolygonTable(int db, std::string name);

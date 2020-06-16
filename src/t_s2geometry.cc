@@ -143,14 +143,12 @@ int S2Geometry::execSetPolygon(Connection *conn, std::vector<std::string> args) 
     auto indexObj = (S2Geometry::PolygonIndex *) tableObj->getData();
     int oldShapeId;
     if ((oldShapeId = indexObj->findShapeIdById(id)) > 0) {
-//        info("polygon#") << id << "已存在";
         // 删除老的 插入新的
         indexObj->delPolygon(oldShapeId);
         // 新增
         if ((err = indexObj->addPolygon(id, data)) != C_OK) goto err;
     }
     else {
-//        info("polygon#") << id << "不存在";
         // 新增
         if ((err = indexObj->addPolygon(id, data)) != C_OK) goto err;
     }
@@ -200,6 +198,65 @@ err:
     return C_ERR;
 }
 
+int S2Geometry::PolygonIndex::send(std::string dataRootPath, std::string table, int shards, int db, tLBS::Connection *conn) {
+    char prefix[1024];
+    // db/table
+    snprintf(prefix, sizeof(prefix), "%0.2d/%s", db, table.c_str());
+    std::string pre = std::string(prefix);
+
+    std::ifstream ifs;
+    for (int i = 0; i < shards; i++) {
+        std::string datFile = dataRootPath + this->getDatFile(table, i);
+        ifs.open(datFile, std::ios::in);
+        if (!ifs) {
+            if (errno == ENOENT) {
+                // 文件不存在
+                error("无法打开磁盘数据文件" + datFile)
+                        << ": " << strerror(errno) << "(" << errno << ")";
+            }
+            else {
+                fatal("无法打开磁盘数据文件" + datFile)
+                        << ": " << strerror(errno) << "(" << errno << ")";
+            }
+        }
+        else {
+            std::string line;
+            while (getline(ifs, line)) {
+                line = pre + " " + line + '\n'; // 每行增加换行符
+                conn->write(line.c_str(), line.size());
+            }
+            ifs.close();
+        }
+    }
+    return C_OK;
+}
+
+
+int S2Geometry::PolygonIndex::receive(std::string line) {
+    std::regex reg("\\+");
+    std::vector<std::string> v(
+            std::sregex_token_iterator(
+                    line.begin(), line.end(), reg, -1
+            ),
+            std::sregex_token_iterator());
+    std::string id = v[0];
+    std::string data = v[1];
+
+    int oldShapeId;
+    if ((oldShapeId = this->findShapeIdById(id)) > 0) {
+        // 删除老的 插入新的
+        this->delPolygon(oldShapeId);
+        // 新增
+        if (this->addPolygon(id, data) != C_OK) return C_ERR;
+    }
+    else {
+        // 新增
+        if (this->addPolygon(id, data) != C_OK) return C_ERR;
+    }
+    this->flush();
+    return C_OK;
+}
+
 int S2Geometry::PolygonIndex::load(std::string dataRootPath, std::string table, int shards) {
     std::ifstream ifs;
     for (int i = 0; i < shards; i++) {
@@ -227,7 +284,7 @@ int S2Geometry::PolygonIndex::load(std::string dataRootPath, std::string table, 
                         std::sregex_token_iterator());
                 std::string id = v[0];
                 std::string data = v[1];
-                if (PolygonIndex::addPolygon(id, data) != C_OK) {
+                if (this->addPolygon(id, data) != C_OK) {
                     fatal("加载数据失败: ") << line;
                 }
             }
@@ -260,6 +317,16 @@ int S2Geometry::PolygonIndex::dumper(std::string dataRootPath, std::string table
 int S2Geometry::PolygonIndex::loader(std::string dataRootPath, std::string table, int shards, void *ptr) {
     auto data = (PolygonIndex *)ptr;
     return data->load(dataRootPath, table, shards);
+}
+
+int S2Geometry::PolygonIndex::sender(std::string dataRootPath, std::string table, int shards, void *ptr, int db, Connection *conn) {
+    auto data = (PolygonIndex *)ptr;
+    return data->send(dataRootPath, table, shards, db, conn);
+}
+
+int S2Geometry::PolygonIndex::receiver(void *ptr, std::string line) {
+    auto data = (PolygonIndex *)ptr;
+    return data->receive(line);
 }
 
 

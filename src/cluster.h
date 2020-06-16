@@ -19,7 +19,10 @@ namespace tLBS {
         int port;
         Connection *conn;
         bool established;
+        bool joining;
         bool joined;
+        bool handshaked;
+        bool handshaking;
         bool synced;
         bool synchronizing;
     public:
@@ -33,11 +36,18 @@ namespace tLBS {
         void setConnection(Connection *conn);
         void setEstablished(bool established);
         bool getEstablished();
+        void setJoining(bool joining);
+        bool getJoining();
         void setJoined(bool joined);
         bool getJoined();
+        void setHandshaked(bool handshaked);
+        bool getHandshaked();
+        void setHandshaking(bool handshaking);
+        bool getHandshaking();
+
+
         void setSynced(bool synced);
         bool getSynced();
-
         void setSynchronizing(bool synchronizing);
         bool getSynchronizing();
 
@@ -62,6 +72,7 @@ namespace tLBS {
         static void connConnectHandler(Connection *conn);
         static void connReadHandler(Connection *conn);
         static void connReadClusterJoinHandler(Connection *conn);
+        static void connReadClusterHandshakeHandler(Connection *conn);
         static void connReadClusterSyncHandler(Connection *conn);
 
         static void connWriteHandler(Connection *conn);
@@ -71,7 +82,9 @@ namespace tLBS {
 
         static int joinCluster(Connection *conn);
         static int pingCluster(Connection *conn);
-        static int syncCluster(Connection *conn);
+        static int handshakeCluster(Connection *conn);
+        static int syncCluster(Connection *conn, std::string data);
+        static int syncOverCluster(Connection *conn);
 
         static void broadcast(std::string cmd);
 
@@ -80,8 +93,12 @@ namespace tLBS {
         static int execClusterJoin(Connection *conn, std::vector<std::string> args);
         // 查看集群节点
         static int execClusterNodes(Connection *conn, std::vector<std::string> args);
-        // 相应集群节点想sync
+        // 响应集群节点想数据握手
+        static int execClusterHandshake(Connection *conn, std::vector<std::string> args);
+        // 响应数据同步请求
         static int execClusterSync(Connection *conn, std::vector<std::string> args);
+        // 响应数据同步结束
+        static int execClusterSyncOver(Connection *conn, std::vector<std::string> args);
 
 
         static void *threadProcess(void *arg);

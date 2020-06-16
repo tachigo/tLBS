@@ -59,6 +59,9 @@ DECLARE_string(db_root); // 数据库数据文件存放的根路径
 // cluster
 DECLARE_string(cluster_nodes); // cluster节点的链接字符串 eg. 127.0.0.1:8899;127.0.0.1:8888
 
+// 定义当前server
+#define CUR_SERVER ("{" + FLAGS_tcp_host + ":" + FLAGS_tcp_port + "}")
+
 namespace tLBS {
     class Config {
     private:

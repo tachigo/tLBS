@@ -37,11 +37,16 @@ namespace tLBS {
             std::string getDatFile(std::string table, int shard);
             int dump(std::string dataRootPath, std::string table, int shards);
             int load(std::string dataRootPath, std::string table, int shards);
+            int send(std::string dataRootPath, std::string table, int shards, int db, Connection *conn);
+            int receive(std::string line);
             // dumper handler
             static int dumper(std::string dataRootPath, std::string table, int shards, void *ptr);
             // loader handler
             static int loader(std::string dataRootPath, std::string table, int shards, void *ptr);
-            // mover
+            // sender handler
+            static int sender(std::string dataRootPath, std::string table, int shards, void *ptr, int db, Connection *conn);
+            // receiver handler
+            static int receiver(void *ptr, std::string line);
         };
 
         // command

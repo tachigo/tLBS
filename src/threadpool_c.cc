@@ -142,12 +142,9 @@ ThreadPoolTask *ThreadPool::dequeueTask() {
         pthread_mutex_unlock(&this->mutexLock);
         return nullptr;
     }
-//    info(this->getInfo()) << "队列长度: " << this->queueSize;
-
     ThreadPoolTask *task = this->taskHead;
     this->taskHead = this->taskHead->next;
     this->queueSize -= 1;
-//    info(this->getInfo()) << "队列长度: " << this->queueSize;
     // 解锁线程池
     pthread_mutex_unlock(&this->mutexLock);
     return task;
@@ -161,6 +158,7 @@ void * ThreadPool::execute(void *threadPool) {
 
         if ((task = pool->dequeueTask()) != nullptr) {
             // 执行任务
+            pthread_detach(pthread_self());
             (*(task->fn))(task->arg);
 
             delete task;

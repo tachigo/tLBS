@@ -265,7 +265,9 @@ void Command::init() {
     // cluster
     registerCommand("clusterjoin", Cluster::execClusterJoin, "address", "有节点要加入集群", false);
     registerCommand("clusternodes", Cluster::execClusterNodes, nullptr, "查询集群节点", false);
-    registerCommand("clustersync", Cluster::execClusterSync, nullptr, "请求同步集群节点数据", false);
+    registerCommand("clusterhandshake", Cluster::execClusterHandshake, nullptr, "请求同步集群节点数据握手", false);
+    registerCommand("clustersync", Cluster::execClusterSync, "tables", "发送数据", false);
+    registerCommand("clustersyncover", Cluster::execClusterSyncOver, nullptr, "同步数据结束", false);
 
 
     // s2geometry
