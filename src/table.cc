@@ -202,10 +202,10 @@ void Table::setSenderHandler(tLBS::tableSenderHandler sender) {
     this->senderHandler = sender;
 }
 
-int Table::callSenderHandler(std::string dataRootPath, tLBS::Connection *conn) {
+int Table::callSenderHandler(std::string dataRootPath, std::string prefix, tLBS::Connection *conn) {
     int ret = C_ERR;
     if (this->senderHandler != nullptr) {
-        ret = this->senderHandler(dataRootPath, this->name, this->getShards(), this->getData(), this->db, conn);
+        ret = this->senderHandler(dataRootPath, this->name, this->getShards(), this->getData(), prefix, conn);
     }
     return ret;
 }

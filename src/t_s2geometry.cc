@@ -198,12 +198,7 @@ err:
     return C_ERR;
 }
 
-int S2Geometry::PolygonIndex::send(std::string dataRootPath, std::string table, int shards, int db, tLBS::Connection *conn) {
-    char prefix[1024];
-    // db/table
-    snprintf(prefix, sizeof(prefix), "%0.2d/%s", db, table.c_str());
-    std::string pre = std::string(prefix);
-
+int S2Geometry::PolygonIndex::send(std::string dataRootPath, std::string table, int shards, std::string prefix, tLBS::Connection *conn) {
     std::ifstream ifs;
     for (int i = 0; i < shards; i++) {
         std::string datFile = dataRootPath + this->getDatFile(table, i);
@@ -222,7 +217,7 @@ int S2Geometry::PolygonIndex::send(std::string dataRootPath, std::string table, 
         else {
             std::string line;
             while (getline(ifs, line)) {
-                line = pre + " " + line + '\n'; // 每行增加换行符
+                line = prefix + " " + line + '\n'; // 每行增加换行符
                 conn->write(line.c_str(), line.size());
             }
             ifs.close();
@@ -319,9 +314,9 @@ int S2Geometry::PolygonIndex::loader(std::string dataRootPath, std::string table
     return data->load(dataRootPath, table, shards);
 }
 
-int S2Geometry::PolygonIndex::sender(std::string dataRootPath, std::string table, int shards, void *ptr, int db, Connection *conn) {
+int S2Geometry::PolygonIndex::sender(std::string dataRootPath, std::string table, int shards, void *ptr, std::string prefix, Connection *conn) {
     auto data = (PolygonIndex *)ptr;
-    return data->send(dataRootPath, table, shards, db, conn);
+    return data->send(dataRootPath, table, shards, prefix, conn);
 }
 
 int S2Geometry::PolygonIndex::receiver(void *ptr, std::string line) {

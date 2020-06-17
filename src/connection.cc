@@ -36,7 +36,7 @@ Connection::Connection(int fd, ConnectionState state) {
     this->lastErrno = 0;
     this->refs = 0;
     char buf[100];
-    snprintf(buf, sizeof(buf) - 1, "{connection#%llu[fd:%d]}", this->id, this->fd);
+    snprintf(buf, sizeof(buf) - 1, " {connection#%llu[fd:%d]} ", this->id, this->fd);
     this->info = buf;
     this->readHandler = nullptr;
     this->writeHandler = nullptr;

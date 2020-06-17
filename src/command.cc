@@ -263,12 +263,11 @@ void Command::init() {
     registerCommand("db", Db::execDb, nullptr, "查看当前选择的数据库编号", false);
 
     // cluster
-    registerCommand("clusterjoin", Cluster::execClusterJoin, "address", "有节点要加入集群", false);
     registerCommand("clusternodes", Cluster::execClusterNodes, nullptr, "查询集群节点", false);
-    registerCommand("clusterhandshake", Cluster::execClusterHandshake, nullptr, "请求同步集群节点数据握手", false);
-    registerCommand("clustersync", Cluster::execClusterSync, "tables", "发送数据", false);
-    registerCommand("clustersyncover", Cluster::execClusterSyncOver, nullptr, "同步数据结束", false);
-
+    registerCommand("clusterjoin", Cluster::execClusterJoin, "address", "有节点要加入集群", false);
+    registerCommand("clusterstartsync", Cluster::execClusterStartSync, nullptr, "节点开始同步数据", false);
+    registerCommand("clusterdosync", Cluster::execClusterDoSync, "tables", "响应同步", false);
+    registerCommand("clusterendsync", Cluster::execClusterEndSync, nullptr, "节点结束同步数据", false);
 
     // s2geometry
     registerCommand("s2test", S2Geometry::execTest, nullptr, "测试s2", false);

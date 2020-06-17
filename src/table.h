@@ -16,7 +16,7 @@ namespace tLBS {
 
     typedef int (*tableSaverHandler)(std::string dataRootPath, std::string table, int shards, void *ptr);
     typedef int (*tableLoaderHandler)(std::string dataRootPath, std::string table, int shards, void *ptr);
-    typedef int (*tableSenderHandler)(std::string dataRootPath, std::string table, int shards, void *ptr, int db, Connection *conn);
+    typedef int (*tableSenderHandler)(std::string dataRootPath, std::string table, int shards, void *ptr, std::string prefix, Connection *conn);
     typedef int (*tableReceiverHandler)(void *ptr, std::string data);
 
     class Table : public Object {
@@ -66,7 +66,7 @@ namespace tLBS {
         void setLoaderHandler(tableLoaderHandler loader);
         int callLoaderHandler(std::string dataRootPath);
         void setSenderHandler(tableSenderHandler sender);
-        int callSenderHandler(std::string dataRootPath, Connection *conn);
+        int callSenderHandler(std::string dataRootPath, std::string prefix, Connection *conn);
         void setReceiverHandler(tableReceiverHandler receiver);
         int callReceiverHandler(std::string data);
 
