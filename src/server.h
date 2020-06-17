@@ -12,7 +12,6 @@
 #define SERVER_SHUTDOWN_NO_FLAGS 0
 #define SERVER_MAX_HZ 500
 
-#define ServerCronRunWithPeriod(_ms_) if ((_ms_ <= 1000/server->getCronHz()) || !(server->getCronLoops()%((_ms_)/(1000/server->getCronHz()))))
 
 namespace tLBS {
     class Server {

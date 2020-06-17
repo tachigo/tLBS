@@ -6,11 +6,12 @@
 #define TLBS_LOG_H
 
 #include <glog/logging.h>
+#include "config.h"
 
-#define info(x) LOG(INFO) << x
-#define warning(x) LOG(WARNING) << x
-#define error(x) LOG(ERROR) << x
-#define fatal(x) LOG(FATAL) << x
+#define info(x) (LOG(INFO) << CUR_SERVER << x)
+#define warning(x) (LOG(WARNING) << CUR_SERVER << x)
+#define error(x) (LOG(ERROR) << CUR_SERVER << x)
+#define fatal(x) (LOG(FATAL) << CUR_SERVER << x)
 
 namespace tLBS {
     class Log {

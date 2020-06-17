@@ -1,9 +1,7 @@
 //
 // Created by liuliwu on 2020-05-28.
 //
-
 #include "log.h"
-#include "config.h"
 #include "server.h"
 
 using namespace tLBS;

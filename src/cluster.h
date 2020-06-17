@@ -8,6 +8,8 @@
 #include <map>
 #include <string>
 
+#include "exec.h"
+
 #define CLUSTER_NODE_ROLE_NONE 0
 // 节点维护的连接是主动发起的
 #define CLUSTER_NODE_ROLE_CONNECT (1<<0)
@@ -78,20 +80,20 @@ namespace tLBS {
 
         // join
         static int joinCluster(Connection *conn);
-        static int execClusterJoin(Connection *conn, std::vector<std::string> args);
+        static int execClusterJoin(Exec *exec, Connection *conn, std::vector<std::string> args);
         static void connReadClusterJoinHandler(Connection *conn);
 
         // sync start
         static int startSyncCluster(Connection *conn);
-        static int execClusterStartSync(Connection *conn, std::vector<std::string> args);
+        static int execClusterStartSync(Exec *exec, Connection *conn, std::vector<std::string> args);
         static void connReadClusterStartSyncHandler(Connection *conn);
         // sync doing
         static int doSyncCluster(Connection *conn, std::string data);
-        static int execClusterDoSync(Connection *conn, std::vector<std::string> args);
+        static int execClusterDoSync(Exec *exec, Connection *conn, std::vector<std::string> args);
         static void connReadClusterDoSyncHandler(Connection *conn);
         // sync end
         static int endSyncCluster(Connection *conn);
-        static int execClusterEndSync(Connection *conn, std::vector<std::string> args);
+        static int execClusterEndSync(Exec *exec, Connection *conn, std::vector<std::string> args);
         static void connReadClusterEndSyncHandler(Connection *conn);
 
 
@@ -103,7 +105,7 @@ namespace tLBS {
         // 加入集群
 
         // 查看集群节点
-        static int execClusterNodes(Connection *conn, std::vector<std::string> args);
+        static int execClusterNodes(Exec *exec, Connection *conn, std::vector<std::string> args);
         static void *threadProcess(void *arg);
 
         class ThreadArg {

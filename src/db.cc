@@ -174,26 +174,7 @@ Db* Db::getDb(int id) {
 }
 
 
-int Db::execDb(Connection *conn, std::vector<std::string> args) {
-    if (args.size() == 2) {
-        std::string arg = args[1];
-        int dbId = atoi(arg.c_str());
-        if (dbId < dbs.size()) {
-            conn->setDb(dbs[dbId]);
-            info(conn->getInfo()) << "选择数据库#" << dbId;
-            conn->success(Json::createSuccessStringJsonObj("OK"));
-        }
-        else {
-            conn->fail(Json::createErrorJsonObj(ERRNO_EXEC_DB_SELECT_ERR, ERROR_EXEC_DB_SELECT_ERR));
-        }
-    }
-    else {
-        Json* json = Json::createSuccessNumberJsonObj();
-        json->get("data").SetInt(conn->getDb()->getId());
-        conn->success(json);
-    }
-    return C_OK;
-}
+
 
 
 Table* Db::lookupTable(std::string key, int flags) {
@@ -309,3 +290,38 @@ void Db::save() {
         return;
     }
 }
+
+
+int Db::execDb(Exec *exec, Connection *conn, std::vector<std::string> args) {
+    UNUSED(exec);
+    if (args.size() == 2) {
+        std::string arg = args[1];
+        int dbId = atoi(arg.c_str());
+        if (dbId < dbs.size()) {
+            conn->setDb(dbs[dbId]);
+            conn->success(Json::createSuccessStringJsonObj("OK"));
+        }
+        else {
+            conn->fail(Json::createErrorJsonObj(ERRNO_EXEC_DB_SELECT_ERR, ERROR_EXEC_DB_SELECT_ERR));
+        }
+    }
+    else {
+        Json* json = Json::createSuccessNumberJsonObj();
+        json->get("data").SetInt(conn->getDb()->getId());
+        conn->success(json);
+    }
+    return C_OK;
+}
+
+int Db::execDbSave(Exec *exec, tLBS::Connection *conn, std::vector<std::string> args) {
+    UNUSED(exec);
+    if (args.size() != 2) {
+        return conn->fail(ERRNO_EXEC_SYNTAX_ERR, ERROR_EXEC_SYNTAX_ERR);
+    }
+    std::string arg = args[1];
+    int dbId = atoi(arg.c_str());
+    Db *db = Db::getDb(dbId);
+    db->save();
+    return conn->success(Json::createSuccessStringJsonObj("OK"));
+}
+

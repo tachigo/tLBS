@@ -18,13 +18,9 @@ using namespace tLBS;
 
 // exec
 
-int S2Geometry::execTest(Connection *conn, std::vector<std::string> args) {
-    info("找到我了！");
-    return C_OK;
-}
-
 // s2build table
-int S2Geometry::execForceBuild(tLBS::Connection *conn, std::vector<std::string> args) {
+int S2Geometry::execForceBuild(Exec *exec, tLBS::Connection *conn, std::vector<std::string> args) {
+    UNUSED(exec);
     if (args.size() != 2) {
         return conn->fail(ERRNO_EXEC_SYNTAX_ERR, ERROR_EXEC_SYNTAX_ERR);
     }
@@ -47,7 +43,8 @@ int S2Geometry::execForceBuild(tLBS::Connection *conn, std::vector<std::string> 
 }
 
 // s2polydel table id
-int S2Geometry::execDelPolygon(Connection *conn, std::vector<std::string> args) {
+int S2Geometry::execDelPolygon(Exec *exec, Connection *conn, std::vector<std::string> args) {
+    UNUSED(exec);
     if (args.size() != 3) {
         return conn->fail(ERRNO_EXEC_SYNTAX_ERR, ERROR_EXEC_SYNTAX_ERR);
     }
@@ -81,7 +78,8 @@ int S2Geometry::execDelPolygon(Connection *conn, std::vector<std::string> args) 
 }
 
 // s2polyget table id
-int S2Geometry::execGetPolygon(Connection *conn, std::vector<std::string> args) {
+int S2Geometry::execGetPolygon(Exec *exec, Connection *conn, std::vector<std::string> args) {
+    UNUSED(exec);
     if (args.size() != 3) {
         return conn->fail(ERRNO_EXEC_SYNTAX_ERR, ERROR_EXEC_SYNTAX_ERR);
     }
@@ -111,7 +109,8 @@ int S2Geometry::execGetPolygon(Connection *conn, std::vector<std::string> args) 
 
 
 // s2polyset table id data
-int S2Geometry::execSetPolygon(Connection *conn, std::vector<std::string> args) {
+int S2Geometry::execSetPolygon(Exec *exec, Connection *conn, std::vector<std::string> args) {
+    UNUSED(exec);
     if (args.size() != 4) {
         return conn->fail(ERRNO_EXEC_SYNTAX_ERR, ERROR_EXEC_SYNTAX_ERR);
     }
@@ -376,4 +375,8 @@ std::string S2Geometry::PolygonIndex::findDataById(std::string id) {
 
 void S2Geometry::PolygonIndex::flush() {
     this->index->ForceBuild();
+}
+
+uint64_t S2Geometry::PolygonIndex::getSize() {
+    return this->id2shapeId.size();
 }

@@ -211,18 +211,19 @@ int Cluster::joinCluster(tLBS::Connection *conn) {
     }
     auto node = (ClusterNode *)conn->getContainer();
     node->setFlags(node->getFlags() | CLUSTER_NODE_FLAGS_JOINING);
-    warning(CUR_SERVER) << "向" << conn->getInfo() << "请求加入集群";
+    warning("向") << conn->getInfo() << "请求加入集群";
     char msg[1024];
     memset(msg, 0, sizeof(msg));
     snprintf(msg, sizeof(msg) - 1, "clusterjoin %s:%s", FLAGS_tcp_host.c_str(), FLAGS_tcp_port.c_str());
     return conn->success(msg);
 }
 // recv
-int Cluster::execClusterJoin(tLBS::Connection *conn, std::vector<std::string> args) {
+int Cluster::execClusterJoin(Exec *exec, tLBS::Connection *conn, std::vector<std::string> args) {
+    UNUSED(exec);
     if (args.size() != 2) {
         return conn->fail(Json::createErrorJsonObj(ERRNO_EXEC_SYNTAX_ERR, ERROR_EXEC_SYNTAX_ERR));
     }
-    warning(CUR_SERVER) << "从" << conn->getInfo() << "收到加入集群请求";
+    warning("从") << conn->getInfo() << "收到加入集群请求";
     std::string addr = args[1];
     addNode(addr, conn);
     return conn->success(Json::createSuccessStringJsonObj("OK"));
@@ -261,13 +262,14 @@ int Cluster::startSyncCluster(tLBS::Connection *conn) {
     if (node->getRole() == CLUSTER_NODE_ROLE_ACCEPTED) {
         node->setFlags(node->getFlags() | CLUSTER_NODE_FLAGS_RECEIVER_SYNC_ING);
     }
-    warning(CUR_SERVER) << "向" << conn->getInfo() << "请求准备数据同步";
+    warning("向") << conn->getInfo() << "请求准备数据同步";
     std::string msg = "clusterstartsync";
     return conn->success(msg.c_str());
 }
 // recv
-int Cluster::execClusterStartSync(tLBS::Connection *conn, std::vector<std::string> args) {
-    warning(CUR_SERVER) << "从" << conn->getInfo() << "收到准备数据同步请求";
+int Cluster::execClusterStartSync(Exec *exec, tLBS::Connection *conn, std::vector<std::string> args) {
+    UNUSED(exec);
+    warning("从") << conn->getInfo() << "收到准备数据同步请求";
     UNUSED(args);
     auto node = (ClusterNode *)conn->getContainer();
     if (node->getRole() == CLUSTER_NODE_ROLE_CONNECT) {
@@ -305,7 +307,7 @@ void Cluster::connReadClusterStartSyncHandler(tLBS::Connection *conn) {
     }
     auto json = new Json(qb);
     if (json->get("errno") != 0) {
-        warning(CUR_SERVER) << "从" << conn->getInfo() << "获取集群数据同步信息失败";
+        warning("从") << conn->getInfo() << "获取集群数据同步信息失败";
         if (node->getRole() == CLUSTER_NODE_ROLE_CONNECT) {
             node->setFlags(node->getFlags() &~ CLUSTER_NODE_FLAGS_SENDER_SYNC_ING);
         }
@@ -314,7 +316,7 @@ void Cluster::connReadClusterStartSyncHandler(tLBS::Connection *conn) {
         }
     }
     else {
-        warning(CUR_SERVER) << "从" << conn->getInfo() << "获取集群数据同步信息成功";
+        warning("从") << conn->getInfo() << "获取集群数据同步信息成功";
         // 要发送的数据
         std::string tables = "";
         // 遍历数据
@@ -344,11 +346,11 @@ void Cluster::connReadClusterStartSyncHandler(tLBS::Connection *conn) {
         }
         if (tables.size() > 0) {
             // 发送需要同步的表给另一端
-            warning(CUR_SERVER) << "从" << conn->getInfo() << "中 有 需要进行同步的数据";
+            warning("从") << conn->getInfo() << "中 有 需要进行同步的数据";
             doSyncCluster(conn, tables.substr(1, tables.size()));
         }
         else {
-            warning(CUR_SERVER) << "从" << conn->getInfo() << "中 无 需要进行同步的数据";
+            warning("从") << conn->getInfo() << "中 无 需要进行同步的数据";
             endSyncCluster(conn);
         }
     }
@@ -368,13 +370,14 @@ int Cluster::doSyncCluster(tLBS::Connection *conn, std::string data) {
     if (node->getRole() == CLUSTER_NODE_ROLE_ACCEPTED) {
         node->setFlags(node->getFlags() | CLUSTER_NODE_FLAGS_RECEIVER_SYNC_ING);
     }
-    warning(CUR_SERVER) << "向" << conn->getInfo() << "请求开始数据同步";
+    warning("向") << conn->getInfo() << "请求开始数据同步";
     std::string msg = "clusterdosync " + data;
     return conn->success(msg.c_str());
 }
 // recv
-int Cluster::execClusterDoSync(tLBS::Connection *conn, std::vector<std::string> args) {
-    warning(CUR_SERVER) << "从" << conn->getInfo() << "收到开始数据同步请求";
+int Cluster::execClusterDoSync(Exec *exec, tLBS::Connection *conn, std::vector<std::string> args) {
+    UNUSED(exec);
+    warning("从") << conn->getInfo() << "收到开始数据同步请求";
     auto node = (ClusterNode *)conn->getContainer();
     if (node->getRole() == CLUSTER_NODE_ROLE_CONNECT) {
         node->setFlags(node->getFlags() | CLUSTER_NODE_FLAGS_RECEIVER_SYNC_ING);
@@ -407,7 +410,7 @@ void Cluster::connReadClusterDoSyncHandler(tLBS::Connection *conn) {
     if (connRead(conn, &qb) != C_OK) {
         return;
     }
-    warning(CUR_SERVER) << "从" << conn->getInfo() << "同步数据进行中...";
+    warning("从") << conn->getInfo() << "同步数据进行中...";
 
     std::vector<std::string> lines = splitString(qb, "\n");
     for (int i = 0; i < lines.size(); i++) {
@@ -446,13 +449,14 @@ int Cluster::endSyncCluster(tLBS::Connection *conn) {
     if (node->getRole() == CLUSTER_NODE_ROLE_ACCEPTED) {
         node->setFlags(node->getFlags() | CLUSTER_NODE_FLAGS_RECEIVER_SYNC_ING);
     }
-    warning(CUR_SERVER) << "向" << conn->getInfo() << "请求数据同步结束";
+    warning("向") << conn->getInfo() << "请求数据同步结束";
     std::string msg = "clusterendsync";
     return conn->success(msg.c_str());
 }
 // recv
-int Cluster::execClusterEndSync(tLBS::Connection *conn, std::vector<std::string> args) {
-    warning(CUR_SERVER) << "从" << conn->getInfo() << "收到数据同步结束请求";
+int Cluster::execClusterEndSync(Exec *exec, tLBS::Connection *conn, std::vector<std::string> args) {
+    UNUSED(exec);
+    warning("从") << conn->getInfo() << "收到数据同步结束请求";
     UNUSED(args);
     auto node = (ClusterNode *)conn->getContainer();
     if (node->getRole() == CLUSTER_NODE_ROLE_CONNECT) {
@@ -475,19 +479,19 @@ void Cluster::connReadClusterEndSyncHandler(tLBS::Connection *conn) {
     }
     conn->setReadHandler(nullptr);
     if (qb == "clusterendsyncack") {
-        warning(CUR_SERVER) << "从" << conn->getInfo() << "收到数据同步结束确认";
+        warning("从") << conn->getInfo() << "收到数据同步结束确认";
         auto node = (ClusterNode *)conn->getContainer();
         if (node->getRole() == CLUSTER_NODE_ROLE_CONNECT) {
             node->setFlags(node->getFlags() | CLUSTER_NODE_FLAGS_SENDER_SYNC_OK);
             node->setFlags(node->getFlags() &~ CLUSTER_NODE_FLAGS_SENDER_SYNC_ING);
-            warning(CUR_SERVER) << "的" << conn->getInfo() << "是 SENDER" << std::endl
+            warning(conn->getInfo()) << "是 SENDER" << std::endl
                 << "SENDER_SYNC_OK: " << ((node->getFlags() & CLUSTER_NODE_FLAGS_SENDER_SYNC_OK) ? "是" : "否") << std::endl
                 << "RECEIVER_SYNC_OK: " << ((node->getFlags() & CLUSTER_NODE_FLAGS_RECEIVER_SYNC_OK) ? "是" : "否");
         }
         if (node->getRole() == CLUSTER_NODE_ROLE_ACCEPTED) {
             node->setFlags(node->getFlags() | CLUSTER_NODE_FLAGS_RECEIVER_SYNC_OK);
             node->setFlags(node->getFlags() &~ CLUSTER_NODE_FLAGS_RECEIVER_SYNC_ING);
-            warning(CUR_SERVER) << "的" << conn->getInfo() << "是 RECEIVER" << std::endl
+            warning(conn->getInfo()) << "是 RECEIVER" << std::endl
                 << "SENDER_SYNC_OK: " << ((node->getFlags() & CLUSTER_NODE_FLAGS_SENDER_SYNC_OK) ? "是" : "否") << std::endl
                 << "RECEIVER_SYNC_OK: " << ((node->getFlags() & CLUSTER_NODE_FLAGS_RECEIVER_SYNC_OK) ? "是" : "否");
         }
@@ -497,7 +501,8 @@ void Cluster::connReadClusterEndSyncHandler(tLBS::Connection *conn) {
     }
 }
 
-int Cluster::execClusterNodes(Connection *conn, std::vector<std::string> args) {
+int Cluster::execClusterNodes(Exec *exec, Connection *conn, std::vector<std::string> args) {
+    UNUSED(exec);
     UNUSED(args);
     Json *dataList = new Json(R"({"total": 0, "list": []})");
     dataList->get("total").SetInt(nodes.size());
@@ -520,7 +525,7 @@ int Cluster::pingCluster(Connection *conn) {
     char msg[1024];
     memset(msg, 0, sizeof(msg));
     snprintf(msg, sizeof(msg) - 1, "ping %s:%s", FLAGS_tcp_host.c_str(), FLAGS_tcp_port.c_str());
-    info(CUR_SERVER) << "向" << conn->getInfo() << "发送 " << msg << " ... ============>";
+//    info(CUR_SERVER) << "向" << conn->getInfo() << "发送 " << msg << " ... ============>";
     return conn->success(msg);
 }
 

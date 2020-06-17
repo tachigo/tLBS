@@ -7,6 +7,9 @@
 #include "log.h"
 #include "t_s2geometry.h"
 #include "common.h"
+#include "json.h"
+#include "connection.h"
+#include "db.h"
 
 using namespace tLBS;
 
@@ -98,22 +101,23 @@ bool Table::isLoading() {
     return this->loading;
 }
 
+uint64_t Table::getSize() {
+    auto data = (TableInternal *)this->getData();
+    return data->getSize();
+}
+
 std::string Table::getMetadata() {
-    int version = this->getVersion();
-    if (this->getDirty() > 0) {
-        version = version + 1;
-    }
     char tmpLine[1024];
     memset(tmpLine, 0, sizeof(tmpLine));
     // dbno/tablename/tabletype/tableencoding/datashardnum/version
     snprintf(tmpLine, sizeof(tmpLine), "%0.2d/%s/%d/%d/%0.2d/%d",
              this->getDb(), this->getName().c_str(), this->getType(),
-             this->getEncoding(), this->getShards(), version);
+             this->getEncoding(), this->getShards(), this->getVersion());
     return tmpLine;
 }
 
 Table* Table::parseMetadata(std::string metadata) {
-    info(metadata);
+//    info(metadata);
     std::regex reg("/");
     std::vector<std::string> v(
             std::sregex_token_iterator(
@@ -169,6 +173,7 @@ int Table::callSaverHandler(std::string dataRootPath) {
         if (ret == C_OK) {
             this->resetDirty();
             this->setVersion(this->getVersion() + 1);
+            this->lastSave = time(nullptr);
         }
     }
 
@@ -238,4 +243,58 @@ Table * Table::createS2GeoPolygonTable(int db, std::string name) {
     table->setSenderHandler(S2Geometry::PolygonIndex::sender);
     table->setReceiverHandler(S2Geometry::PolygonIndex::receiver);
     return table;
+}
+
+
+
+// exec
+// tableshards tablename [shardnum]
+int Table::execTableShards(Exec *exec, tLBS::Connection *conn, std::vector<std::string> args) {
+    UNUSED(exec);
+    if (args.size() < 2) {
+        return conn->fail(ERRNO_EXEC_SYNTAX_ERR, ERROR_EXEC_SYNTAX_ERR);
+    }
+    std::string tableName = args[1];
+    Table *tableObj = conn->getDb()->lookupTableWrite(tableName);
+    if (tableObj == nullptr) {
+        return conn->fail(ERRNO_EXEC_TABLE_EXISTS_ERR, ERROR_EXEC_TABLE_EXISTS_ERR);
+    }
+
+    if (args.size() == 3) {
+        int shards = atoi(args[2].c_str());
+        tableObj->setShards(shards);
+        exec->setNeedClusterBroadcast(true);
+    }
+    else {
+        Json* json = Json::createSuccessNumberJsonObj();
+        json->get("data").SetInt(tableObj->getShards());
+        conn->success(json);
+        exec->setNeedClusterBroadcast(false);
+    }
+    return C_OK;
+}
+
+
+int Table::execTables(tLBS::Exec *exec, tLBS::Connection *conn, std::vector<std::string> args) {
+    UNUSED(exec);
+    UNUSED(args);
+    Db *db = conn->getDb();
+    std::map<std::string, Table *> tables = db->getTables();
+
+    Json *dataList = new Json(R"({"total": 0, "list": []})");
+    dataList->get("total").SetInt(tables.size());
+    for (auto mapIter = tables.begin(); mapIter != tables.end(); mapIter++) {
+        Json *dataItem = new Json(R"({"metadata": "", "name": "", "db": 0, "shards": 0, "version": 0, "size": 0})");
+        auto tableObj = mapIter->second;
+        dataItem->get("metadata").SetString(Json::createString(tableObj->getMetadata()));
+        dataItem->get("name").SetString(Json::createString(tableObj->getName()));
+        dataItem->get("db").SetInt(tableObj->getDb());
+        dataItem->get("shards").SetInt(tableObj->getShards());
+        dataItem->get("version").SetInt64(tableObj->getVersion());
+        dataItem->get("size").SetInt64(tableObj->getSize());
+        dataList->get("list").PushBack(dataItem->value(), dataList->getAllocator());
+    }
+    Json *response = Json::createSuccessObjectJsonObj();
+    response->get("data") = dataList->value();
+    return conn->success(response);
 }

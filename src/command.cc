@@ -10,6 +10,7 @@
 #include "t_s2geometry.h"
 #include "cluster.h"
 #include "server.h"
+#include "table.h"
 
 #include <string>
 #include <regex>
@@ -53,8 +54,12 @@ int Command::getArty() {
     return this->arty;
 }
 
-bool Command::isNeedClusterBroadcast() {
+bool Command::getNeedClusterBroadcast() {
     return this->clusterBroadcast;
+}
+
+void Command::setNeedClusterBroadcast(bool needClusterBroadcast) {
+    this->clusterBroadcast = needClusterBroadcast;
 }
 
 execCmdFallback Command::getFallback() {
@@ -74,7 +79,7 @@ int Command::processCommand(Connection *conn, std::vector<std::string> args, boo
     long long start = server->getUsTime();
     int ret = command->call(conn, args);
     if (ret == C_OK) {
-        if (command->isNeedClusterBroadcast() && !inClusterScope) {
+        if (command->getNeedClusterBroadcast() && !inClusterScope) {
             // 需要集群广播
             std::string cmd = args[0];
             for (int i = 1; i < args.size(); i++) {
@@ -234,7 +239,7 @@ Command* Command::findCommand(std::string name) {
 }
 
 int Command::call(Connection *conn, std::vector<std::string> args) {
-    int ret = this->fallback(conn, args);
+    int ret = this->fallback(this, conn, args);
     return ret;
 }
 
@@ -261,6 +266,11 @@ void Command::init() {
 
     // db
     registerCommand("db", Db::execDb, nullptr, "查看当前选择的数据库编号", false);
+    registerCommand("dbsave", Db::execDbSave, "db", "保存当前选择的数据库", false);
+
+    // table
+    registerCommand("tables", Table::execTables, nullptr, "查看当前数据库下的表", false);
+    registerCommand("tableshards", Table::execTableShards, "table,shards", "设置活查询表的shards", false);
 
     // cluster
     registerCommand("clusternodes", Cluster::execClusterNodes, nullptr, "查询集群节点", false);
@@ -270,7 +280,6 @@ void Command::init() {
     registerCommand("clusterendsync", Cluster::execClusterEndSync, nullptr, "节点结束同步数据", false);
 
     // s2geometry
-    registerCommand("s2test", S2Geometry::execTest, nullptr, "测试s2", false);
     registerCommand("s2polyset", S2Geometry::execSetPolygon, "table,id,data", "添加一个多边形", true);
     registerCommand("s2polyget", S2Geometry::execGetPolygon, "table,id", "获取一个多边形", false);
     registerCommand("s2polydel", S2Geometry::execDelPolygon, "table,id", "删除一个多边形", true);

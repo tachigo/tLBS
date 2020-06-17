@@ -9,14 +9,16 @@
 #include <string>
 #include <map>
 
+#include "exec.h"
+
 
 namespace tLBS {
 
     class Connection;
 
-    typedef int (*execHttpFallback)(Connection *conn, std::vector<std::string> args);
+    typedef int (*execHttpFallback)(Exec *exec, Connection *conn, std::vector<std::string> args);
 
-    class Http {
+    class Http: public Exec {
     private:
         static std::map<std::string, Http *> https;
 
@@ -38,7 +40,8 @@ namespace tLBS {
         execHttpFallback getFallback();
         std::vector<std::string> getParams();
         bool isNeedSpecifiedDb();
-        bool isNeedClusterBroadcast();
+        void setNeedClusterBroadcast(bool needClusterBroadcast);
+        bool getNeedClusterBroadcast();
 
 
         static bool connIsHttp(std::string query);

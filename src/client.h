@@ -9,17 +9,20 @@
 #include <vector>
 #include <string>
 
+#include "exec.h"
+
+
 namespace tLBS {
 
     class Connection;
 
     class Client {
     public:
-        // cmd
-        static int execQuit(Connection *conn, std::vector<std::string> args);
-        static int execHello(Connection *conn, std::vector<std::string> args);
-        static int execPing(Connection *conn, std::vector<std::string> args);
-        static int execPong(Connection *conn, std::vector<std::string> args);
+        // exec
+        static int execQuit(Exec *exec, Connection *conn, std::vector<std::string> args);
+        static int execHello(Exec *exec, Connection *conn, std::vector<std::string> args);
+        static int execPing(Exec *exec, Connection *conn, std::vector<std::string> args);
+        static int execPong(Exec *exec, Connection *conn, std::vector<std::string> args);
     };
 }
 

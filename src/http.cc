@@ -305,8 +305,12 @@ bool Http::isNeedSpecifiedDb() {
     return this->needSpecifiedDb;
 }
 
-bool Http::isNeedClusterBroadcast() {
+bool Http::getNeedClusterBroadcast() {
     return this->clusterBroadcast;
+}
+
+void Http::setNeedClusterBroadcast(bool needClusterBroadcast) {
+    this->clusterBroadcast = needClusterBroadcast;
 }
 
 int Http::processHttp(Connection *conn, std::vector<std::string> args, bool inClusterScope) {
@@ -322,7 +326,7 @@ int Http::processHttp(Connection *conn, std::vector<std::string> args, bool inCl
     long long start = server->getUsTime();
     int ret = http->call(conn, args);
     if (ret == C_OK) {
-        if (http->isNeedClusterBroadcast() && !inClusterScope) {
+        if (http->getNeedClusterBroadcast() && !inClusterScope) {
             // 需要集群广播
             std::string cmd = args[0];
             for (int i = 1; i < args.size(); i++) {
@@ -422,7 +426,7 @@ Http* Http::findHttp(std::string name) {
 }
 
 int Http::call(Connection *conn, std::vector<std::string> args) {
-    int ret = this->fallback(conn, args);
+    int ret = this->fallback(this, conn, args);
     return ret;
 }
 
@@ -444,8 +448,9 @@ void Http::free() {
 
 void Http::init() {
     registerHttp("GET /db", Db::execDb, nullptr, "查看当前选择的数据库编号", false, false);
+    registerHttp("GET /tables", Table::execTables, nullptr, "查看当前数据库下的表", false, false);
 
-    registerHttp("GET /clusternodes", Cluster::execClusterNodes, nullptr, "查询集群节点", false, false);
+    registerHttp("GET /cluster/nodes", Cluster::execClusterNodes, nullptr, "查询集群节点", false, false);
 
     registerHttp("GET /s2polyget", S2Geometry::execGetPolygon, "table,id", "获取一个多边形", false, false);
 }

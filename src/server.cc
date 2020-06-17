@@ -19,6 +19,7 @@ using namespace tLBS;
 DEFINE_bool(daemonize, false, "是否以守护进程方式启动");
 DEFINE_int32(server_hz, 10, "server时间事件每秒执行多少次");
 
+#define ServerCronRunWithPeriod(_ms_) if ((_ms_ <= 1000/server->getCronHz()) || !(server->getCronLoops()%((_ms_)/(1000/server->getCronHz()))))
 
 
 Server *Server::instance = nullptr;

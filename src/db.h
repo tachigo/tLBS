@@ -9,12 +9,11 @@
 #include <map>
 #include <vector>
 #include "connection.h"
+#include "exec.h"
 
 #define DB_FLAGS_LOOKUP_NONE 0
 
 namespace tLBS {
-
-    class Client;
 
     class Table;
 
@@ -75,8 +74,11 @@ namespace tLBS {
 
         static void *threadProcess(void *arg);
 
-        // command
-        static int execDb(Connection *conn, std::vector<std::string> args);
+        // exec
+        // db [dbno]
+        static int execDb(Exec *exec, Connection *conn, std::vector<std::string> args);
+        // dbsave dbno
+        static int execDbSave(Exec *exec, Connection *conn, std::vector<std::string> args);
     };
 }
 

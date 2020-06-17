@@ -9,12 +9,14 @@
 #include <map>
 #include <string>
 
+#include "exec.h"
+
 namespace tLBS {
     class Connection;
 
-    typedef int (*execCmdFallback)(Connection *conn, std::vector<std::string> args);
+    typedef int (*execCmdFallback)(Exec *exec, Connection *conn, std::vector<std::string> args);
 
-    class Command {
+    class Command: public Exec {
     private:
         static std::map<std::string, Command *> commands;
 
@@ -33,7 +35,8 @@ namespace tLBS {
         std::string getName();
         execCmdFallback getFallback();
         int getArty();
-        bool isNeedClusterBroadcast();
+        void setNeedClusterBroadcast(bool needClusterBroadcast);
+        bool getNeedClusterBroadcast();
         static void init();
         static void free();
         static Command *findCommand(std::string name);

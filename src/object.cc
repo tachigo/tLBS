@@ -13,7 +13,7 @@ Object::Object(unsigned int type, unsigned int encoding, void *data) {
     this->encoding = encoding;
     this->data = data;
     char buf[100];
-    snprintf(buf, sizeof(buf), "obj[T:%s][E:%s]",
+    snprintf(buf, sizeof(buf), " {obj[T:%s][E:%s]} ",
             this->getTypeName().c_str(), this->getEncodingName().c_str());
     this->info = buf;
     this->refcount = 1; // 默认是1
