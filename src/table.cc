@@ -168,6 +168,7 @@ int Table::callSaverHandler(std::string dataRootPath) {
         ret = this->saverHandler(dataRootPath, this->name, this->getShards(), this->getData());
         if (ret == C_OK) {
             this->resetDirty();
+            this->setVersion(this->getVersion() + 1);
         }
     }
 

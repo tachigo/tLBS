@@ -283,7 +283,16 @@ void Db::load() {
 }
 
 void Db::save() {
-    // 先保存db的table的metadata在db_root目录下 再保存各个table里面的数据
+    // 先保存db的各个table里面的数据, 再保存table的metadata在db_root目录下
+    for (auto mapIter = this->tables.begin(); mapIter != this->tables.end(); mapIter++) {
+        std::string tableName = mapIter->first;
+        Table *tableObj = mapIter->second;
+        if (tableObj->callSaverHandler(this->getDataPath()) != C_OK) {
+            // 保存失败了
+            error(tableObj->getInfo()) << "保存失败";
+        }
+    }
+
     std::string tmpFile = FLAGS_db_root + this->getTmpFile();
     std::string datFile = FLAGS_db_root + this->getDatFile();
     std::ofstream ofs;
@@ -298,13 +307,5 @@ void Db::save() {
         error("将临时文件") << tmpFile << "移动到最终文件" << datFile << "失败!";
         unlink(tmpFile.c_str());
         return;
-    }
-    for (auto mapIter = this->tables.begin(); mapIter != this->tables.end(); mapIter++) {
-        std::string tableName = mapIter->first;
-        Table *tableObj = mapIter->second;
-        if (tableObj->callSaverHandler(this->getDataPath()) != C_OK) {
-            // 保存失败了
-            error(tableObj->getInfo()) << "保存失败";
-        }
     }
 }
