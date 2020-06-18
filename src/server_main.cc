@@ -12,6 +12,7 @@
 #include "http.h"
 #include "db.h"
 #include "cluster.h"
+#include "mfw_busi.h"
 
 #include <csignal>
 
@@ -37,6 +38,8 @@ int main(int argc, char *argv[]) {
     atexit(Command::free);
     Http::init();
     atexit(Http::free);
+    // 加载mfw业务接口
+    MfwBusiness::init();
 
     warning("👋👋👋👋👋👋👋👋 Hello! tLBS-SERVER~ 👋👋👋👋👋👋👋👋");
     warning("executable: ") << server->getExecutable();
@@ -54,7 +57,6 @@ int main(int argc, char *argv[]) {
     if (FLAGS_threads_connection > 0) {
         ThreadPool::createPool("connection", FLAGS_threads_connection);
     }
-
     atexit(ThreadPool::free);
     // 初始化db
     Db::init();
@@ -64,7 +66,6 @@ int main(int argc, char *argv[]) {
     EventLoop *el = EventLoop::create(FLAGS_max_connections);
     atexit(EventLoop::free);
     warning("i/o多路复用: " + el->getName());
-
     NetTcp *net = NetTcp::getInstance();
     atexit(NetTcp::free);
     net->bindAndListen(); // 建立tcp网络地址监听

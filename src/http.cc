@@ -2,7 +2,6 @@
 // Created by 刘立悟 on 2020/6/5.
 //
 
-#include <regex>
 #include "http.h"
 #include "common.h"
 #include "log.h"
@@ -275,12 +274,7 @@ void Http::registerHttp(const char *name, tLBS::execHttpFallback fallback, const
                         const char *description, bool needSpecifiedDb, bool needClusterBroadcast) {
     if (params != nullptr) {
         std::string paramsMetadata = params;
-        std::regex reg(",");
-        std::vector<std::string> v(
-                std::sregex_token_iterator(
-                        paramsMetadata.begin(), paramsMetadata.end(), reg, -1
-                ),
-                std::sregex_token_iterator());
+        std::vector<std::string> v = splitString(paramsMetadata, ',');
         https[name] = new Http(name, fallback, v, description, needSpecifiedDb, needClusterBroadcast);
     }
     else {
@@ -452,5 +446,6 @@ void Http::init() {
 
     registerHttp("GET /cluster/nodes", Cluster::execClusterNodes, nullptr, "查询集群节点", false, false);
 
-    registerHttp("GET /s2polyget", S2Geometry::execGetPolygon, "table,id", "获取一个多边形", false, false);
+    registerHttp("GET /s2polyget", S2Geometry::execPolygonGet, "table,id", "获取一个多边形", false, false);
+    registerHttp("GET /s2polyloc", S2Geometry::execPolygonLocate, "table,lat,lon", "根据经纬度进行定位", false, false);
 }

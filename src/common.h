@@ -29,7 +29,7 @@ char *getAbsolutePath(const char *filename);
 char *trimString(const char *str1, const char *str2);
 
 
-std::vector<std::string> splitString(std::string str, std::string delimiter);
+std::vector<std::string> splitString(std::string str, char delimiter);
 
 
 // 定义错误码
@@ -42,18 +42,21 @@ std::vector<std::string> splitString(std::string str, std::string delimiter);
 #define ERRNO_EXEC_TABLE_TYPE_ERR 3
 #define ERROR_EXEC_TABLE_TYPE_ERR "table类型错误"
 
-#define ERRNO_EXEC_TABLE_EXISTS_ERR 4
+#define ERRNO_EXEC_TABLE_ENCODING_ERR 4
+#define ERROR_EXEC_TABLE_ENCODING_ERR "table实现错误"
+
+#define ERRNO_EXEC_TABLE_EXISTS_ERR 5
 #define ERROR_EXEC_TABLE_EXISTS_ERR "table不存在"
 
 
-#define ERRNO_EXEC_S2GEOMETRY_ERR 5
+#define ERRNO_EXEC_S2GEOMETRY_ERR 6
 
-#define ERRNO_EXEC_PARAMS_NEED 6
+#define ERRNO_EXEC_PARAMS_NEED 7
 
-#define ERRNO_EXEC_CMD_UNKNOWN 7
+#define ERRNO_EXEC_CMD_UNKNOWN 8
 #define ERROR_EXEC_CMD_UNKNOWN "未知的命令"
 
-#define ERRNO_EXEC_HTTP_UNKNOWN 8
+#define ERRNO_EXEC_HTTP_UNKNOWN 9
 #define ERROR_EXEC_HTTP_UNKNOWN "未知的HTTP请求"
 
 #endif //TLBS_COMMON_H

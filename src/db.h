@@ -58,7 +58,21 @@ namespace tLBS {
 
         std::string getTmpFile();
         std::string getDatFile();
-        void load();
+
+        // 线程 load table
+        class TableLoadThreadArg {
+        private:
+            Table *table;
+            std::string dataPath;
+        public:
+            TableLoadThreadArg(Table *table, std::string dataPath);
+            ~TableLoadThreadArg() = delete;
+            Table *getTable();
+            std::string getDataPath();
+        };
+        static void *loadTableThread(void *arg);
+
+
         void save();
         static void saveAll();
         static void loadAll();

@@ -13,6 +13,7 @@
 #include "table.h"
 
 #include <sys/stat.h>
+#include <vector>
 #include <fstream>
 
 using namespace tLBS;
@@ -157,12 +158,7 @@ void Db::saveAll() {
     }
 }
 
-void Db::loadAll() {
-    warning("从磁盘加载所有db数据");
-    for (int i = 0; i < FLAGS_db_num; i++) {
-        dbs[i]->load();
-    }
-}
+
 
 Db* Db::getDb(int id) {
     if (id <= dbs.size()) {
@@ -172,10 +168,6 @@ Db* Db::getDb(int id) {
         return nullptr;
     }
 }
-
-
-
-
 
 Table* Db::lookupTable(std::string key, int flags) {
     UNUSED(flags);
@@ -237,31 +229,66 @@ std::string Db::getDatFile() {
 }
 
 
-void Db::load() {
-    std::string datFile = FLAGS_db_root + this->getDatFile();
-    std::ifstream ifs(datFile);
-    if (!ifs) {
-        if (errno == ENOENT) {
-            // 文件不存在
+Db::TableLoadThreadArg::TableLoadThreadArg(tLBS::Table *table, std::string dataPath) {
+    this->table = table;
+    this->dataPath = dataPath;
+}
+
+Table* Db::TableLoadThreadArg::getTable() {
+    return this->table;
+}
+
+std::string Db::TableLoadThreadArg::getDataPath() {
+    return this->dataPath;
+}
+
+void* Db::loadTableThread(void *arg) {
+    auto threadArg = (Db::TableLoadThreadArg *)arg;
+    Table *table = threadArg->getTable();
+    std::string dataPath = threadArg->getDataPath();
+    table->callLoaderHandler(dataPath);
+    return (void *)0;
+}
+
+void Db::loadAll() {
+    warning("从磁盘加载所有db数据");
+    std::vector<pthread_t> tids;
+    tids.clear();
+    for (int i = 0; i < FLAGS_db_num; i++) {
+        Db *db = dbs[i];
+        std::string datFile = FLAGS_db_root + db->getDatFile();
+        std::ifstream ifs(datFile);
+        if (!ifs) {
+            if (errno == ENOENT) {
 //            error("无法打开" + this->getInfo() + "磁盘数据文件" + datFile)
 //                    << ": " << strerror(errno) << "(" << errno << ")";
+            }
+            else {
+                fatal("无法打开" + db->getInfo() + "磁盘数据文件" + datFile)
+                        << ": " << strerror(errno) << "(" << errno << ")";
+            }
         }
         else {
-            fatal("无法打开" + this->getInfo() + "磁盘数据文件" + datFile)
-                    << ": " << strerror(errno) << "(" << errno << ")";
+            std::string line;
+            while (std::getline(ifs, line)) {
+                Table *table = Table::parseMetadata(line);
+                db->tableAdd(table->getName(), table);
+                // 多线程处理
+                pthread_t tid;
+                if (pthread_create(&tid, nullptr, Db::loadTableThread, (void *)new Db::TableLoadThreadArg(table, db->getDataPath())) != 0) {
+                    fatal("无法开启多线程加载表:") << table->getInfo();
+                }
+                tids.push_back(tid);
+            }
+            ifs.close();
         }
     }
-    else {
-        std::string line;
-        while (std::getline(ifs, line)) {
-            Table *table = Table::parseMetadata(line);
-            this->tableAdd(table->getName(), table);
-            table->callLoaderHandler(this->getDataPath());
-        }
-        ifs.close();
+    for (int i = 0; i < tids.size(); i++) {
+        pthread_t tid = tids[i];
+        pthread_join(tid, nullptr);
     }
-
 }
+
 
 void Db::save() {
     // 先保存db的各个table里面的数据, 再保存table的metadata在db_root目录下

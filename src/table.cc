@@ -2,14 +2,15 @@
 // Created by 刘立悟 on 2020/6/4.
 //
 
-#include <regex>
 #include "table.h"
 #include "log.h"
 #include "t_s2geometry.h"
+#include "t_hashmap.h"
 #include "common.h"
 #include "json.h"
 #include "connection.h"
 #include "db.h"
+
 
 using namespace tLBS;
 
@@ -26,7 +27,7 @@ Table::Table(int db, std::string name, unsigned int type,
     this->loading = false;
 
     char buf[100];
-    snprintf(buf, sizeof(buf), "db#%0.2d`%s`[T:%s][E:%s]",
+    snprintf(buf, sizeof(buf), " {db#%0.2d(%s)[T:%s][E:%s]} ",
              db, name.c_str(),
              this->getTypeName().c_str(), this->getEncodingName().c_str());
     this->setInfo(buf);
@@ -102,7 +103,7 @@ bool Table::isLoading() {
 }
 
 uint64_t Table::getSize() {
-    auto data = (TableInternal *)this->getData();
+    auto data = (TableEncoding *)this->getData();
     return data->getSize();
 }
 
@@ -118,12 +119,7 @@ std::string Table::getMetadata() {
 
 Table* Table::parseMetadata(std::string metadata) {
 //    info(metadata);
-    std::regex reg("/");
-    std::vector<std::string> v(
-            std::sregex_token_iterator(
-                    metadata.begin(), metadata.end(), reg, -1
-                    ),
-            std::sregex_token_iterator());
+    std::vector<std::string> v = splitString(metadata, '/');
     int db = atoi(v[0].c_str());
     std::string name = v[1];
     unsigned int type = atoi(v[2].c_str());
@@ -133,17 +129,28 @@ Table* Table::parseMetadata(std::string metadata) {
 //    info("parseMetadata: ") << db << "/"
 //        << name << "/" << type << "/"
 //        << encoding << "/" << shards << "/" << version;
+
+
     Table *tableObj = nullptr;
-    switch (encoding) {
-        case ObjectEncoding::OBJ_ENCODING_S2GEOMETRY :
-            switch (type) {
-                case ObjectType::OBJ_TYPE_GEO_POLYGON :
+    switch (type) {
+        case ObjectType::OBJ_TYPE_GEO_POLYGON :
+            switch (encoding) {
+                case ObjectEncoding::OBJ_ENCODING_S2GEOMETRY :
                     tableObj = createS2GeoPolygonTable(db, name);
+                    break;
+                default: break;
+            }
+            break;
+        case ObjectType::OBJ_TYPE_HASH_MAP:
+            switch (encoding) {
+                case ObjectEncoding::OBJ_ENCODING_STRING_STRING_HASH_MAP:
+                    tableObj = createSSHashMapTable(db, name);
                     break;
             }
             break;
         default: break;
     }
+
     if (tableObj != nullptr) {
         tableObj->setShards(shards);
         tableObj->setVersion(version);
@@ -193,14 +200,20 @@ int Table::callLoaderHandler(std::string dataRootPath) {
         return C_OK;
     }
     this->setLoading(true);
-
+    long long start = ustime();
     int ret = C_ERR;
 
     if (this->loaderHandler != nullptr) {
         ret = this->loaderHandler(dataRootPath, this->name, this->getShards(), this->getData());
     }
+    long long duration = ustime() - start;
+    char cost[1024];
+    memset(cost, 0, sizeof(cost));
+    sprintf(cost, "执行时间: %0.5f 毫秒 / %0.5f 秒",
+            (double)duration / (double)1000,
+            (double)duration / (double)1000000);
     this->setSaving(false);
-    warning(this->getInfo()) << "加载结束";
+    warning(this->getInfo()) << "加载结束, " << cost;
     return ret;
 }
 
@@ -242,6 +255,18 @@ Table * Table::createS2GeoPolygonTable(int db, std::string name) {
     table->setLoaderHandler(S2Geometry::PolygonIndex::loader);
     table->setSenderHandler(S2Geometry::PolygonIndex::sender);
     table->setReceiverHandler(S2Geometry::PolygonIndex::receiver);
+    return table;
+}
+
+Table* Table::createSSHashMapTable(int db, std::string name) {
+    Table *table = createTable(db, name,
+                               ObjectType::OBJ_TYPE_HASH_MAP,
+                               ObjectEncoding::OBJ_ENCODING_STRING_STRING_HASH_MAP,
+                               new HashMap::StringStringHashMap());
+    table->setSaverHandler(HashMap::StringStringHashMap::dumper);
+    table->setLoaderHandler(HashMap::StringStringHashMap::loader);
+    table->setSenderHandler(HashMap::StringStringHashMap::sender);
+    table->setReceiverHandler(HashMap::StringStringHashMap::receiver);
     return table;
 }
 

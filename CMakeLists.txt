@@ -83,6 +83,7 @@ set(SRC_SERVER_TMP
 #        src/syncio.cc
         src/table.cc
         src/t_s2geometry.cc
+        src/t_hashmap.cc
 #        src/t_point.cc
 #        src/t_polygon.cc
 #        src/t_string.cc

@@ -12,7 +12,6 @@
 #include "db.h"
 #include "table.h"
 
-#include <regex>
 #include <sstream>
 #include <fstream>
 
@@ -25,12 +24,7 @@ std::map<std::string, ClusterNode *> Cluster::nodes;
 
 void Cluster::init() {
     if (FLAGS_cluster_nodes.size() > 0) {
-        std::regex reg(";");
-        std::vector<std::string> v(
-                std::sregex_token_iterator(
-                        FLAGS_cluster_nodes.begin(), FLAGS_cluster_nodes.end(), reg, -1
-                ),
-                std::sregex_token_iterator());
+        std::vector<std::string> v = splitString(FLAGS_cluster_nodes, ';');
         for (int i = 0; i < v.size(); i++) {
             std::string clusterNodeUrl = v[i];
             addNode(clusterNodeUrl);
@@ -44,12 +38,7 @@ void Cluster::init() {
 
 
 void Cluster::addNode(std::string nodeUrl, tLBS::Connection *conn) {
-    std::regex reg(":");
-    std::vector<std::string> v(
-            std::sregex_token_iterator(
-                    nodeUrl.begin(), nodeUrl.end(), reg, -1
-            ),
-            std::sregex_token_iterator());
+    std::vector<std::string> v = splitString(nodeUrl, ':');
     std::string ip = v[0];
     std::stringstream is(v[1]);
     int port;
@@ -69,12 +58,7 @@ void Cluster::addNode(std::string nodeUrl, tLBS::Connection *conn) {
 }
 
 void Cluster::addNode(std::string nodeUrl) {
-    std::regex reg(":");
-    std::vector<std::string> v(
-            std::sregex_token_iterator(
-                    nodeUrl.begin(), nodeUrl.end(), reg, -1
-            ),
-            std::sregex_token_iterator());
+    std::vector<std::string> v = splitString(nodeUrl, ':');
     std::string ip = v[0];
     std::stringstream is(v[1]);
     int port;
@@ -131,6 +115,7 @@ void Cluster::tryReady() {
             }
         }
         else if (node->getRole() == CLUSTER_NODE_ROLE_ACCEPTED &&
+                (node->getFlags() & CLUSTER_NODE_FLAGS_SENDER_SYNC_OK) &&
                 !(node->getFlags() & CLUSTER_NODE_FLAGS_RECEIVER_SYNC_OK) && !(node->getFlags() & CLUSTER_NODE_FLAGS_RECEIVER_SYNC_ING)) {
             auto conn = node->getConnection();
             startSyncCluster(conn);
@@ -322,7 +307,7 @@ void Cluster::connReadClusterStartSyncHandler(tLBS::Connection *conn) {
         // 遍历数据
         const rapidjson::Value& arr = json->get("data");
         for (auto iter = arr.Begin(); iter != arr.End(); iter++) {
-            std::vector<std::string> v = splitString(iter->GetString(), "/");
+            std::vector<std::string> v = splitString(iter->GetString(), '/');
             int dbNo = atoi(v[0].c_str());
             std::string tableName = v[1];
             if (dbNo >= FLAGS_db_num) {
@@ -385,9 +370,9 @@ int Cluster::execClusterDoSync(Exec *exec, tLBS::Connection *conn, std::vector<s
     if (node->getRole() == CLUSTER_NODE_ROLE_ACCEPTED) {
         node->setFlags(node->getFlags() | CLUSTER_NODE_FLAGS_SENDER_SYNC_ING);
     }
-    std::vector<std::string> tables = splitString(args[1], ",");
+    std::vector<std::string> tables = splitString(args[1], ',');
     for (int i = 0; i < tables.size(); i++) {
-        std::vector<std::string> t = splitString(tables[i], ":");
+        std::vector<std::string> t = splitString(tables[i], ':');
         int dbNo = atoi(t[0].c_str());
         std::string tableName = t[1];
         Db *db = Db::getDb(dbNo);
@@ -412,15 +397,15 @@ void Cluster::connReadClusterDoSyncHandler(tLBS::Connection *conn) {
     }
     warning("从") << conn->getInfo() << "同步数据进行中...";
 
-    std::vector<std::string> lines = splitString(qb, "\n");
+    std::vector<std::string> lines = splitString(qb, '\n');
     for (int i = 0; i < lines.size(); i++) {
         if (lines[i] == "clusterfinishsync") {
             conn->setReadHandler(nullptr);
             endSyncCluster(conn);
             return;
         }
-        std::vector<std::string> arr = splitString(lines[i], " ");
-        std::vector<std::string> tableArr = splitString(arr[0], "/");
+        std::vector<std::string> arr = splitString(lines[i], ' ');
+        std::vector<std::string> tableArr = splitString(arr[0], '/');
         int dbNo = atoi(tableArr[0].c_str());
         std::string tableName = tableArr[1];
         int version = atoi(tableArr[2].c_str());

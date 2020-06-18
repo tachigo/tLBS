@@ -7,6 +7,7 @@
 
 #include <string>
 #include <map>
+#include <vector>
 #include <s2/mutable_s2shape_index.h>
 #include <s2/s2polygon.h>
 #include "exec.h"
@@ -19,16 +20,20 @@ namespace tLBS {
 
     public:
 
-        class PolygonIndex: public TableInternal {
+        class PolygonIndex: public TableEncoding {
         private:
             MutableS2ShapeIndex *index;
             std::map<std::string, int> id2shapeId;
+            std::map<int, std::string> shapeId2id;
             std::map<int, std::string> shapeId2Data;
         public:
             PolygonIndex();
             ~PolygonIndex();
             int addPolygon(std::string id, std::string data);
             void delPolygon(int shapeId);
+            int locPolygon(double lat, double lon, std::vector<std::string> *ret);
+
+            std::string findIdByShapeId(int shapeId);
             int findShapeIdById(std::string id);
             std::string findDataByShapeId(int shapeId);
             std::string findDataById(std::string id);
@@ -55,16 +60,19 @@ namespace tLBS {
         // exec
 
         // s2polyset table id data
-        static int execSetPolygon(Exec *exec, Connection *conn, std::vector<std::string> args);
+        static int execPolygonSet(Exec *exec, Connection *conn, std::vector<std::string> args);
 
         // s2polyget table id
-        static int execGetPolygon(Exec *exec, Connection *conn, std::vector<std::string> args);
+        static int execPolygonGet(Exec *exec, Connection *conn, std::vector<std::string> args);
 
         // s2polydel table id
-        static int execDelPolygon(Exec *exec, Connection *conn, std::vector<std::string> args);
+        static int execPolygonDel(Exec *exec, Connection *conn, std::vector<std::string> args);
 
         // s2forcebuild table
         static int execForceBuild(Exec *exec, Connection *conn, std::vector<std::string> args);
+
+        // s2polyloc table lat lon
+        static int execPolygonLocate(Exec *exec, Connection *conn, std::vector<std::string> args);
     };
 }
 

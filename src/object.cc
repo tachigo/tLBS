@@ -66,6 +66,7 @@ std::string Object::getTypeName() {
         case ObjectType::OBJ_TYPE_GEO_LINESTRING: return "geo_linestring";
         case ObjectType::OBJ_TYPE_GEO_POINT: return "geo_point";
         case ObjectType::OBJ_TYPE_GEO_SHAPE: return "geo_shape";
+        case ObjectType::OBJ_TYPE_HASH_MAP: return "hash_map";
         default: return "unknown";
     }
 }
@@ -73,6 +74,8 @@ std::string Object::getTypeName() {
 std::string Object::getEncodingName() {
     switch (this->encoding) {
         case ObjectEncoding::OBJ_ENCODING_S2GEOMETRY: return "s2geometry";
+        case ObjectEncoding::OBJ_ENCODING_H3GEOMETRY: return "h3geometry";
+        case ObjectEncoding::OBJ_ENCODING_STRING_STRING_HASH_MAP: return "<string,string>hash_map";
         default: return "unknown";
     }
 }

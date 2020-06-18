@@ -10,13 +10,51 @@
 #include "table.h"
 
 #include <s2/s2text_format.h>
+//#include <s2/s2closest_edge_query.h>
+//#include <s2/s2earth.h>
+#include <s2/s2contains_point_query.h>
 #include <fstream>
-#include <regex>
+#include <sstream>
 
 using namespace tLBS;
 
 
 // exec
+// s2polyloc table lat lon
+int S2Geometry::execPolygonLocate(tLBS::Exec *exec, tLBS::Connection *conn, std::vector<std::string> args) {
+    UNUSED(exec);
+    if (args.size() != 4) {
+        return conn->fail(ERRNO_EXEC_SYNTAX_ERR, ERROR_EXEC_SYNTAX_ERR);
+    }
+    Table *tableObj;
+    std::string table = args[1];
+    tableObj = conn->getDb()->lookupTableRead(table);
+    if (tableObj == nullptr) {
+        return conn->fail(ERRNO_EXEC_TABLE_EXISTS_ERR, ERROR_EXEC_TABLE_EXISTS_ERR);
+    }
+    if (tableObj->getType() != OBJ_TYPE_GEO_POLYGON) {
+        return conn->fail(ERRNO_EXEC_TABLE_TYPE_ERR, ERROR_EXEC_TABLE_TYPE_ERR);
+    }
+    else if (tableObj->getEncoding() != OBJ_ENCODING_S2GEOMETRY) {
+        return conn->fail(ERRNO_EXEC_TABLE_ENCODING_ERR, ERROR_EXEC_TABLE_ENCODING_ERR);
+    }
+    double lat, lon;
+    std::istringstream is1(args[2]);
+    is1 >> lat;
+    std::istringstream is2(args[3]);
+    is2 >> lon;
+    std::vector<std::string> ret;
+    ret.clear();
+    auto indexObj = (S2Geometry::PolygonIndex *) tableObj->getData();
+    indexObj->locPolygon(lat, lon, &ret);
+
+    // 返回数据
+    Json *response = Json::createSuccessArrayJsonObj();
+    for (int i = 0; i < ret.size(); i++) {
+        response->get("data").PushBack(Json::createString(ret[i]), response->getAllocator());
+    }
+    return conn->success(response);
+}
 
 // s2build table
 int S2Geometry::execForceBuild(Exec *exec, tLBS::Connection *conn, std::vector<std::string> args) {
@@ -35,6 +73,9 @@ int S2Geometry::execForceBuild(Exec *exec, tLBS::Connection *conn, std::vector<s
         if (tableObj->getType() != OBJ_TYPE_GEO_POLYGON) {
             return conn->fail(ERRNO_EXEC_TABLE_TYPE_ERR, ERROR_EXEC_TABLE_TYPE_ERR);
         }
+        else if (tableObj->getEncoding() != OBJ_ENCODING_S2GEOMETRY) {
+            return conn->fail(ERRNO_EXEC_TABLE_ENCODING_ERR, ERROR_EXEC_TABLE_ENCODING_ERR);
+        }
         auto indexObj = (S2Geometry::PolygonIndex *) tableObj->getData();
         indexObj->flush();
         return conn->success();
@@ -43,7 +84,7 @@ int S2Geometry::execForceBuild(Exec *exec, tLBS::Connection *conn, std::vector<s
 }
 
 // s2polydel table id
-int S2Geometry::execDelPolygon(Exec *exec, Connection *conn, std::vector<std::string> args) {
+int S2Geometry::execPolygonDel(Exec *exec, Connection *conn, std::vector<std::string> args) {
     UNUSED(exec);
     if (args.size() != 3) {
         return conn->fail(ERRNO_EXEC_SYNTAX_ERR, ERROR_EXEC_SYNTAX_ERR);
@@ -55,7 +96,7 @@ int S2Geometry::execDelPolygon(Exec *exec, Connection *conn, std::vector<std::st
 //    info("s2polydel: table[") << table << "] "
 //        << "id[" << id << "] ";
 
-    tableObj = conn->getDb()->lookupTableRead(table);
+    tableObj = conn->getDb()->lookupTableWrite(table);
     if (tableObj == nullptr) {
 //        info("表`") << table << "`不存在";
         return conn->success();
@@ -65,12 +106,16 @@ int S2Geometry::execDelPolygon(Exec *exec, Connection *conn, std::vector<std::st
         if (tableObj->getType() != OBJ_TYPE_GEO_POLYGON) {
             return conn->fail(ERRNO_EXEC_TABLE_TYPE_ERR, ERROR_EXEC_TABLE_TYPE_ERR);
         }
+        else if (tableObj->getEncoding() != OBJ_ENCODING_S2GEOMETRY) {
+            return conn->fail(ERRNO_EXEC_TABLE_ENCODING_ERR, ERROR_EXEC_TABLE_ENCODING_ERR);
+        }
         auto indexObj = (S2Geometry::PolygonIndex *) tableObj->getData();
         int shapeId;
         if ((shapeId = indexObj->findShapeIdById(id)) > 0) {
             // 数据存在
             indexObj->delPolygon(shapeId);
             indexObj->flush();
+            tableObj->incrDirty(1);
         }
         return conn->success();
     }
@@ -78,7 +123,7 @@ int S2Geometry::execDelPolygon(Exec *exec, Connection *conn, std::vector<std::st
 }
 
 // s2polyget table id
-int S2Geometry::execGetPolygon(Exec *exec, Connection *conn, std::vector<std::string> args) {
+int S2Geometry::execPolygonGet(Exec *exec, Connection *conn, std::vector<std::string> args) {
     UNUSED(exec);
     if (args.size() != 3) {
         return conn->fail(ERRNO_EXEC_SYNTAX_ERR, ERROR_EXEC_SYNTAX_ERR);
@@ -109,7 +154,7 @@ int S2Geometry::execGetPolygon(Exec *exec, Connection *conn, std::vector<std::st
 
 
 // s2polyset table id data
-int S2Geometry::execSetPolygon(Exec *exec, Connection *conn, std::vector<std::string> args) {
+int S2Geometry::execPolygonSet(Exec *exec, Connection *conn, std::vector<std::string> args) {
     UNUSED(exec);
     if (args.size() != 4) {
         return conn->fail(ERRNO_EXEC_SYNTAX_ERR, ERROR_EXEC_SYNTAX_ERR);
@@ -227,12 +272,7 @@ int S2Geometry::PolygonIndex::send(std::string dataRootPath, std::string table, 
 
 
 int S2Geometry::PolygonIndex::receive(std::string line) {
-    std::regex reg("\\+");
-    std::vector<std::string> v(
-            std::sregex_token_iterator(
-                    line.begin(), line.end(), reg, -1
-            ),
-            std::sregex_token_iterator());
+    std::vector<std::string> v = splitString(line, '+');
     std::string id = v[0];
     std::string data = v[1];
 
@@ -270,17 +310,13 @@ int S2Geometry::PolygonIndex::load(std::string dataRootPath, std::string table, 
         else {
             std::string line;
             while (getline(ifs, line)) {
-                std::regex reg("\\+");
-                std::vector<std::string> v(
-                        std::sregex_token_iterator(
-                                line.begin(), line.end(), reg, -1
-                        ),
-                        std::sregex_token_iterator());
+                std::vector<std::string> v = splitString(line, '+');
                 std::string id = v[0];
                 std::string data = v[1];
                 if (this->addPolygon(id, data) != C_OK) {
                     fatal("加载数据失败: ") << line;
                 }
+//                info(table) << " load: " << id;
             }
             this->flush();
             ifs.close();
@@ -343,13 +379,36 @@ int S2Geometry::PolygonIndex::addPolygon(std::string id, std::string data) {
     }
     int shapeId = this->index->Add(absl::make_unique<S2Polygon::Shape>(polygon.release()));
     this->id2shapeId[id] = shapeId;
+    this->shapeId2id[shapeId] = id;
     this->shapeId2Data[shapeId] = data;
     return C_OK;
 }
 
 void S2Geometry::PolygonIndex::delPolygon(int shapeId) {
-    this->shapeId2Data.erase(shapeId); // 清除数据
+    this->shapeId2Data.erase(shapeId);
+    this->shapeId2id.erase(shapeId);
     delete this->index->Release(shapeId).release();
+}
+
+int S2Geometry::PolygonIndex::locPolygon(double lat, double lon, std::vector<std::string> *ret) {
+    S2LatLng latlng = S2LatLng::FromDegrees(lat, lon);
+    S2ContainsPointQuery<MutableS2ShapeIndex> query = MakeS2ContainsPointQuery(this->index,S2ContainsPointQueryOptions(S2VertexModel::CLOSED));
+    for (S2Shape* shape : query.GetContainingShapes(latlng.ToPoint())) {
+        info(shape->id());
+        std::string id = this->findIdByShapeId(shape->id());
+        if (id.size() > 0) {
+            ret->push_back(id);
+        }
+    }
+    return C_OK;
+}
+
+std::string S2Geometry::PolygonIndex::findIdByShapeId(int shapeId) {
+    auto mapIter = this->shapeId2id.find(shapeId);
+    if (mapIter != this->shapeId2id.end()) {
+        return mapIter->second;
+    }
+    return "";
 }
 
 int S2Geometry::PolygonIndex::findShapeIdById(std::string id) {

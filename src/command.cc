@@ -8,12 +8,12 @@
 #include "db.h"
 #include "log.h"
 #include "t_s2geometry.h"
+#include "t_hashmap.h"
 #include "cluster.h"
 #include "server.h"
 #include "table.h"
 
 #include <string>
-#include <regex>
 
 using namespace tLBS;
 
@@ -35,12 +35,7 @@ void Command::registerCommand(const char *name, tLBS::execCmdFallback fallback, 
     int arty = 0;
     if (params != nullptr) {
         std::string paramsMetadata = params;
-        std::regex reg(",");
-        std::vector<std::string> v(
-                std::sregex_token_iterator(
-                        paramsMetadata.begin(), paramsMetadata.end(), reg, -1
-                ),
-                std::sregex_token_iterator());
+        std::vector<std::string> v = splitString(paramsMetadata, ',');
         arty = v.size();
     }
     commands[name] = new Command(name, fallback, arty, description, needClusterBroadcast);
@@ -218,7 +213,11 @@ int Command::processCommandAndReset(Connection *conn, std::string query, bool in
         if (processCommand(conn, args, inClusterScope) == C_OK) {
             long long duration = ustime() - start;
             char msg[1024];
-            sprintf(msg, "命令[%s]外部执行时间: %0.5f 毫秒", args[0].c_str(), (double)duration / (double)1000);
+            memset(msg, 0, sizeof(msg));
+            sprintf(msg, "命令[%s]外部执行时间: %0.5f 毫秒 / %0.5f 秒",
+                    args[0].c_str(),
+                    (double)duration / (double)1000,
+                    (double)duration / (double)1000000);
             info(conn->getInfo()) << msg;
             return C_OK;
         }
@@ -279,11 +278,17 @@ void Command::init() {
     registerCommand("clusterdosync", Cluster::execClusterDoSync, "tables", "响应同步", false);
     registerCommand("clusterendsync", Cluster::execClusterEndSync, nullptr, "节点结束同步数据", false);
 
-    // s2geometry
-    registerCommand("s2polyset", S2Geometry::execSetPolygon, "table,id,data", "添加一个多边形", true);
-    registerCommand("s2polyget", S2Geometry::execGetPolygon, "table,id", "获取一个多边形", false);
-    registerCommand("s2polydel", S2Geometry::execDelPolygon, "table,id", "删除一个多边形", true);
+    // s2geometry polygon
+    registerCommand("s2polyset", S2Geometry::execPolygonSet, "table,id,data", "添加一个多边形", true);
+    registerCommand("s2polyget", S2Geometry::execPolygonGet, "table,id", "获取一个多边形", false);
+    registerCommand("s2polydel", S2Geometry::execPolygonDel, "table,id", "删除一个多边形", true);
     registerCommand("s2build", S2Geometry::execForceBuild, "table", "强制重新构建一个索引", true);
+    registerCommand("s2polyloc", S2Geometry::execPolygonLocate, "table,lat,lon", "根据经纬度进行定位", false);
 
 
+    // string string hash map
+    registerCommand("sshmset", HashMap::execSSHashMapSet, "table,key,value", "<string,string>hashmap set", true);
+    registerCommand("sshmget", HashMap::execSSHashMapGet, "table,key", "<string,string>hashmap get", false);
+    registerCommand("sshmdel", HashMap::execSSHashMapDel, "table,key", "<string,string>hashmap del", true);
+    registerCommand("sshmclear", HashMap::execSSHashMapClear, "table", "<string,string>hashmap clear", true);
 }

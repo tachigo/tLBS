@@ -13,14 +13,18 @@
 namespace tLBS {
 
     typedef enum {
-        OBJ_TYPE_GEO_POLYGON = (1<<0), // 多边形
-        OBJ_TYPE_GEO_LINESTRING = (1<<1), // 线
-        OBJ_TYPE_GEO_POINT = (1<<2), // 点
-        OBJ_TYPE_GEO_SHAPE = (1<<3), // 形状
+        OBJ_TYPE_GEO_POLYGON = 1, // 多边形
+        OBJ_TYPE_GEO_LINESTRING = 2, // 线
+        OBJ_TYPE_GEO_POINT = 3, // 点
+        OBJ_TYPE_GEO_SHAPE = 4, // 形状
+
+        OBJ_TYPE_HASH_MAP = 5, // hashmap
     } ObjectType;
 
     typedef enum {
-        OBJ_ENCODING_S2GEOMETRY = (1<<0), // google s2 geometry
+        OBJ_ENCODING_S2GEOMETRY = 1, // google s2 geometry
+        OBJ_ENCODING_H3GEOMETRY = 2, // uber h3 geometry
+        OBJ_ENCODING_STRING_STRING_HASH_MAP = 3, // string -> string hash map
     } ObjectEncoding;
 
     class Object {
@@ -47,7 +51,7 @@ namespace tLBS {
         void decrRefCount();
         void resetRefCount();
 
-        static void free(Object *obj);
+//        static void free(Object *obj);
 
         static Object *createObject(unsigned int type, unsigned int encoding, void *data);
 

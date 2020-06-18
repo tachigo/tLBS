@@ -20,7 +20,7 @@ namespace tLBS {
     typedef int (*tableSenderHandler)(std::string dataRootPath, std::string table, int shards, void *ptr, std::string prefix, Connection *conn);
     typedef int (*tableReceiverHandler)(void *ptr, std::string data);
 
-    class TableInternal {
+    class TableEncoding {
     public:
         virtual uint64_t getSize() = 0;
     };
@@ -80,6 +80,8 @@ namespace tLBS {
 
         static Table *createTable(int db, std::string name, unsigned int type, unsigned int encoding, void *data);
         static Table *createS2GeoPolygonTable(int db, std::string name);
+
+        static Table *createSSHashMapTable(int db, std::string name);
 
 
         // exec

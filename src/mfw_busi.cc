@@ -9,4 +9,11 @@ using namespace tLBS;
 
 void MfwBusiness::init() {
     // 注册命令
+
+
+    // 注册http
+}
+
+void MfwBusiness::free() {
+    
 }
