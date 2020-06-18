@@ -10,16 +10,18 @@
 #include <map>
 
 #include "exec.h"
+#include "table.h"
+
 
 namespace tLBS {
 
     class Connection;
 
     class MfwBusiness {
-    private:
-        static std::map<std::string, std::string> regionCountryMap; // 行政区划placeId所属国家区划placeId的map
-
     public:
+
+        static Table *getRegion2CountryTable();
+
         // region_fence [行政区划]
         // mfwS2RfSet regionPlaceId regionCountryPlaceId data
         static int execS2RfSet(Exec *exec, Connection *conn, std::vector<std::string> args);

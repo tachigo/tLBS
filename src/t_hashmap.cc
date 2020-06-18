@@ -165,7 +165,7 @@ std::string HashMap::StringStringHashMap::get(std::string key) {
     if (mapIter != this->map.end()) {
         return mapIter->second;
     }
-    return nullptr;
+    return "";
 }
 
 void HashMap::StringStringHashMap::clear() {

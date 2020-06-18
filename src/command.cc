@@ -61,13 +61,17 @@ execCmdFallback Command::getFallback() {
     return this->fallback;
 }
 
+std::string Command::getDescription() {
+    return this->description;
+}
+
 int Command::processCommand(Connection *conn, std::vector<std::string> args, bool inClusterScope) {
 //    info(conn->getInfo()) << "执行命令: " << args[0];
     Command *command = Command::findCommand(args[0]);
     if (command == nullptr) {
         // 没有找到命令
         warning("未知的命令: ") << args[0];
-        return conn->fail("未知的命令!");
+        return conn->fail(ERRNO_EXEC_CMD_UNKNOWN, ERROR_EXEC_CMD_UNKNOWN);
     }
     Server *server = Server::getInstance();
     server->updateCachedTime();
@@ -257,6 +261,25 @@ void Command::free() {
     }
 }
 
+
+// exec
+int Command::execCommandList(tLBS::Exec *exec, tLBS::Connection *conn, std::vector<std::string> args) {
+    UNUSED(exec);
+    UNUSED(args);
+    Json *dataList = new Json(R"({"total": 0, "list": []})");
+    dataList->get("total").SetInt(commands.size());
+    for (auto mapIter = commands.begin(); mapIter != commands.end(); mapIter++) {
+        Json *dataItem = new Json(R"({"name": "", "desc": ""})");
+        auto command = mapIter->second;
+        dataItem->get("name").SetString(Json::createString(command->getName()));
+        dataItem->get("desc").SetString(Json::createString(command->getDescription()));
+        dataList->get("list").PushBack(dataItem->value(), dataList->getAllocator());
+    }
+    Json *response = Json::createSuccessObjectJsonObj();
+    response->get("data") = dataList->value();
+    return conn->success(response->toPretty().c_str());
+}
+
 void Command::init() {
     registerCommand("hello", Client::execHello, nullptr, "输出欢迎语", false);
     registerCommand("quit", Client::execQuit, nullptr, "退出连接", false);
@@ -291,4 +314,7 @@ void Command::init() {
     registerCommand("sshmget", HashMap::execSSHashMapGet, "table,key", "<string,string>hashmap get", false);
     registerCommand("sshmdel", HashMap::execSSHashMapDel, "table,key", "<string,string>hashmap del", true);
     registerCommand("sshmclear", HashMap::execSSHashMapClear, "table", "<string,string>hashmap clear", true);
+
+    // command list
+    registerCommand("commands", Command::execCommandList, nullptr, "列出所有支持的命令", false);
 }

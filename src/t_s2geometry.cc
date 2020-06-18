@@ -65,7 +65,7 @@ int S2Geometry::execForceBuild(Exec *exec, tLBS::Connection *conn, std::vector<s
     Table *tableObj;
     std::string table = args[1];
 
-    tableObj = conn->getDb()->lookupTableRead(table);
+    tableObj = conn->getDb()->lookupTableWrite(table);
     if (tableObj == nullptr) {
         return conn->fail(ERRNO_EXEC_TABLE_EXISTS_ERR, ERROR_EXEC_TABLE_EXISTS_ERR);
     }

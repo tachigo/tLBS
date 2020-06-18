@@ -38,8 +38,6 @@ int main(int argc, char *argv[]) {
     atexit(Command::free);
     Http::init();
     atexit(Http::free);
-    // 加载mfw业务接口
-    MfwBusiness::init();
 
     warning("👋👋👋👋👋👋👋👋 Hello! tLBS-SERVER~ 👋👋👋👋👋👋👋👋");
     warning("executable: ") << server->getExecutable();
@@ -61,6 +59,9 @@ int main(int argc, char *argv[]) {
     // 初始化db
     Db::init();
     atexit(Db::free);
+    // 加载mfw业务接口 依赖于数据初始化
+    MfwBusiness::init();
+    atexit(MfwBusiness::free);
     // i/o多路复用代理
     Connection::adjustMaxConnections();
     EventLoop *el = EventLoop::create(FLAGS_max_connections);

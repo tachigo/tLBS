@@ -30,8 +30,6 @@ namespace tLBS {
         bool needSpecifiedDb;
         bool clusterBroadcast; // 是否集群广播
 
-
-        static void registerHttp(const char *name, execHttpFallback fallback, const char *params, const char *description, bool needSpecifiedDb, bool needClusterBroadcast);
         static int parseQueryBuff(const char *line, std::string *method, std::string *path, std::map<std::string, std::string> *params);
     public:
         Http(const char *name, execHttpFallback fallback, std::vector<std::string> params, const char *description, bool needSpecifiedDb, bool needClusterBroadcast);
@@ -50,6 +48,8 @@ namespace tLBS {
         static void free();
         static Http *findHttp(std::string name);
         int call(Connection *conn, std::vector<std::string> args);
+        static void registerHttp(const char *name, execHttpFallback fallback, const char *params, const char *description, bool needSpecifiedDb, bool needClusterBroadcast);
+
 
         static int processHttp(Connection *conn, std::vector<std::string> args, bool inClusterScope);
         static int processHttpAndReset(Connection *conn, std::string query, bool inClusterScope);

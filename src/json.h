@@ -12,12 +12,14 @@ namespace tLBS {
     class Json {
     private:
         rapidjson::Document doc;
-        std::string str;
+        std::string raw;
+        std::string pretty;
     public:
         explicit Json(std::string tpl);
         ~Json();
         rapidjson::Value &get(const char *key);
         std::string toString();
+        std::string toPretty();
         rapidjson::Document::AllocatorType& getAllocator();
         rapidjson::GenericValue<rapidjson::UTF8<char> >& value();
 

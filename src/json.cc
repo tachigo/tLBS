@@ -13,6 +13,8 @@ using namespace tLBS;
 Json::Json(std::string tpl) {
     this->doc = rapidjson::Document();
     this->doc.Parse(tpl.c_str());
+    this->raw = "";
+    this->pretty = "";
 }
 
 rapidjson::GenericValue<rapidjson::UTF8<char> >& Json::value() {
@@ -27,14 +29,23 @@ rapidjson::Value& Json::get(const char *key) {
 }
 
 std::string Json::toString() {
-    if (this->str.size() == 0) {
+    if (this->raw.size() == 0) {
         rapidjson::StringBuffer buf;
         rapidjson::Writer<rapidjson::StringBuffer> writer(buf);
-//        rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buf);
         this->doc.Accept(writer);
-        this->str = std::string(buf.GetString());
+        this->raw = std::string(buf.GetString());
     }
-    return this->str;
+    return this->raw;
+}
+
+std::string Json::toPretty() {
+    if (this->pretty.size() == 0) {
+        rapidjson::StringBuffer buf;
+        rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buf);
+        this->doc.Accept(writer);
+        this->pretty = std::string(buf.GetString());
+    }
+    return this->pretty;
 }
 
 Json* Json::createSuccessNumberJsonObj() {
