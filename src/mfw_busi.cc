@@ -382,6 +382,7 @@ void MfwBusiness::init() {
     // 初始化 regionPlaceId和countryRegionPlaceId 的映射关系 表
     getRegion2CountryTable();
     // 注册exec
+    // region fence
     Command::registerCommand("mfwS2RfSet", MfwBusiness::execS2RfSet, "regionPlaceId,regionCountryPlaceId,data", "mfw行政区划数据set", true);
     Command::registerCommand("mfwS2RfGet", MfwBusiness::execS2RfGet, "regionPlaceId", "mfw行政区划数据get", false);
     Command::registerCommand("mfwS2RfDel", MfwBusiness::execS2RfDel, "regionPlaceId", "mfw行政区划数据del", true);
@@ -394,6 +395,9 @@ void MfwBusiness::init() {
     Http::registerHttp("GET /mfw/s2/region-fence/locate", MfwBusiness::execS2RfLocate, "lat,lon", "mfw行政区划数据定位", false, false);
     Http::registerHttp("GET /mfw/s2/region-fence/nearby", MfwBusiness::execS2RfNearby, "lat,lon,distance", "mfw行政区划数据点半径查询附近", false, false);
     Http::registerHttp("GET /mfw/s2/region-fence/closest", MfwBusiness::execS2RfClosest, "lat,lon,distance", "mfw行政区划数据点半径查询最近", false, false);
+    // poi fence
+
+    // poi point
 }
 
 void MfwBusiness::free() {
