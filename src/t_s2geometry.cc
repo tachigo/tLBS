@@ -10,8 +10,8 @@
 #include "table.h"
 
 #include <s2/s2text_format.h>
-//#include <s2/s2closest_edge_query.h>
-//#include <s2/s2earth.h>
+#include <s2/s2closest_edge_query.h>
+#include <s2/s2earth.h>
 #include <s2/s2contains_point_query.h>
 #include <fstream>
 #include <sstream>
@@ -20,6 +20,91 @@ using namespace tLBS;
 
 
 // exec
+
+// s2polyclosest table lat lon
+int S2Geometry::execPolygonClosest(tLBS::Exec *exec, tLBS::Connection *conn, std::vector<std::string> args) {
+    UNUSED(exec);
+    if (args.size() != 5) {
+        return conn->fail(ERRNO_EXEC_SYNTAX_ERR, ERROR_EXEC_SYNTAX_ERR);
+    }
+    Table *tableObj;
+    std::string table = args[1];
+    tableObj = conn->getDb()->lookupTableRead(table);
+    if (tableObj == nullptr) {
+        return conn->fail(ERRNO_EXEC_TABLE_EXISTS_ERR, ERROR_EXEC_TABLE_EXISTS_ERR);
+    }
+    if (tableObj->getType() != OBJ_TYPE_GEO_POLYGON) {
+        return conn->fail(ERRNO_EXEC_TABLE_TYPE_ERR, ERROR_EXEC_TABLE_TYPE_ERR);
+    }
+    else if (tableObj->getEncoding() != OBJ_ENCODING_S2GEOMETRY) {
+        return conn->fail(ERRNO_EXEC_TABLE_ENCODING_ERR, ERROR_EXEC_TABLE_ENCODING_ERR);
+    }
+    double lat, lon, distance;
+    std::istringstream is1(args[2]);
+    is1 >> lat;
+    std::istringstream is2(args[3]);
+    is2 >> lon;
+    std::istringstream is3(args[4]);
+    is3 >> distance;
+    std::vector<std::map<std::string, std::string>> ret;
+    ret.clear();
+    auto indexObj = (S2Geometry::PolygonIndex *) tableObj->getData();
+    indexObj->closestPolygon(lat, lon, distance, &ret);
+
+    // 返回数据
+    Json *response = Json::createSuccessArrayJsonObj();
+    for (int i = 0; i < ret.size(); i++) {
+        Json *dataItem = new Json(R"({"id": "", "distance": ""})");
+        dataItem->get("id").SetString(Json::createString(ret[i]["id"]));
+        dataItem->get("distance").SetString(Json::createString(ret[i]["distance"]));
+        response->get("data").PushBack(dataItem->value(), response->getAllocator());
+    }
+    return conn->success(response);
+}
+
+// s2polynearby table lat lon distance
+int S2Geometry::execPolygonNearby(tLBS::Exec *exec, tLBS::Connection *conn, std::vector<std::string> args) {
+    UNUSED(exec);
+    if (args.size() != 5) {
+        return conn->fail(ERRNO_EXEC_SYNTAX_ERR, ERROR_EXEC_SYNTAX_ERR);
+    }
+    Table *tableObj;
+    std::string table = args[1];
+    tableObj = conn->getDb()->lookupTableRead(table);
+    if (tableObj == nullptr) {
+        return conn->fail(ERRNO_EXEC_TABLE_EXISTS_ERR, ERROR_EXEC_TABLE_EXISTS_ERR);
+    }
+    if (tableObj->getType() != OBJ_TYPE_GEO_POLYGON) {
+        return conn->fail(ERRNO_EXEC_TABLE_TYPE_ERR, ERROR_EXEC_TABLE_TYPE_ERR);
+    }
+    else if (tableObj->getEncoding() != OBJ_ENCODING_S2GEOMETRY) {
+        return conn->fail(ERRNO_EXEC_TABLE_ENCODING_ERR, ERROR_EXEC_TABLE_ENCODING_ERR);
+    }
+    double lat, lon, distance;
+    std::istringstream is1(args[2]);
+    is1 >> lat;
+    std::istringstream is2(args[3]);
+    is2 >> lon;
+    std::istringstream is3(args[4]);
+    is3 >> distance;
+
+    std::vector<std::map<std::string, std::string>> ret;
+    ret.clear();
+    auto indexObj = (S2Geometry::PolygonIndex *) tableObj->getData();
+    indexObj->nearbyPolygon(lat, lon, distance, &ret);
+
+    // 返回数据
+    Json *response = Json::createSuccessArrayJsonObj();
+    for (int i = 0; i < ret.size(); i++) {
+        Json *dataItem = new Json(R"({"id": "", "distance": ""})");
+        dataItem->get("id").SetString(Json::createString(ret[i]["id"]));
+        dataItem->get("distance").SetString(Json::createString(ret[i]["distance"]));
+        response->get("data").PushBack(dataItem->value(), response->getAllocator());
+    }
+    return conn->success(response);
+}
+
+
 // s2polyloc table lat lon
 int S2Geometry::execPolygonLocate(tLBS::Exec *exec, tLBS::Connection *conn, std::vector<std::string> args) {
     UNUSED(exec);
@@ -46,7 +131,7 @@ int S2Geometry::execPolygonLocate(tLBS::Exec *exec, tLBS::Connection *conn, std:
     std::vector<std::string> ret;
     ret.clear();
     auto indexObj = (S2Geometry::PolygonIndex *) tableObj->getData();
-    indexObj->locPolygon(lat, lon, &ret);
+    indexObj->locatePolygon(lat, lon, &ret);
 
     // 返回数据
     Json *response = Json::createSuccessArrayJsonObj();
@@ -390,7 +475,7 @@ void S2Geometry::PolygonIndex::delPolygon(int shapeId) {
     delete this->index->Release(shapeId).release();
 }
 
-int S2Geometry::PolygonIndex::locPolygon(double lat, double lon, std::vector<std::string> *ret) {
+int S2Geometry::PolygonIndex::locatePolygon(double lat, double lon, std::vector<std::string> *ret) {
     S2LatLng latlng = S2LatLng::FromDegrees(lat, lon);
     S2ContainsPointQuery<MutableS2ShapeIndex> query = MakeS2ContainsPointQuery(this->index,S2ContainsPointQueryOptions(S2VertexModel::CLOSED));
     for (S2Shape* shape : query.GetContainingShapes(latlng.ToPoint())) {
@@ -398,6 +483,50 @@ int S2Geometry::PolygonIndex::locPolygon(double lat, double lon, std::vector<std
         std::string id = this->findIdByShapeId(shape->id());
         if (id.size() > 0) {
             ret->push_back(id);
+        }
+    }
+    return C_OK;
+}
+
+int S2Geometry::PolygonIndex::closestPolygon(double lat, double lon, double distance, std::vector<std::map<std::string, std::string>> *ret) {
+    S2LatLng latlng = S2LatLng::FromDegrees(lat, lon);
+    S2ClosestEdgeQuery query(this->index);
+    S2ClosestEdgeQuery::PointTarget target(latlng.ToPoint());
+    S2ClosestEdgeQuery::Result result = query.FindClosestEdge(&target);
+    if (result.shape_id() > 0) {
+        if (distance > 0 && S2Earth::ToKm(result.distance()) > distance) {
+            return C_OK;
+        }
+        std::string id = this->findIdByShapeId(result.shape_id());
+        std::map<std::string, std::string> map;
+        map.clear();
+        map["id"] = id;
+        map["distance"] = S2Earth::ToKm(result.distance());
+        ret->push_back(map);
+    }
+    return C_OK;
+}
+
+int S2Geometry::PolygonIndex::nearbyPolygon(double lat, double lon, double distance, std::vector<std::map<std::string, std::string>> *ret) {
+    S2LatLng latlng = S2LatLng::FromDegrees(lat, lon);
+    S2ClosestEdgeQuery query(this->index);
+    query.mutable_options()->set_max_results(500);
+    query.mutable_options()->set_max_distance(S2Earth::ToAngle(util::units::Kilometers(distance)));
+    query.mutable_options()->set_include_interiors(false);
+    S2ClosestEdgeQuery::PointTarget target(latlng.ToPoint());
+    std::map<std::string, int> record;
+    for(const auto& result : query.FindClosestEdges(&target)){
+        std::string id = this->findIdByShapeId(result.shape_id());
+        if (!id.empty()) {
+            if (record.find(id) == record.end()) {
+                // 没有加入过
+                std::map<std::string, std::string> map;
+                map.clear();
+                map["id"] = id;
+                map["distance"] = S2Earth::ToKm(result.distance());
+                ret->push_back(map);
+                record[id] = 1;
+            }
         }
     }
     return C_OK;

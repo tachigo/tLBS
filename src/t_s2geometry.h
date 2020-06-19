@@ -31,7 +31,12 @@ namespace tLBS {
             ~PolygonIndex();
             int addPolygon(std::string id, std::string data);
             void delPolygon(int shapeId);
-            int locPolygon(double lat, double lon, std::vector<std::string> *ret);
+            // gps定位
+            int locatePolygon(double lat, double lon, std::vector<std::string> *ret);
+            // 最近的
+            int closestPolygon(double lat, double lon, double distance, std::vector<std::map<std::string, std::string>> *ret);
+            // 点半径范围内的
+            int nearbyPolygon(double lat, double lon, double distance, std::vector<std::map<std::string, std::string>> *ret);
 
             std::string findIdByShapeId(int shapeId);
             int findShapeIdById(std::string id);
@@ -68,11 +73,17 @@ namespace tLBS {
         // s2polydel table id
         static int execPolygonDel(Exec *exec, Connection *conn, std::vector<std::string> args);
 
-        // s2forcebuild table
+        // s2build table
         static int execForceBuild(Exec *exec, Connection *conn, std::vector<std::string> args);
 
         // s2polyloc table lat lon
         static int execPolygonLocate(Exec *exec, Connection *conn, std::vector<std::string> args);
+
+        // s2polyclosest table lat lon distance
+        static int execPolygonClosest(Exec *exec, Connection *conn, std::vector<std::string> args);
+
+        // s2polynearby table lat lon distance
+        static int execPolygonNearby(Exec *exec, Connection *conn, std::vector<std::string> args);
     };
 }
 

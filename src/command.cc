@@ -307,6 +307,8 @@ void Command::init() {
     registerCommand("s2polydel", S2Geometry::execPolygonDel, "table,id", "删除一个多边形", true);
     registerCommand("s2build", S2Geometry::execForceBuild, "table", "强制重新构建一个索引", true);
     registerCommand("s2polyloc", S2Geometry::execPolygonLocate, "table,lat,lon", "根据经纬度进行定位", false);
+    registerCommand("s2polyclosest", S2Geometry::execPolygonClosest, "table,lat,lon,distance", "根据经纬度点半径查询最近", false);
+    registerCommand("s2polynearby", S2Geometry::execPolygonNearby, "table,lat,lon,distance", "根据经纬度点半径查询附近", false);
 
 
     // string string hash map

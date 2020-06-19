@@ -21,6 +21,7 @@ namespace tLBS {
     public:
 
         static Table *getRegion2CountryTable();
+        static Table *getCountryRegionFenceTable();
 
         // region_fence [行政区划]
         // mfwS2RfSet regionPlaceId regionCountryPlaceId data
@@ -33,6 +34,8 @@ namespace tLBS {
         static int execS2RfLocate(Exec *exec, Connection *conn, std::vector<std::string> args);
         // mfwS2RfNearby lat lon distance
         static int execS2RfNearby(Exec *exec, Connection *conn, std::vector<std::string> args);
+        // mfwS2RfClosest lat lon distance
+        static int execS2RfClosest(Exec *exec, Connection *conn, std::vector<std::string> args);
 
         // poi_fence [poi圈]
         // mfwS2PfSet poiPlaceId data
@@ -45,6 +48,8 @@ namespace tLBS {
         static int execS2PfLocate(Exec *exec, Connection *conn, std::vector<std::string> args);
         // mfwS2PfNearby lat lon distance
         static int execS2PfNearby(Exec *exec, Connection *conn, std::vector<std::string> args);
+        // mfwS2PfClosest lat lon distance
+        static int execS2PfClosest(Exec *exec, Connection *conn, std::vector<std::string> args);
 
         // poi_point [poi点]
         // mfwS2PpSet poiPlaceId data
@@ -55,6 +60,8 @@ namespace tLBS {
         static int execS2PpDel(Exec *exec, Connection *conn, std::vector<std::string> args);
         // mfwS2PpNearby lat lon distance
         static int execS2PpNearby(Exec *exec, Connection *conn, std::vector<std::string> args);
+        // mfwS2PpClosest lat lon distance
+        static int execS2PpClosest(Exec *exec, Connection *conn, std::vector<std::string> args);
 
         // area_fence [商圈]
         // mfwS2AfSet areaPlaceId data
@@ -67,6 +74,8 @@ namespace tLBS {
         static int execS2AfLocate(Exec *exec, Connection *conn, std::vector<std::string> args);
         // mfwS2AfNearby lat lon distance
         static int execS2AfNearby(Exec *exec, Connection *conn, std::vector<std::string> args);
+        // mfwS2AfClosest lat lon distance
+        static int execS2AfClosest(Exec *exec, Connection *conn, std::vector<std::string> args);
 
         // diy_fence [自己画的多边形]
         // mfwS2DfSet placeId data
@@ -79,6 +88,8 @@ namespace tLBS {
         static int execS2DfLocate(Exec *exec, Connection *conn, std::vector<std::string> args);
         // mfwS2DfNearby lat lon distance
         static int execS2DfNearby(Exec *exec, Connection *conn, std::vector<std::string> args);
+        // mfwS2DfClosest lat lon distance
+        static int execS2DfClosest(Exec *exec, Connection *conn, std::vector<std::string> args);
 
 
         static void init();

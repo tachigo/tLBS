@@ -448,4 +448,6 @@ void Http::init() {
 
     registerHttp("GET /s2polyget", S2Geometry::execPolygonGet, "table,id", "获取一个多边形", false, false);
     registerHttp("GET /s2polyloc", S2Geometry::execPolygonLocate, "table,lat,lon", "根据经纬度进行定位", false, false);
+    registerHttp("GET /s2polyclosest", S2Geometry::execPolygonClosest, "table,lat,lon,distance", "根据经纬度点半径查询最近", false, false);
+    registerHttp("GET /s2polynearby", S2Geometry::execPolygonNearby, "table,lat,lon,distance", "根据经纬度点半径查询附近", false, false);
 }
